@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import localFont from "next/font/local";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/components/CartContext";
 
-// Stand-in for the licensed Felix Titling headline font until the file is supplied.
-const display = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+// Felix Titling is a titling-caps face (no lowercase or digits — see
+// app/fonts/FELIX_TITLING_COPYRIGHT.txt). Don't apply font-display to
+// text containing numerals; use font-sans there instead.
+const display = localFont({
+  src: "./fonts/FelixTitlingMT.ttf",
   variable: "--font-display",
   display: "swap",
 });
