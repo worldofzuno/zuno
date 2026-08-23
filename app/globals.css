@@ -60,4 +60,9 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Felix Titling is a titling-caps face; give it the tracking it's cut for. */
+  .font-display {
+    letter-spacing: 0.015em;
+  }
 }

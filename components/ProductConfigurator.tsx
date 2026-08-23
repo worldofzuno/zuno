@@ -72,7 +72,7 @@ export default function ProductConfigurator() {
         </dl>
 
         <div className="mt-10 border-t border-white/10 pt-8">
-          <p className="font-display text-2xl text-gold">
+          <p className="font-sans text-2xl font-semibold tracking-wide text-gold">
             CHF {price.toFixed(2)}
           </p>
 

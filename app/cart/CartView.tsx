@@ -66,7 +66,7 @@ export default function CartView() {
 
           <div className="mt-8 flex items-center justify-between">
             <span className="text-sm text-beige/60">Subtotal</span>
-            <span className="font-display text-xl text-gold">
+            <span className="font-sans text-xl font-semibold tracking-wide text-gold">
               CHF {subtotal.toFixed(2)}
             </span>
           </div>
