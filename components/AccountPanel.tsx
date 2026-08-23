@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Button } from "./Button";
 
 export default function AccountPanel() {
   const [tab, setTab] = useState<"login" | "signup">("login");
+  const reduce = useReducedMotion();
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -19,7 +21,7 @@ export default function AccountPanel() {
             type="button"
             onClick={() => setTab(t)}
             aria-pressed={tab === t}
-            className={`min-h-[44px] flex-1 cursor-pointer rounded-full text-sm font-medium transition-colors duration-200 ${
+            className={`min-h-[44px] flex-1 cursor-pointer rounded-full text-sm font-medium transition-[transform,background-color,color] duration-press ease-premium active:scale-[0.97] ${
               tab === t
                 ? "bg-gold text-black"
                 : "text-beige/60 hover:text-beige"
@@ -31,20 +33,32 @@ export default function AccountPanel() {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-        {tab === "signup" && (
-          <div>
-            <label htmlFor="fullName" className="text-xs uppercase tracking-[0.25em] text-beige/50">
-              Full Name
-            </label>
-            <input
-              id="fullName"
-              type="text"
-              required
-              autoComplete="name"
-              className="mt-2 min-h-[44px] w-full rounded-lg border border-white/15 bg-transparent px-4 text-sm text-beige outline-none transition-colors focus:border-gold"
-            />
-          </div>
-        )}
+        <AnimatePresence initial={false}>
+          {tab === "signup" && (
+            <motion.div
+              key="fullName"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{
+                duration: reduce ? 0.12 : 0.2,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              className="overflow-hidden"
+            >
+              <label htmlFor="fullName" className="text-xs uppercase tracking-[0.25em] text-beige/50">
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                required
+                autoComplete="name"
+                className="mt-2 min-h-[44px] w-full rounded-lg border border-white/15 bg-transparent px-4 text-sm text-beige outline-none transition-colors duration-control focus:border-gold"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div>
           <label htmlFor="acc-email" className="text-xs uppercase tracking-[0.25em] text-beige/50">
             Email

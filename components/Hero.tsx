@@ -1,9 +1,26 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { ButtonLink } from "./Button";
 
 export default function Hero() {
+  // 70ms stagger: close enough to read as one movement, wide enough to have
+  // a direction. Longer than the 300ms UI budget on purpose — this is the
+  // first paint of a marketing page, the one place the delight budget lives.
+  const container: Variants = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.07 } },
+  };
+
+  const item: Variants = {
+    hidden: { opacity: 0, y: 18 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+    },
+  };
+
   return (
     <section className="relative flex min-h-[92dvh] items-center overflow-hidden bg-black">
       <div
@@ -23,58 +40,32 @@ export default function Hero() {
         }}
       />
 
-      <div className="container-content relative py-32 text-center">
-        <motion.p
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="font-display text-sm uppercase tracking-[0.4em] text-gold"
-        >
-          ZUNO
-        </motion.p>
-
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="container-content relative py-32 text-center"
+      >
         <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          className="text-balance mx-auto mt-6 max-w-3xl font-display text-4xl leading-[1.1] text-beige sm:text-6xl lg:text-7xl"
+          variants={item}
+          className="decorative-motion text-balance mx-auto max-w-3xl font-display text-4xl leading-[1.1] text-beige sm:text-6xl lg:text-7xl"
         >
-          Starting with Coffee.
+          Starting with Coffee
           <br />
-          <span className="text-gold">Not Stopping There.</span>
+          <span className="text-gold">Not Stopping There</span>
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="mx-auto mt-6 max-w-md text-balance text-base text-beige/60"
+          variants={item}
+          className="decorative-motion mx-auto mt-6 max-w-md text-balance text-base text-beige/60"
         >
           A modern Swiss lifestyle brand, built on quality, design and
           community. Today it&apos;s coffee. Tomorrow, who knows.
         </motion.p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-10"
-        >
-          <ButtonLink href="/shop">SHOP</ButtonLink>
+        <motion.div variants={item} className="decorative-motion mt-10">
+          <ButtonLink href="/shop">Shop</ButtonLink>
         </motion.div>
-      </div>
-
-      <motion.div
-        aria-hidden="true"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.8 }}
-        className="absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 sm:flex"
-      >
-        <span className="text-[10px] uppercase tracking-[0.3em] text-beige/40">
-          Scroll
-        </span>
-        <span className="h-10 w-px animate-pulse bg-gradient-to-b from-gold/60 to-transparent" />
       </motion.div>
     </section>
   );

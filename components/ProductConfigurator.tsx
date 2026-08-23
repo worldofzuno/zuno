@@ -87,7 +87,7 @@ export default function ProductConfigurator() {
                   type="button"
                   onClick={() => setSize(s)}
                   aria-pressed={size === s}
-                  className={`min-h-[44px] cursor-pointer rounded-full border px-6 text-sm font-medium transition-colors duration-200 ${
+                  className={`min-h-[44px] cursor-pointer rounded-full border px-6 text-sm font-medium transition-[transform,background-color,border-color,color] duration-press ease-premium active:scale-[0.97] ${
                     size === s
                       ? "border-gold bg-gold text-black"
                       : "border-white/15 text-beige/80 hover:border-gold/50"
@@ -110,7 +110,7 @@ export default function ProductConfigurator() {
                   type="button"
                   onClick={() => setGrind(g)}
                   aria-pressed={grind === g}
-                  className={`min-h-[44px] cursor-pointer rounded-full border px-6 text-sm font-medium transition-colors duration-200 ${
+                  className={`min-h-[44px] cursor-pointer rounded-full border px-6 text-sm font-medium transition-[transform,background-color,border-color,color] duration-press ease-premium active:scale-[0.97] ${
                     grind === g
                       ? "border-gold bg-gold text-black"
                       : "border-white/15 text-beige/80 hover:border-gold/50"
@@ -122,8 +122,30 @@ export default function ProductConfigurator() {
             </div>
           </fieldset>
 
-          <Button onClick={handleAddToCart} className="mt-8 w-full sm:w-auto">
-            {justAdded ? "Added to Cart" : "Add to Cart"}
+          <Button
+            onClick={handleAddToCart}
+            aria-live="polite"
+            className="mt-8 w-full sm:w-auto"
+          >
+            {/* Both labels share one grid cell, so the button never resizes and
+                the swap is a pure crossfade rather than a layout jump. */}
+            <span className="grid grid-cols-1 grid-rows-1 place-items-center">
+              <span
+                className={`col-start-1 row-start-1 transition-opacity duration-press ease-premium ${
+                  justAdded ? "opacity-0" : "opacity-100"
+                }`}
+              >
+                Add to Cart
+              </span>
+              <span
+                aria-hidden={!justAdded}
+                className={`col-start-1 row-start-1 transition-opacity duration-press ease-premium ${
+                  justAdded ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                Added to Cart
+              </span>
+            </span>
           </Button>
 
           <p className="mt-4 text-xs text-beige/40">

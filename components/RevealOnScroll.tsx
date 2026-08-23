@@ -15,7 +15,7 @@ export default function RevealOnScroll({
 }) {
   return (
     <motion.div
-      className={className}
+      className={`decorative-motion ${className ?? ""}`}
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}

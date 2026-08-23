@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -15,17 +21,33 @@
     @apply bg-gold/30 text-gold;
   }
 
+  /* Reduced motion means fewer and gentler animations, not zero. Opacity and
+     colour transitions still aid comprehension, so they stay; movement and
+     looping motion go. Components that translate also check useReducedMotion. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
     }
+
     *,
     *::before,
     *::after {
-      animation-duration: 0.01ms !important;
+      /* Kill looping/decorative motion outright. */
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      /* Cap, don't erase, state transitions. */
+      transition-duration: 120ms !important;
       scroll-behavior: auto !important;
+    }
+
+    /* Elements whose transform is purely decorative travel (entrance slides,
+       scroll reveals) sit at their final position instead of moving to it.
+       An !important stylesheet rule outranks the inline transform Motion
+       writes, and CSS is evaluated before any JS runs — so unlike Motion's own
+       reduced-motion detection there is no first-frame window where the
+       element has already been offset. Opacity still animates. */
+    .decorative-motion {
+      transform: none !important;
     }
   }
 }

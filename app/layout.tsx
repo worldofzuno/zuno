@@ -4,6 +4,7 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/components/CartContext";
+import MotionProvider from "@/components/MotionProvider";
 
 // Stand-in for the licensed Felix Titling headline font until the file is supplied.
 const display = Playfair_Display({
@@ -60,11 +61,13 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <CartProvider>
-          <Nav />
-          <main id="main-content">{children}</main>
-          <Footer />
-        </CartProvider>
+        <MotionProvider>
+          <CartProvider>
+            <Nav />
+            <main id="main-content">{children}</main>
+            <Footer />
+          </CartProvider>
+        </MotionProvider>
       </body>
     </html>
   );
