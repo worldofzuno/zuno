@@ -468,6 +468,9 @@ html:not(.js) .page:target { display: block; }
 .policy li { margin-top: 8px; }
 .policy .intro { margin-top: 24px; }
 .todo { color: var(--gold-dim); }
+.legal-rule { border: none; border-top: 1px solid var(--line); margin: 56px 0 0; }
+.legal-part { font-size: clamp(1.5rem, 1.4vw + 1rem, 2rem); margin-top: 40px; }
+.policy h3 { font-size: 1.05rem; margin-top: 34px; }
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 900px) {
@@ -926,25 +929,19 @@ html:not(.js) .page:target { display: block; }
 </section>
 
 
-<section class="page policy" id="page-imprint">
+<section class="page policy" id="page-legal">
   <div class="rail rail--narrow">
     <p class="eyebrow eyebrow--sm">Legal</p>
-    <h2 class="page__title">Legal Notice / Imprint</h2>
+    <h2 class="page__title">Legal Notice &amp; Terms</h2>
 
     <h2>Company</h2>
     <p>
       Worldofzuno<br>
-      <span class="todo">[Postal address to be added]</span><br>
       Switzerland
     </p>
-
-    <h2>Contact</h2>
     <p>
-      <!-- The supplied draft said contact@zuno.com, a different domain from
-           the one this site runs on. Using the worldofzuno.com address the
-           contact page already publishes. -->
-      Email: <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a><br>
-      Website: <a href="https://www.worldofzuno.com">www.worldofzuno.com</a>
+      Website: <a href="https://www.worldofzuno.com">www.worldofzuno.com</a><br>
+      Email: <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>
     </p>
 
     <h2>Authorized Representative</h2>
@@ -957,67 +954,48 @@ html:not(.js) .page:target { display: block; }
     </p>
 
     <h2>Disclaimer</h2>
-    <p>
-      The contents of our website have been created with the greatest possible
-      care. However, we cannot guarantee the accuracy, completeness or
-      timeliness of the information provided.
-    </p>
+    <p>The contents of our website have been created with the greatest possible care. However, we cannot guarantee the accuracy, completeness or timeliness of the information provided.</p>
 
     <h2>Copyright</h2>
-    <p>
-      The content and works published on this website are subject to copyright
-      law. Any reproduction, editing, distribution or use beyond the scope of
-      copyright law requires the prior written consent of Worldofzuno.
-    </p>
+    <p>The content and works published on this website are subject to copyright law. Any reproduction, editing, distribution or use beyond the scope of copyright law requires the prior written consent of Worldofzuno.</p>
     <!-- [PLACEHOLDER: confirm rights holder — the supplied draft named a
          different company here] -->
-  </div>
-</section>
 
-<section class="page policy" id="page-terms">
-  <div class="rail rail--narrow">
-    <p class="eyebrow eyebrow--sm">Legal</p>
-    <h2 class="page__title">Terms &amp; Conditions</h2>
+    <hr class="legal-rule">
 
-    <h2>1. Scope</h2>
+    <h2 class="legal-part">Terms and Conditions</h2>
+
+    <h3>1. Scope</h3>
     <p>These Terms and Conditions apply to all orders placed through the online shop of ZUNO at <a href="https://www.worldofzuno.com">www.worldofzuno.com</a>.</p>
     <p>By placing an order through our website, you agree to be bound by these Terms and Conditions.</p>
     <!-- CHANGED: the source said "worldwide". ZUNO's Shipping Policy states
          deliveries within Switzerland and Liechtenstein only. -->
     <p>Our products are offered to customers in Switzerland and the Principality of Liechtenstein.</p>
 
-    <h2>2. Company Information</h2>
-    <p>
-      Worldofzuno<br>
-      <span class="todo">[Postal address to be added]</span><br>
-      Switzerland
-    </p>
-    <p>
-      Website: <a href="https://www.worldofzuno.com">www.worldofzuno.com</a><br>
-      Email: <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>
-    </p>
+    <h3>2. Company Information</h3>
+    <p>The company details set out above apply.</p>
 
-    <h2>3. Products</h2>
+    <h3>3. Products</h3>
     <!-- CHANGED: the source described matcha, tea and matcha accessories. -->
     <p>ZUNO offers specialty coffee, roasted in Bern.</p>
     <p>Product images shown on the website are for illustrative purposes only. Actual products may vary slightly in colour, packaging or appearance.</p>
     <p>All products are offered subject to availability.</p>
 
-    <h2>4. Prices</h2>
+    <h3>4. Prices</h3>
     <p>All prices displayed on the website are shown in Swiss francs (CHF) and include VAT.</p>
     <p>Shipping costs are calculated and displayed during checkout. See our <a href="#shipping">Shipping Policy</a>.</p>
     <!-- REMOVED: the source's customs-duty and import-tax clause applies to
          international orders, which ZUNO does not accept. -->
 
-    <h2>5. Orders and Contract Formation</h2>
+    <h3>5. Orders and Contract Formation</h3>
     <p>The presentation of products on our website does not constitute a legally binding offer.</p>
     <p>By placing an order, the customer submits a binding offer to purchase the selected products.</p>
     <p>A contract is formed once ZUNO confirms the order via email.</p>
     <p>ZUNO reserves the right to refuse or cancel any order if necessary.</p>
 
-    <h2>6. Payment</h2>
+    <h3>6. Payment</h3>
     <!-- CHANGED: the source listed Shopify Payments. ZUNO's checkout offers
-         card, TWINT and PayPal. Confirm once a provider is connected. -->
+         card, TWINT and PayPal. -->
     <p>We accept the following payment methods:</p>
     <ul>
       <li>Credit card</li>
@@ -1026,7 +1004,7 @@ html:not(.js) .page:target { display: block; }
     </ul>
     <p>Payment is processed at the time of purchase.</p>
 
-    <h2>7. Shipping and Delivery</h2>
+    <h3>7. Shipping and Delivery</h3>
     <!-- CHANGED: the source said worldwide shipping and 1–3 business days
          processing. ZUNO's Shipping Policy states dispatch within two business
          days via Swiss Post, to Switzerland and Liechtenstein only. -->
@@ -1035,7 +1013,7 @@ html:not(.js) .page:target { display: block; }
     <p>ZUNO is not responsible for delays caused by shipping carriers or other external circumstances.</p>
     <p>Full details are set out in our <a href="#shipping">Shipping Policy</a>.</p>
 
-    <h2>8. Returns and Refunds</h2>
+    <h3>8. Returns and Refunds</h3>
     <!-- CHANGED: the source allowed 30 days and did not exclude ground coffee.
          ZUNO's Return Policy states 10 days and excludes ground coffee. -->
     <p>Returns must be made within 10 days of receiving the goods.</p>
@@ -1044,18 +1022,18 @@ html:not(.js) .page:target { display: block; }
     <p>Where the return is not due to a damaged or defective item, the customer bears the return shipping costs.</p>
     <p>If a product arrives damaged or incorrect, please contact us within 5 days of receiving the order. Full details are set out in our <a href="#returns">Return Policy</a>.</p>
 
-    <h2>9. Liability</h2>
+    <h3>9. Liability</h3>
     <p>ZUNO shall only be liable for damages caused by intentional misconduct or gross negligence.</p>
     <p>ZUNO is not responsible for damages resulting from improper use of the products.</p>
 
-    <h2>10. Data Protection</h2>
+    <h3>10. Data Protection</h3>
     <p>Personal data is processed in accordance with our <a href="#privacy">Privacy Policy</a>.</p>
 
-    <h2>11. Changes to the Terms</h2>
+    <h3>11. Changes to the Terms</h3>
     <p>ZUNO reserves the right to modify these Terms and Conditions at any time.</p>
     <p>The version valid at the time of the order shall apply.</p>
 
-    <h2>12. Governing Law</h2>
+    <h3>12. Governing Law</h3>
     <p>These Terms and Conditions are governed by Swiss law.</p>
     <p>The place of jurisdiction shall be the registered location of ZUNO, where legally permitted.</p>
   </div>
@@ -1090,8 +1068,7 @@ html:not(.js) .page:target { display: block; }
   <div class="rail foot__bottom">
     <p class="foot__copy">&copy; 2026 ZUNO. All rights reserved.</p>
     <ul>
-      <li><a href="#imprint">Imprint</a></li>
-      <li><a href="#terms">Terms</a></li>
+      <li><a href="#legal">Legal Notice &amp; Terms</a></li>
       <li><a href="#privacy">Privacy Policy</a></li>
       <li><a href="#shipping">Shipping Policy</a></li>
       <li><a href="#returns">Return Policy</a></li>
@@ -1426,12 +1403,15 @@ html:not(.js) .page:target { display: block; }
   });
 
   /* ---------- hash router ---------- */
-  var PAGES = ['cart', 'account', 'privacy', 'shipping', 'returns', 'imprint', 'terms'];
+  var PAGES = ['cart', 'account', 'privacy', 'shipping', 'returns', 'legal'];
+  /* The imprint and the terms used to be separate pages; keep those links alive. */
+  var ALIASES = { imprint: 'legal', terms: 'legal' };
   var main = document.getElementById('main');
   var footer = document.querySelector('footer');
 
   function route() {
     var h = location.hash.replace('#', '');
+    h = ALIASES[h] || h;
     var isPage = PAGES.indexOf(h) !== -1;
 
     PAGES.forEach(function (p) {
