@@ -1,8 +1,9 @@
+import MotionSection from "./MotionSection";
 import RevealOnScroll from "./RevealOnScroll";
 
 export default function FacesSection() {
   return (
-    <section className="bg-black py-24 sm:py-32">
+    <MotionSection className="bg-black py-24 sm:py-32">
       <div className="container-content grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
         <RevealOnScroll>
           <div
@@ -32,6 +33,6 @@ export default function FacesSection() {
           </p>
         </RevealOnScroll>
       </div>
-    </section>
+    </MotionSection>
   );
 }

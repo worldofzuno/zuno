@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ProductConfigurator from "@/components/ProductConfigurator";
+import MotionSection from "@/components/MotionSection";
 import RevealOnScroll from "@/components/RevealOnScroll";
 
 export const metadata: Metadata = {
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function ShopPage() {
   return (
-    <div className="bg-black py-20 sm:py-28">
+    <MotionSection className="bg-black py-20 sm:py-28">
       <div className="container-content">
         <RevealOnScroll>
           <ProductConfigurator />
@@ -27,6 +28,6 @@ export default function ShopPage() {
           </p>
         </RevealOnScroll>
       </div>
-    </div>
+    </MotionSection>
   );
 }

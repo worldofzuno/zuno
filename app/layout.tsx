@@ -56,6 +56,16 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
+      <head>
+        {/* Framer Motion serialises its `initial` state into the SSR markup, so
+            every section ships as opacity:0. Without this flag a visitor whose
+            JavaScript never runs would see nothing below the hero. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "document.documentElement.classList.add('js')",
+          }}
+        />
+      </head>
       <body>
         <a
           href="#main-content"

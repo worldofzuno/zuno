@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PageIntro from "@/components/PageIntro";
+import MotionSection from "@/components/MotionSection";
 import RevealOnScroll from "@/components/RevealOnScroll";
 import FacesSection from "@/components/FacesSection";
 
@@ -39,7 +40,7 @@ export default function AboutPage() {
 
       <div className="bg-black">
         {sections.map((section, i) => (
-          <section
+          <MotionSection
             key={section.eyebrow}
             className={i % 2 === 1 ? "bg-green" : "bg-black"}
           >
@@ -56,7 +57,7 @@ export default function AboutPage() {
                 </p>
               </RevealOnScroll>
             </div>
-          </section>
+          </MotionSection>
         ))}
       </div>
 

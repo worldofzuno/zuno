@@ -21,6 +21,13 @@
     @apply bg-gold/30 text-gold;
   }
 
+  /* When scripting never runs, the SSR-serialised opacity:0 from Motion would
+     hide the page. A stylesheet !important outranks that inline style. */
+  html:not(.js) .decorative-motion {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
   /* Reduced motion means fewer and gentler animations, not zero. Opacity and
      colour transitions still aid comprehension, so they stay; movement and
      looping motion go. Components that translate also check useReducedMotion. */

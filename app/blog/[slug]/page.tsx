@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import MotionSection from "@/components/MotionSection";
 import RevealOnScroll from "@/components/RevealOnScroll";
 import { getPost, posts } from "../posts";
 
@@ -27,7 +28,7 @@ export default function BlogPostPage({
   if (!post) notFound();
 
   return (
-    <article className="bg-black py-20 sm:py-28">
+    <MotionSection as="article" className="bg-black py-20 sm:py-28">
       <div className="container-content max-w-2xl">
         <RevealOnScroll>
           <Link
@@ -51,6 +52,6 @@ export default function BlogPostPage({
           </p>
         </RevealOnScroll>
       </div>
-    </article>
+    </MotionSection>
   );
 }

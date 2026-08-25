@@ -1,10 +1,11 @@
+import MotionSection from "./MotionSection";
 import RevealOnScroll from "./RevealOnScroll";
 import NewsletterForm from "./NewsletterForm";
 import { ButtonLink } from "./Button";
 
 export default function ContactTeaser() {
   return (
-    <section className="bg-green py-24 sm:py-32">
+    <MotionSection className="bg-green py-24 sm:py-32">
       <div className="container-content max-w-xl text-center">
         <RevealOnScroll>
           <p className="text-xs uppercase tracking-[0.4em] text-gold">
@@ -25,6 +26,6 @@ export default function ContactTeaser() {
           </div>
         </RevealOnScroll>
       </div>
-    </section>
+    </MotionSection>
   );
 }

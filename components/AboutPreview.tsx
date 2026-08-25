@@ -1,9 +1,10 @@
+import MotionSection from "./MotionSection";
 import RevealOnScroll from "./RevealOnScroll";
 import { ButtonLink } from "./Button";
 
 export default function AboutPreview() {
   return (
-    <section className="relative overflow-hidden bg-green py-24 sm:py-32">
+    <MotionSection className="relative overflow-hidden bg-green py-24 sm:py-32">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gold/10 blur-3xl"
@@ -34,6 +35,6 @@ export default function AboutPreview() {
           </div>
         </RevealOnScroll>
       </div>
-    </section>
+    </MotionSection>
   );
 }

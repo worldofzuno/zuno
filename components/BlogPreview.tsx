@@ -1,3 +1,4 @@
+import MotionSection from "./MotionSection";
 import Link from "next/link";
 import RevealOnScroll from "./RevealOnScroll";
 import { IconArrowRight } from "./icons";
@@ -28,7 +29,7 @@ const posts = [
 
 export default function BlogPreview() {
   return (
-    <section className="bg-black py-24 sm:py-32">
+    <MotionSection className="bg-black py-24 sm:py-32">
       <div className="container-content">
         <RevealOnScroll className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>
@@ -69,6 +70,6 @@ export default function BlogPreview() {
           ))}
         </div>
       </div>
-    </section>
+    </MotionSection>
   );
 }
