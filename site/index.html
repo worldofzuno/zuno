@@ -296,10 +296,24 @@ section { position: relative; background: transparent; }
 
 /* ---------------- Product ---------------- */
 .product { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 90px); align-items: center; }
-/* The photograph is already lit on black, so it sits on the page ground with
-   no frame or plate of its own. */
+/* The photograph is lit on black, so it sits directly on the page ground.
+   Its backdrop is levelled to true black in the file itself; the mask then
+   feathers the frame away so no rectangle edge survives. The bottom inset is
+   small because the bag and its shadow reach almost to that edge. */
 .shot { position: relative; }
-.shot img { width: 100%; height: auto; display: block; border-radius: 20px; }
+.shot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 9%, #000 97%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 9%, #000 97%, transparent 100%);
+  mask-composite: intersect;
+}
 
 .product h2 { font-size: clamp(1.8rem, 2.2vw + 1.1rem, 2.6rem); line-height: 1.15; margin-top: 14px; }
 .product .lede { color: var(--ink-dim); margin: 20px 0 0; max-width: 46ch; font-size: 0.95rem; }

@@ -2,7 +2,7 @@
 # Regenerate after any change to the inline <script> or <style> in index.html.
 
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self'; font-src 'self'; style-src 'self' 'sha256-lFKEAO21jL7ykaevIWUZAPt+FcC/E+N+9AiwANdzmB0='; script-src 'self' 'sha256-/x7W7R75k8Roq0WaVRQX9blP4OufE5xbAdzklGxsgpw=' 'sha256-w3aENj0nyaKgup5yOLVP6MFWtxyixeJAXO9v+Kg4z/U='; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self'; font-src 'self'; style-src 'self' 'sha256-ZoCh2b1oZojP+FW3MeXONbsfxvp7vNwXB6EOoLJcoEs='; script-src 'self' 'sha256-/x7W7R75k8Roq0WaVRQX9blP4OufE5xbAdzklGxsgpw=' 'sha256-w3aENj0nyaKgup5yOLVP6MFWtxyixeJAXO9v+Kg4z/U='; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
