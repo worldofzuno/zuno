@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>document.documentElement.classList.add('js');</script>
+<title>ZUNO — Swiss Specialty Coffee</title>
+<meta name="description" content="ZUNO is a Swiss specialty coffee and lifestyle brand. Meet Castano — a nutty, chocolaty blend roasted in Bern. Free delivery in Switzerland and Liechtenstein from CHF 45.">
+<link rel="canonical" href="https://worldofzuno.com/">
+<meta name="theme-color" content="#000000">
+
+<!-- Open Graph / Twitter -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ZUNO">
+<meta property="og:locale" content="en_CH">
+<meta property="og:url" content="https://worldofzuno.com/">
+<meta property="og:title" content="ZUNO — Swiss Specialty Coffee">
+<meta property="og:description" content="Starting with Coffee. Not Stopping There. A Swiss brand built on quality, origin, design and community — meet Castano, roasted in Bern.">
+<meta property="og:image" content="https://worldofzuno.com/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The ZUNO wordmark in gold beside a Castano coffee bag">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ZUNO — Swiss Specialty Coffee">
+<meta name="twitter:description" content="Starting with Coffee. Not Stopping There. A Swiss brand built on quality, origin, design and community.">
+<meta name="twitter:image" content="https://worldofzuno.com/og-image.jpg">
+
+<!-- Icons, generated from the ZUNO Z mark; replace if you have originals -->
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+
+<link rel="preload" href="fonts/felix-titling.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+
+<style>
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/inter-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/inter-500.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/inter-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Felix Titling';
+  src: url('fonts/felix-titling.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --black: #000000;
+  --gold: #f8d99b;
+  --gold-dim: #c9ae7c;
+  --green: #1e3932;
+  --beige: #ede4d3;
+
+  --ink: #eae4d6;
+  --ink-dim: rgba(234, 228, 214, 0.62);
+  --ink-faint: rgba(234, 228, 214, 0.38);
+  --line: rgba(234, 228, 214, 0.12);
+  --line-strong: rgba(234, 228, 214, 0.22);
+
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --press: 140ms;
+  --control: 200ms;
+  --panel: 260ms;
+
+  --rail: 1180px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+/* Self-tiling gradient field. The tile is 140vh while every gradient fades
+   to full black well before 100vh, so each repeat begins on pure black and
+   the seams between sections are mathematically invisible. Sections are all
+   transparent — the field runs unbroken behind the whole page. */
+body {
+  margin: 0;
+  background-color: var(--black);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% 10%, rgba(30, 57, 50, 0.60) 0%, rgba(0, 0, 0, 0) 62%),
+    radial-gradient(ellipse 65% 20% at 50% 22%, rgba(30, 57, 50, 0.55) 0%, rgba(0, 0, 0, 0) 58%),
+    radial-gradient(ellipse 55% 18% at 85% 55%, rgba(248, 217, 155, 0.08) 0%, rgba(0, 0, 0, 0) 58%),
+    radial-gradient(ellipse 60% 20% at 12% 85%, rgba(30, 57, 50, 0.40) 0%, rgba(0, 0, 0, 0) 58%);
+  background-repeat: no-repeat, repeat-y, repeat-y, repeat-y;
+  background-size: 100% 100vh, 100% 140vh, 100% 140vh, 100% 140vh;   /* fallback */
+  background-size: 100% 100svh, 100% 140svh, 100% 140svh, 100% 140svh;
+  background-position: top center;
+  color: var(--ink);
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Felix Titling', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: 0.015em;
+  color: var(--beige);
+  margin: 0;
+  text-wrap: balance;
+}
+
+a { color: inherit; }
+button, input, textarea, select { font-family: inherit; }
+::selection { background: rgba(248, 217, 155, 0.28); color: var(--gold); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+
+.rail { max-width: var(--rail); margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px); }
+.rail--narrow { max-width: 840px; }
+
+/* All five section titles share one size and the brand gold. */
+.eyebrow {
+  font-size: 0.94rem;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: var(--gold);
+  font-weight: 600;
+  margin: 0;
+}
+.eyebrow--sm { font-size: 0.72rem; letter-spacing: 0.34em; }
+
+/* ---------------- Nav ---------------- */
+.nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 90;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  transition:
+    background-color var(--control) var(--ease-premium),
+    border-color var(--control) var(--ease-premium),
+    -webkit-backdrop-filter var(--control) var(--ease-premium),
+    backdrop-filter var(--control) var(--ease-premium);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav.is-scrolled { background: rgba(0, 0, 0, 0.94); }
+}
+.nav.is-scrolled {
+  background: rgba(0, 0, 0, 0.78);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.nav__inner { height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.nav__mark { display: flex; align-items: center; text-decoration: none; }
+.nav__mark img { height: 21px; width: auto; display: block; }
+.nav__links { display: flex; gap: 40px; list-style: none; margin: 0; padding: 0; }
+.nav__links a {
+  font-size: 0.88rem; font-weight: 500; color: rgba(234, 228, 214, 0.9);
+  text-decoration: none; transition: color var(--control) var(--ease-premium);
+}
+.nav__right { display: flex; align-items: center; gap: 4px; }
+
+.icon-btn {
+  position: relative; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: rgba(234, 228, 214, 0.9);
+  cursor: pointer; border-radius: 999px;
+  transition: color var(--control) var(--ease-premium);
+}
+.icon-btn svg { width: 20px; height: 20px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .nav__links a:hover, .icon-btn:hover, .menu a:hover { color: var(--gold); }
+}
+
+.badge {
+  position: absolute; top: 6px; right: 3px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 999px; background: var(--gold); color: var(--black);
+  font-size: 10px; font-weight: 600; line-height: 17px; text-align: center;
+  opacity: 0; transform: scale(0.6);
+  transition: opacity var(--control) var(--ease-premium), transform 350ms var(--ease-back);
+}
+.badge.is-on { opacity: 1; transform: scale(1); }
+
+.burger { display: none; }
+@media (max-width: 820px) { .nav__links { display: none; } .burger { display: flex; } }
+
+.menu {
+  overflow: hidden; height: 0; opacity: 0;
+  background: rgba(0, 0, 0, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: height var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium);
+}
+.menu.is-open { opacity: 1; }
+.menu ul { list-style: none; margin: 0; padding: 12px 0 20px; display: flex; flex-direction: column; }
+.menu a {
+  display: flex; align-items: center; min-height: 46px; font-size: 1rem;
+  color: rgba(234, 228, 214, 0.9); text-decoration: none;
+  transition: color var(--control) var(--ease-premium);
+}
+
+/* ---------------- Controls ---------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 30px; border-radius: 999px;
+  border: 1px solid transparent; font-size: 0.88rem; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  transition:
+    transform var(--press) var(--ease-premium),
+    background-color var(--press) var(--ease-premium),
+    border-color var(--press) var(--ease-premium),
+    color var(--press) var(--ease-premium);
+}
+.btn:active { transform: scale(0.97); }
+.btn--primary { background: var(--gold); color: #16150e; }
+.btn--outline { border-color: rgba(248, 217, 155, 0.4); color: var(--gold); background: transparent; }
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:hover { background: var(--gold-dim); }
+  .btn--outline:hover { border-color: var(--gold); background: rgba(248, 217, 155, 0.06); }
+}
+
+.option {
+  min-height: 46px; padding: 0 24px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: transparent;
+  color: rgba(234, 228, 214, 0.8); font-size: 0.88rem; font-weight: 500; cursor: pointer;
+  transition:
+    transform var(--press) var(--ease-premium),
+    background-color var(--press) var(--ease-premium),
+    border-color var(--press) var(--ease-premium),
+    color var(--press) var(--ease-premium);
+}
+.option:active { transform: scale(0.97); }
+.option[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #16150e; }
+@media (hover: hover) and (pointer: fine) {
+  .option:not([aria-pressed="true"]):hover { border-color: rgba(248, 217, 155, 0.5); }
+}
+
+.field {
+  width: 100%; min-height: 48px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: rgba(0, 0, 0, 0.2);
+  color: var(--ink); padding: 0 22px; font-size: 0.9rem; outline: none;
+  transition: border-color var(--control) var(--ease-premium);
+}
+.field:focus { border-color: var(--gold); }
+.field::placeholder { color: var(--ink-faint); }
+.field--area {
+  border-radius: 22px; min-height: 120px; padding: 16px 22px;
+  resize: vertical; line-height: 1.55; text-align: left;
+}
+.field--box { border-radius: 10px; }
+select.field { appearance: none; -webkit-appearance: none; }
+
+/* ---------------- Sections ---------------- */
+section { position: relative; background: transparent; }
+.pad { padding: clamp(84px, 11vw, 148px) 0; }
+
+.hero {
+  min-height: 92vh;   /* fallback */
+  min-height: 92svh;
+  display: flex; align-items: center; text-align: center;
+}
+.hero h1 { font-size: clamp(2.5rem, 6vw + 0.5rem, 5rem); line-height: 1.08; max-width: 16ch; margin: 0 auto; }
+.hero h1 em { font-style: normal; color: var(--gold); }
+.hero__sub { margin: 26px auto 0; max-width: 46ch; color: var(--ink-dim); }
+.hero__cta { margin-top: 38px; }
+
+.js .stagger > * {
+  opacity: 0; transform: translateY(18px);
+  transition: opacity 600ms var(--ease-premium), transform 600ms var(--ease-premium);
+}
+.js .stagger.is-in > * { opacity: 1; transform: translateY(0); }
+.js .stagger.is-in > :nth-child(2) { transition-delay: 70ms; }
+.js .stagger.is-in > :nth-child(3) { transition-delay: 140ms; }
+
+.js [data-reveal] {
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 500ms var(--ease-premium), transform 500ms var(--ease-premium);
+}
+.js [data-reveal].is-in { opacity: 1; transform: translateY(0); }
+
+/* ---------------- Product ---------------- */
+.product { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 90px); align-items: center; }
+/* The photograph is already lit on black, so it sits on the page ground with
+   no frame or plate of its own. */
+.shot { position: relative; }
+.shot img { width: 100%; height: auto; display: block; border-radius: 20px; }
+
+.product h2 { font-size: clamp(1.8rem, 2.2vw + 1.1rem, 2.6rem); line-height: 1.15; margin-top: 14px; }
+.product .lede { color: var(--ink-dim); margin: 20px 0 0; max-width: 46ch; font-size: 0.95rem; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin: 32px 0 0; padding-top: 28px; border-top: 1px solid var(--line); }
+.facts dt { font-size: 0.7rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); }
+.facts dd { margin: 8px 0 0; font-size: 0.88rem; color: var(--ink-dim); }
+.buy { margin-top: 34px; padding-top: 28px; border-top: 1px solid var(--line); }
+/* Felix Titling carries no digits — every figure sits in the sans face. */
+.price { font-size: 1.75rem; font-weight: 600; color: var(--gold); font-variant-numeric: tabular-nums; margin: 0; }
+.price small { font-size: 0.72rem; font-weight: 400; color: var(--ink-faint); margin-left: 8px; letter-spacing: 0.08em; }
+.field-label { display: block; font-size: 0.7rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-faint); margin: 26px 0 12px; }
+.option-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.note { margin: 18px 0 0; font-size: 0.78rem; color: var(--ink-faint); max-width: 46ch; }
+
+.swap { display: grid; }
+.swap > span { grid-area: 1 / 1; transition: opacity var(--press) var(--ease-premium); }
+.swap > .swap__b { opacity: 0; }
+.swap.is-done > .swap__a { opacity: 0; }
+.swap.is-done > .swap__b { opacity: 1; }
+
+/* ---------------- Editorial ---------------- */
+.about { max-width: 62ch; }
+.about h2 { font-size: clamp(1.7rem, 2vw + 1.1rem, 2.4rem); line-height: 1.16; margin-top: 16px; }
+.about p:not(.eyebrow) { color: var(--ink-dim); margin: 20px 0 0; }
+.about .btn { margin-top: 30px; }
+
+.beliefs { display: grid; grid-template-columns: 1fr 1fr; }
+.belief { padding: clamp(34px, 4vw, 56px) clamp(22px, 3vw, 48px); }
+.belief + .belief { border-left: 1px solid var(--line); }
+.belief h3 { font-size: clamp(1.15rem, 1vw + 0.9rem, 1.5rem); line-height: 1.25; margin-top: 12px; }
+.belief p:not(.eyebrow) { color: var(--ink-dim); margin: 14px 0 0; font-size: 0.92rem; }
+
+.faces { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: clamp(36px, 6vw, 84px); align-items: center; }
+.portrait {
+  aspect-ratio: 4 / 5; border-radius: 22px; border: 1px solid var(--line);
+  background: linear-gradient(155deg, rgba(234, 228, 214, 0.07), rgba(0, 0, 0, 0) 60%);
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: 28px;
+}
+.portrait { padding: 0; overflow: hidden; }
+.portrait img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 32%; display: block; }
+.faces h2 { font-size: clamp(1.7rem, 2vw + 1.1rem, 2.4rem); line-height: 1.18; margin-top: 14px; }
+.faces p:not(.eyebrow) { color: var(--ink-dim); margin: 20px 0 0; max-width: 50ch; }
+
+/* ---------------- Join ---------------- */
+.join { max-width: 560px; margin: 0 auto; text-align: center; }
+.join h2 { font-size: clamp(1.8rem, 2vw + 1.2rem, 2.5rem); margin-top: 14px; line-height: 1.16; }
+.join > p:not(.eyebrow):not(.join__ok) { color: var(--ink-dim); margin: 18px auto 0; max-width: 46ch; }
+.join form { margin-top: 34px; display: flex; flex-direction: column; gap: 12px; }
+.join__row { display: flex; gap: 12px; flex-wrap: wrap; }
+.join__row .field { flex: 1 1 200px; }
+.join form .btn { margin-top: 6px; align-self: center; }
+.join__ok { display: none; color: var(--gold); font-size: 0.92rem; margin-top: 28px; }
+.join__ok.is-on { display: block; }
+.ig {
+  margin-top: 26px; display: inline-flex; align-items: center; gap: 10px;
+  color: var(--ink-dim); text-decoration: none; font-size: 0.9rem;
+  transition: color var(--control) var(--ease-premium);
+}
+@media (hover: hover) and (pointer: fine) { .ig:hover { color: var(--gold); } }
+
+/* ---------------- Footer ---------------- */
+footer { border-top: 1px solid var(--line); padding: 64px 0 40px; }
+.foot { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 40px; }
+.foot h3 { margin: 0 0 14px; font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+.foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.foot a { font-size: 0.88rem; color: var(--ink-dim); text-decoration: none; transition: color var(--control) var(--ease-premium); }
+@media (hover: hover) and (pointer: fine) { .foot a:hover { color: var(--gold); } }
+.foot__z { margin: 0; line-height: 0; }
+.foot__z img { height: 46px; width: auto; display: block; }
+.foot__line { margin: 14px 0 0; font-size: 0.85rem; color: var(--ink-dim); max-width: 30ch; }
+.foot p.small { font-size: 0.85rem; color: var(--ink-dim); margin: 0; }
+.foot__bottom {
+  margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line);
+  font-size: 0.78rem; color: var(--ink-faint);
+  display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+}
+.foot__bottom ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 22px; flex-wrap: wrap; }
+.foot__bottom a { color: var(--ink-faint); text-decoration: none; transition: color var(--control) var(--ease-premium); }
+@media (hover: hover) and (pointer: fine) { .foot__bottom a:hover { color: var(--gold); } }
+
+/* ---------------- Sub-pages ---------------- */
+.page { display: none; padding: 150px 0 110px; min-height: 60vh; min-height: 60svh; }
+.page.is-open { display: block; }
+html:not(.js) .page:target { display: block; }
+.step-title { font-size: 1.3rem; margin-top: 44px; }
+
+.steps { display: flex; gap: 10px; list-style: none; padding: 0; margin: 26px 0 0; flex-wrap: wrap; }
+.steps li { font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
+.steps li:not(:last-child)::after { content: '\203A'; margin-left: 10px; }
+.steps li.active { color: var(--gold); }
+.steps li.done { color: var(--ink-dim); }
+
+.line { overflow: hidden; transition: height var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium); }
+.line.is-going { height: 0 !important; opacity: 0; }
+.line__in { display: flex; align-items: center; gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.line__info { flex: 1; min-width: 180px; }
+.line__name { margin: 0; font-size: 0.95rem; color: var(--ink); }
+.line__meta { margin: 4px 0 0; font-size: 0.8rem; color: var(--ink-faint); }
+.remove {
+  background: none; border: none; color: var(--ink-faint); font-size: 0.72rem;
+  text-decoration: underline; cursor: pointer; padding: 8px 0 0;
+  transition: transform var(--press) var(--ease-premium), color var(--press) var(--ease-premium);
+}
+.remove:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) { .remove:hover { color: var(--gold); } }
+.qty { display: inline-flex; align-items: center; gap: 14px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 7px 14px; }
+.qty button {
+  background: none; border: none; color: var(--gold); font-size: 1.05rem; cursor: pointer; line-height: 1; padding: 0 4px;
+  transition: transform var(--press) var(--ease-premium);
+}
+.qty button:active { transform: scale(0.9); }
+.qty span { font-size: 0.9rem; min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.line__price { font-weight: 600; font-size: 0.95rem; min-width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.summary { margin-top: 28px; border: 1px solid var(--line); border-radius: 18px; padding: 22px 26px; }
+.summary .row { display: flex; justify-content: space-between; gap: 16px; font-size: 0.92rem; color: var(--ink-dim); margin-top: 8px; }
+.summary .row:first-child { margin-top: 0; }
+.summary .row.hint span:last-child { font-size: 0.78rem; color: var(--ink-faint); }
+.summary .row.total { color: var(--ink); font-weight: 600; font-size: 1.05rem; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; font-variant-numeric: tabular-nums; }
+
+.actions { display: flex; gap: 14px; margin-top: 30px; flex-wrap: wrap; align-items: center; }
+.cart-state { transition: opacity var(--control) var(--ease-premium); }
+.cart-state[hidden] { display: none; }
+.cart-state.is-fading { opacity: 0; }
+.cart-empty { text-align: center; padding: 50px 0 20px; }
+.cart-empty p { color: var(--ink-dim); margin: 0 0 20px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+.grid2 .full { grid-column: 1 / -1; }
+.recap { margin-top: 26px; border: 1px solid var(--line); border-radius: 18px; padding: 18px 24px; font-size: 0.9rem; color: var(--ink-dim); }
+.recap .row { display: flex; justify-content: space-between; gap: 16px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.recap .row.total { color: var(--ink); font-weight: 600; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 12px; }
+.pay-alt { color: var(--ink-dim); font-size: 0.9rem; margin-top: 20px; }
+.done-box { margin-top: 28px; border: 1px solid rgba(248, 217, 155, 0.3); border-radius: 18px; padding: 26px 28px; }
+.done-box .no { color: var(--gold); font-weight: 600; font-size: 1.05rem; margin: 0; font-variant-numeric: tabular-nums; }
+.done-box p { color: var(--ink-dim); margin: 10px 0 0; }
+
+.auth { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 36px; }
+.auth-card { border: 1px solid var(--line); border-radius: 18px; padding: 30px 28px; display: flex; flex-direction: column; gap: 12px; }
+.auth-card h2 { font-size: 1.2rem; margin-bottom: 6px; }
+.auth-card .btn { margin-top: 8px; align-self: flex-start; }
+
+.member {
+  display: flex; align-items: center; gap: 22px; margin-top: 36px; flex-wrap: wrap;
+  border: 1px solid rgba(248, 217, 155, 0.35); border-radius: 20px; padding: 26px 30px;
+  background: linear-gradient(150deg, rgba(30, 57, 50, 0.45), rgba(0, 0, 0, 0.2));
+}
+.member__z { height: 44px; width: auto; display: block; }
+.member__name { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.member__mail { margin: 2px 0 0; font-size: 0.82rem; color: var(--ink-faint); }
+.member__tier { margin: 6px 0 0; font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); }
+.member .btn { margin-left: auto; }
+.order-card {
+  border: 1px solid var(--line); border-radius: 14px; padding: 16px 22px; margin-top: 14px;
+  display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  font-size: 0.9rem; color: var(--ink-dim); align-items: center; font-variant-numeric: tabular-nums;
+}
+.order-card .paid { color: var(--gold); }
+.perks { margin: 16px 0 0; padding-left: 20px; color: var(--ink-dim); line-height: 2; }
+.lead { color: var(--ink-dim); margin: 14px 0 0; }
+
+.policy h2 { font-size: 1.2rem; margin-top: 42px; }
+.policy p:not(.eyebrow), .policy li { color: var(--ink-dim); font-size: 0.94rem; line-height: 1.75; }
+.policy p { margin: 14px 0 0; }
+.policy ul { margin: 12px 0 0; padding-left: 22px; }
+.policy li { margin-top: 8px; }
+.policy .intro { margin-top: 24px; }
+
+/* ---------------- Responsive ---------------- */
+@media (max-width: 900px) {
+  .product, .faces { grid-template-columns: 1fr; }
+  .faces .portrait { order: -1; }
+  .beliefs { grid-template-columns: 1fr; }
+  .belief + .belief { border-left: none; border-top: 1px solid var(--line); }
+  .foot { grid-template-columns: 1fr 1fr; }
+  .auth { grid-template-columns: 1fr; }
+  .member .btn { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .facts, .grid2 { grid-template-columns: 1fr; }
+  .foot { grid-template-columns: 1fr; }
+  .line__price { text-align: left; }
+}
+
+/* Replaces the four former style="" attributes, so the CSP needs no
+   style-src exception for inline attributes. Values are unchanged. */
+.lines { margin-top: 18px; border-top: 1px solid var(--line); }
+.option-row--pay { margin-top: 22px; }
+.add-row { margin-top: 28px; }
+.foot__copy { margin: 0; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px; top: -80px;
+  z-index: 200;
+  background: var(--gold); color: #16150e;
+  padding: 12px 22px; border-radius: 999px;
+  font-size: 0.88rem; font-weight: 500; text-decoration: none;
+  transition: top var(--control) var(--ease-premium);
+}
+.skip-link:focus { top: 16px; }
+
+/* Sub-page titles carry the old h1 scale; the document keeps a single h1. */
+.page__title { font-size: clamp(2rem, 2.2vw + 1.3rem, 3rem); margin-top: 12px; }
+
+/* ---------------- Touch targets ----------------
+   On pointers that are not fine, every link and control gets a 44px hit
+   height. Desktop layout is untouched: the rules live behind a coarse-pointer
+   query, and the flex centring keeps each label optically where it was. */
+@media (pointer: coarse), (max-width: 820px) {
+  .nav__mark { min-height: 44px; }
+  .ig { min-height: 44px; }
+  /* Visible on coarse-pointer tablets above the 820px burger breakpoint. */
+  .nav__links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
+
+  .foot ul { gap: 2px; }
+  .foot ul a,
+  .foot__bottom a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .foot__bottom ul { gap: 8px 22px; }
+}
+
+/* ---------------- Reduced motion ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .js .stagger > *, .js [data-reveal] { transform: none !important; }
+  .js .stagger.is-in > :nth-child(n) { transition-delay: 0ms !important; }
+  .badge { transform: none !important; transition: opacity var(--control) linear; }
+  .btn:active, .option:active, .remove:active, .qty button:active { transform: none; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="nav" id="nav">
+  <div class="rail nav__inner">
+    <a href="#top" class="nav__mark" data-home aria-label="ZUNO"><img width="620" height="95" decoding="async" fetchpriority="high" src="img/zuno-wordmark.png" alt="ZUNO"></a>
+
+    <ul class="nav__links">
+      <li><a href="#product" data-home>Shop</a></li>
+      <li><a href="#about" data-home>About Us</a></li>
+      <li><a href="#join" data-home>Contact</a></li>
+    </ul>
+
+    <div class="nav__right">
+      <button class="icon-btn" id="accountBtn" aria-label="Account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.5"/><path d="M4.5 19.5c1.5-3.5 4.5-5 7.5-5s6 1.5 7.5 5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="cartBtn" aria-label="Cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h7.2a2 2 0 0 0 2-1.6L20 8H6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="9.5" cy="20.5" r="1.25" fill="currentColor" stroke="none"/>
+          <circle cx="17" cy="20.5" r="1.25" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="badge" id="badge">0</span>
+      </button>
+      <button class="icon-btn burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="menu" id="menu">
+    <div class="rail">
+      <ul>
+        <li><a href="#product" data-home>Shop</a></li>
+        <li><a href="#about" data-home>About Us</a></li>
+        <li><a href="#faces" data-home>Our Story</a></li>
+        <li><a href="#join" data-home>Contact</a></li>
+        <li><a href="#account">Account</a></li>
+      </ul>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<span id="top"></span>
+
+<section class="hero">
+  <div class="rail">
+    <div class="stagger" id="heroStagger">
+      <h1>Starting with Coffee<br><em>Not Stopping There</em></h1>
+      <p class="hero__sub">A modern Swiss lifestyle brand, built on quality, origin, design and community. Today it&rsquo;s coffee. Tomorrow, who knows.</p>
+      <div class="hero__cta"><a class="btn btn--primary" href="#product">Shop</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="pad" id="product">
+  <div class="rail product">
+    <div data-reveal>
+      <div class="shot">
+        <img width="1300" height="1007" loading="lazy" decoding="async" src="img/castano-bag.jpg" alt="ZUNO Castano coffee bag">
+      </div>
+    </div>
+
+    <div data-reveal>
+      <p class="eyebrow eyebrow--sm">The First Chapter</p>
+      <h2>Meet Castano &mdash; Because Ordinary Coffee is Just So&hellip; Ordinary</h2>
+      <p class="lede">Looking for coffee that doesn&rsquo;t just wake you up but makes your taste buds write a thank-you letter? This is coffee with personality, and yes, it knows it&rsquo;s better than the rest.</p>
+
+      <dl class="facts">
+        <div>
+          <dt>Flavour Profile</dt>
+          <dd>Smooth elegance, nutty notes, a touch of sweetness.</dd>
+        </div>
+        <div>
+          <dt>Origin</dt>
+          <dd>Brazil, Indonesia, India &amp; Honduras.</dd>
+        </div>
+      </dl>
+
+      <div class="buy">
+        <p class="price"><span id="price">CHF 14.90</span><small>incl. VAT</small></p>
+
+        <span class="field-label" id="sizeLabel">Size</span>
+        <div class="option-row" id="sizeRow" role="group" aria-labelledby="sizeLabel">
+          <button class="option" type="button" aria-pressed="true" data-size="200g" data-price="14.90">200g</button>
+          <button class="option" type="button" aria-pressed="false" data-size="500g" data-price="29.90">500g</button>
+        </div>
+
+        <span class="field-label" id="grindLabel">Coffee Type</span>
+        <div class="option-row" id="grindRow" role="group" aria-labelledby="grindLabel">
+          <button class="option" type="button" aria-pressed="true" data-grind="Whole Beans">Whole Beans</button>
+          <button class="option" type="button" aria-pressed="false" data-grind="Pre-Ground">Pre-Ground</button>
+        </div>
+
+        <p class="add-row">
+          <button class="btn btn--primary" type="button" id="addBtn" aria-live="polite">
+            <span class="swap" id="addSwap">
+              <span class="swap__a">Add to Cart</span>
+              <span class="swap__b">Added to Cart</span>
+            </span>
+          </button>
+        </p>
+
+        <p class="note">Free shipping on orders of CHF 45 or more. Delivery within Switzerland &amp; Liechtenstein, 1&ndash;3 business days.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pad" id="about">
+  <div class="rail about" data-reveal>
+    <p class="eyebrow">ZUNO Who?</p>
+    <h2>The brand that comes to life when two friends realize their coffee is too good to keep to themselves.</h2>
+    <p>With ZUNO, we want to create something that&rsquo;s exclusive, high-quality, and a little different &mdash; not just in flavour, but also in the way it feels. Today, our name stands for coffee, but ZUNO is more than just a drink. It&rsquo;s our starting point. Who knows where this journey might lead?</p>
+    <a class="btn btn--outline" href="#faces">Our Story</a>
+  </div>
+</section>
+
+<section>
+  <div class="rail beliefs">
+    <div class="belief" data-reveal>
+      <p class="eyebrow">What Do We Stand For?</p>
+      <h3>&ldquo;Good enough&rdquo; just isn&rsquo;t good enough.</h3>
+      <p>When we develop a product, we pour our hearts into it with precision and the ambition to create something special. Every detail counts.</p>
+    </div>
+    <div class="belief" data-reveal>
+      <p class="eyebrow">Where Are We Headed?</p>
+      <h3>Today, ZUNO is coffee. Tomorrow? Maybe something completely different.</h3>
+      <p>We&rsquo;re ready for surprises &mdash; and you should be too. ZUNO is just getting started.</p>
+    </div>
+  </div>
+</section>
+
+<section class="pad" id="faces">
+  <div class="rail faces">
+    <div class="portrait" data-reveal><img width="900" height="1663" loading="lazy" decoding="async" src="img/founders.jpg" alt="The two ZUNO founders"></div>
+    <div data-reveal>
+      <p class="eyebrow">Faces Behind ZUNO</p>
+      <h2>Two friends. No big plans. Just a desire to bring an idea to life.</h2>
+      <p>ZUNO is what happens when you sit together, talk about everything and nothing, and then think, &ldquo;Why not just go for it?&rdquo; It&rsquo;s not about the end goal &mdash; it&rsquo;s about building a community that&rsquo;s just as excited as we are.</p>
+    </div>
+  </div>
+</section>
+
+<section class="pad" id="join">
+  <div class="rail join" data-reveal>
+    <p class="eyebrow">Join the World of ZUNO</p>
+    <h2>Want to add some ZUNO vibes to your place?</h2>
+    <p>Let us know &mdash; we&rsquo;re happy to share more about our coffee, pricing, and the potential for a perfect partnership. Because let&rsquo;s face it, life&rsquo;s better with a bit of ZUNO.</p>
+
+    <!-- [PLACEHOLDER: form endpoint — contact enquiry] -->
+      <form method="post" action="/form-not-connected" id="joinForm">
+      <div class="join__row">
+        <label class="visually-hidden" for="f-name-1">Name</label><input id="f-name-1" class="field" type="text" name="name" placeholder="Your name" required>
+        <label class="visually-hidden" for="f-email-2">Email address</label><input id="f-email-2" class="field" type="email" name="email" placeholder="Your email address" required>
+      </div>
+      <label class="visually-hidden" for="f-message-3">Message</label><textarea id="f-message-3" class="field field--area" name="message" rows="4" placeholder="Tell us briefly what you have in mind&hellip;" required></textarea>
+      <button class="btn btn--primary" type="submit">Send Inquiry</button>
+    </form>
+
+    <p class="join__ok" id="joinOk">Thank you &mdash; your inquiry is on its way. We&rsquo;ll get back to you shortly.</p>
+
+    <!-- [PLACEHOLDER: instagram url — derived from the @worldofzuno handle, please confirm] -->
+    <a class="ig" href="https://www.instagram.com/worldofzuno/" target="_blank" rel="noopener noreferrer">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+      @worldofzuno
+    </a>
+  </div>
+</section>
+</main>
+
+<section class="page" id="page-cart">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Checkout</p>
+    <h2 class="page__title">Your Cart</h2>
+    <ol class="steps" id="steps">
+      <li data-step="cart" class="active">Cart</li>
+      <li data-step="details">Delivery</li>
+      <li data-step="payment">Payment</li>
+      <li data-step="done">Confirmation</li>
+    </ol>
+
+    <div id="stepCart">
+      <div class="cart-state" id="cartFilled" hidden>
+        <div id="lines" class="lines"></div>
+        <div class="summary" id="summary"></div>
+        <div class="actions">
+          <button class="btn btn--outline" type="button" data-home-btn>Continue Shopping</button>
+          <button class="btn btn--primary" type="button" id="toDetails">Proceed to Checkout</button>
+        </div>
+      </div>
+      <div class="cart-state cart-empty" id="cartEmpty">
+        <p>Your cart is still empty.</p>
+        <button class="btn btn--primary" type="button" data-home-btn>Shop Castano</button>
+      </div>
+    </div>
+
+    <!-- [PLACEHOLDER: form endpoint — checkout delivery] -->
+      <form method="post" action="/form-not-connected" id="stepDetails" hidden>
+      <h2 class="step-title">Delivery Details</h2>
+      <div class="grid2">
+        <label class="visually-hidden" for="f-firstname-4">First name</label><input id="f-firstname-4" class="field field--box" name="firstname" placeholder="First name" autocomplete="given-name" required>
+        <label class="visually-hidden" for="f-lastname-5">Last name</label><input id="f-lastname-5" class="field field--box" name="lastname" placeholder="Last name" autocomplete="family-name" required>
+        <label class="visually-hidden" for="f-email-6">Email address</label><input id="f-email-6" class="field field--box full" name="email" type="email" placeholder="Email address" autocomplete="email" required>
+        <label class="visually-hidden" for="f-street-7">Street and number</label><input id="f-street-7" class="field field--box" name="street" placeholder="Street &amp; number" autocomplete="street-address" required>
+        <label class="visually-hidden" for="f-zipcity-8">ZIP and city</label><input id="f-zipcity-8" class="field field--box" name="zipcity" placeholder="ZIP / City" required>
+        <label class="visually-hidden" for="f-country-9">Country</label><select id="f-country-9" class="field field--box full" name="country">
+          <option>Switzerland</option>
+          <option>Liechtenstein</option>
+        </select>
+        <label class="visually-hidden" for="f-phone-10">Phone</label><input id="f-phone-10" class="field field--box full" name="phone" type="tel" placeholder="Phone (optional — for delivery updates)" autocomplete="tel">
+      </div>
+      <p class="note">Flat shipping fee CHF 4.90 &mdash; free for orders over CHF 45. We deliver within Switzerland &amp; Liechtenstein.</p>
+      <div class="actions">
+        <button class="btn btn--outline" type="button" data-back="cart">Back to Cart</button>
+        <button class="btn btn--primary" type="submit">Continue to Payment</button>
+      </div>
+    </form>
+
+    <!-- [PLACEHOLDER: form endpoint — checkout payment] -->
+      <form method="post" action="/form-not-connected" id="stepPayment" hidden>
+      <h2 class="step-title">Payment</h2>
+      <div class="option-row option-row--pay" id="payRow">
+        <button class="option" type="button" aria-pressed="true" data-pay="Card">Card</button>
+        <button class="option" type="button" aria-pressed="false" data-pay="TWINT">TWINT</button>
+        <button class="option" type="button" aria-pressed="false" data-pay="PayPal">PayPal</button>
+      </div>
+      <div class="grid2" id="cardFields">
+        <label class="visually-hidden" for="f-cardno-11">Card number</label><input id="f-cardno-11" class="field field--box full" name="cardno" placeholder="Card number" inputmode="numeric" autocomplete="cc-number" required>
+        <label class="visually-hidden" for="f-expiry-12">Expiry date</label><input id="f-expiry-12" class="field field--box" name="expiry" placeholder="MM / YY" autocomplete="cc-exp" required>
+        <label class="visually-hidden" for="f-cvc-13">CVC</label><input id="f-cvc-13" class="field field--box" name="cvc" placeholder="CVC" inputmode="numeric" autocomplete="cc-csc" required>
+        <label class="visually-hidden" for="f-cardname-14">Name on card</label><input id="f-cardname-14" class="field field--box full" name="cardname" placeholder="Name on card" autocomplete="cc-name" required>
+      </div>
+      <p class="pay-alt" id="payAlt" hidden></p>
+      <div class="recap" id="recap"></div>
+      <div class="actions">
+        <button class="btn btn--outline" type="button" data-back="details">Back</button>
+        <button class="btn btn--primary" type="submit" id="payBtn">Pay</button>
+      </div>
+      <p class="note">Demo checkout &mdash; no real payment is processed.</p>
+    </form>
+
+    <div id="stepDone" hidden>
+      <h2 class="step-title">Thank You</h2>
+      <div class="done-box">
+        <p class="no" id="doneNo"></p>
+        <p id="doneMsg"></p>
+        <p>You can find your order anytime in your account.</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn--primary" type="button" data-home-btn>Back to Home</button>
+        <a class="btn btn--outline" href="#account">View Account</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="page-account">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Account</p>
+    <h2 class="page__title">My ZUNO</h2>
+
+    <div id="authView">
+      <div class="auth">
+        <!-- [PLACEHOLDER: form endpoint — account sign-in] -->
+      <form method="post" action="/form-not-connected" class="auth-card" id="loginForm">
+          <h2>Sign In</h2>
+          <label class="visually-hidden" for="f-email-15">Email address</label><input id="f-email-15" class="field field--box" name="email" type="email" placeholder="Email address" autocomplete="email" required>
+          <label class="visually-hidden" for="f-password-16">Password</label><input id="f-password-16" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+          <button class="btn btn--primary" type="submit">Sign In</button>
+        </form>
+        <!-- [PLACEHOLDER: form endpoint — account registration] -->
+      <form method="post" action="/form-not-connected" class="auth-card" id="registerForm">
+          <h2>Create Account</h2>
+          <label class="visually-hidden" for="f-name-17">Full name</label><input id="f-name-17" class="field field--box" name="name" placeholder="Full name" autocomplete="name" required>
+          <label class="visually-hidden" for="f-email-18">Email address</label><input id="f-email-18" class="field field--box" name="email" type="email" placeholder="Email address" autocomplete="email" required>
+          <label class="visually-hidden" for="f-password-19">Password</label><input id="f-password-19" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="new-password" required>
+          <button class="btn btn--outline" type="submit">Join ZUNO</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="dashView" hidden>
+      <div class="member">
+        <img width="179" height="200" loading="lazy" decoding="async" class="member__z" src="img/z-mark.png" alt="">
+        <div>
+          <p class="member__name" id="memberName"></p>
+          <p class="member__mail" id="memberMail"></p>
+          <p class="member__tier">ZUNO Circle &middot; Member</p>
+        </div>
+        <button class="btn btn--outline" type="button" id="logoutBtn">Sign Out</button>
+      </div>
+      <h2 class="step-title">Order History</h2>
+      <div id="orderList"></div>
+    </div>
+
+    <h2 class="step-title">The ZUNO Circle</h2>
+    <p class="lead">Your ZUNO account is more than a login &mdash; it&rsquo;s a free membership in the ZUNO Circle:</p>
+    <ul class="perks">
+      <li>Early access to new drops and limited roasts</li>
+      <li>Exclusive member offers and seasonal surprises</li>
+      <li>Invitations to ZUNO tastings and events</li>
+      <li>Order history and faster checkout</li>
+    </ul>
+  </div>
+</section>
+
+<section class="page policy" id="page-privacy">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Legal</p>
+    <h2 class="page__title">Privacy Policy</h2>
+    <p class="intro">At ZUNO, we take your privacy seriously. This Privacy Policy outlines how we collect, use, and protect your personal data when you visit our website and make purchases from our online store.</p>
+
+    <h2>What Information Do We Collect?</h2>
+    <ul>
+      <li><strong>Personal Information:</strong> When you place an order or subscribe to our newsletter, we collect personal details such as your name, email address, shipping address, and payment information.</li>
+      <li><strong>Usage Data:</strong> We collect information about how you use our website, including your IP address, browser type, and device information.</li>
+    </ul>
+
+    <h2>How Do We Use Your Information?</h2>
+    <ul>
+      <li>To process and fulfill your orders.</li>
+      <li>To communicate with you about your order, including delivery status and promotions.</li>
+      <li>To improve our website and enhance your shopping experience.</li>
+      <li>To send you newsletters and marketing emails, if you have subscribed.</li>
+    </ul>
+
+    <h2>How Do We Protect Your Information?</h2>
+    <p>We implement a variety of security measures to ensure the safety of your personal information when you place an order or enter, submit, or access your personal information.</p>
+
+    <h2>Third-Party Disclosures</h2>
+    <p>We do not sell, trade, or otherwise transfer your personal information to outside parties. However, we may share information with trusted third parties to help us operate our website, conduct business, or provide services to you.</p>
+
+    <h2>Your Rights</h2>
+    <p>You have the right to access, correct, or delete your personal information at any time. Please contact us if you would like to exercise these rights.</p>
+  </div>
+</section>
+
+<section class="page policy" id="page-shipping">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Legal</p>
+    <h2 class="page__title">Shipping Policy</h2>
+
+    <h2>Shipping Terms</h2>
+    <p>Our shipping terms apply to deliveries within Switzerland and the Principality of Liechtenstein. Currently, we do not ship internationally.</p>
+    <p>Unless otherwise stated, all items are usually available from stock and ready for dispatch within two business days. If this is not the case, we will contact the customer. Orders are shipped via Swiss Post. Once the order is ready for shipment, the customer will be notified by email.</p>
+    <p>Items that are not in stock will be ordered from the manufacturer, provided they are available. As soon as the items arrive at our warehouse, we will inform the customer by email or phone and ship the order immediately.</p>
+    <p>If the customer is not at home at the time of delivery and no specific delivery instructions have been provided, the package may be left in front of the door or with a neighbour living in the same building. For this purpose, the customer&rsquo;s address and telephone number must be provided.</p>
+    <p>Delivery is made at the customer&rsquo;s risk and expense, including in cases of partial deliveries. Customers can view their order history at any time using their personal account login.</p>
+
+    <h2>Shipping Costs</h2>
+    <p>We deliver orders directly to your home and charge a flat shipping fee of CHF 4.90 per order within Switzerland and the Principality of Liechtenstein.</p>
+    <p>Shipping is free for orders over CHF 45.</p>
+    <p>The shipping fee includes packaging, postage and handling costs.</p>
+    <p>If not all items in an order are available immediately, any additional shipping costs for subsequent deliveries will be covered by us. However, we aim to ship all items together whenever possible. If this is not feasible, the order may be held until all items are available.</p>
+  </div>
+</section>
+
+<section class="page policy" id="page-returns">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Legal</p>
+    <h2 class="page__title">Return Policy</h2>
+
+    <p class="intro">If a customer receives a damaged or defective item, we will provide a replacement or a full refund once the damaged or defective product has been returned to us.</p>
+    <p>Used items or products damaged by the customer are excluded from the return policy. Ground coffee is excluded from exchange or return and will always be charged.</p>
+    <p>If a customer places an order that was unwanted, incorrect or made by mistake, the return shipping costs (postage and return label) must be fully covered by the customer.</p>
+
+    <h2>Return Period</h2>
+    <p>Returns must be made within 10 days of receiving the goods.</p>
+  </div>
+</section>
+
+
+<section class="page policy" id="page-imprint">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Legal</p>
+    <h2 class="page__title">Imprint</h2>
+
+    <p class="intro">[PLACEHOLDER: legal text — Impressum]</p>
+
+    <h2>Company</h2>
+    <p>
+      [PLACEHOLDER: registered company name]<br>
+      [PLACEHOLDER: street and number]<br>
+      [PLACEHOLDER: postcode and town]<br>
+      Switzerland
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Email: [PLACEHOLDER: contact email]<br>
+      Phone: [PLACEHOLDER: phone number]
+    </p>
+
+    <h2>Commercial Register</h2>
+    <p>
+      Commercial register entry: [PLACEHOLDER: UID / CHE number]<br>
+      VAT number: [PLACEHOLDER: MWST number, if VAT-registered]<br>
+      Responsible for the content: [PLACEHOLDER: name]
+    </p>
+  </div>
+</section>
+
+<section class="page policy" id="page-terms">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Legal</p>
+    <h2 class="page__title">Terms &amp; Conditions</h2>
+
+    <p class="intro">[PLACEHOLDER: legal text — Allgemeine Geschäftsbedingungen (AGB)]</p>
+
+    <h2>Scope</h2>
+    <p>[PLACEHOLDER: legal text]</p>
+
+    <h2>Conclusion of Contract</h2>
+    <p>[PLACEHOLDER: legal text]</p>
+
+    <h2>Prices and Payment</h2>
+    <p>[PLACEHOLDER: legal text]</p>
+
+    <h2>Delivery</h2>
+    <p>See our <a href="#shipping">Shipping Policy</a>.</p>
+
+    <h2>Right of Withdrawal / Returns</h2>
+    <p>See our <a href="#returns">Return Policy</a>.</p>
+
+    <h2>Warranty and Liability</h2>
+    <p>[PLACEHOLDER: legal text]</p>
+
+    <h2>Applicable Law and Place of Jurisdiction</h2>
+    <p>[PLACEHOLDER: legal text]</p>
+  </div>
+</section>
+
+<footer>
+  <div class="rail foot">
+    <div>
+      <p class="foot__z"><img width="179" height="200" loading="lazy" decoding="async" src="img/z-mark.png" alt="ZUNO"></p>
+      <p class="foot__line">Starting with Coffee. Not Stopping There.</p>
+    </div>
+    <div>
+      <h3>Shop</h3>
+      <ul>
+        <li><a href="#product" data-home>Castano</a></li>
+        <li><a href="#account">Account</a></li>
+        <li><a href="#cart">Cart</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Company</h3>
+      <ul>
+        <li><a href="#about" data-home>About Us</a></li>
+        <li><a href="#join" data-home>Contact</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Join the World of ZUNO</h3>
+      <p class="small">New products, brand news and future releases.</p>
+    </div>
+  </div>
+  <div class="rail foot__bottom">
+    <p class="foot__copy">&copy; 2026 ZUNO. All rights reserved.</p>
+    <ul>
+      <li><a href="#imprint">Imprint</a></li>
+      <li><a href="#terms">Terms</a></li>
+      <li><a href="#privacy">Privacy Policy</a></li>
+      <li><a href="#shipping">Shipping Policy</a></li>
+      <li><a href="#returns">Return Policy</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var D = function (n) { return reduce.matches ? 120 : n; };
+
+  /* ---------- nav ---------- */
+  var nav = document.getElementById('nav');
+  function onScroll() { nav.classList.toggle('is-scrolled', window.scrollY > 40); }
+  document.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { document.getElementById('heroStagger').classList.add('is-in'); });
+  });
+
+  var reveals = document.querySelectorAll('[data-reveal]');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+    reveals.forEach(function (el) { io.observe(el); });
+  } else {
+    reveals.forEach(function (el) { el.classList.add('is-in'); });
+  }
+
+  function openCollapse(el) { el.classList.add('is-open'); el.style.height = el.scrollHeight + 'px'; }
+  function closeCollapse(el) {
+    el.style.height = el.scrollHeight + 'px';
+    void el.offsetHeight;
+    el.classList.remove('is-open');
+    el.style.height = '0px';
+  }
+
+  var burger = document.getElementById('burger');
+  var menu = document.getElementById('menu');
+  var menuOpen = false;
+  function setMenu(open) {
+    menuOpen = open;
+    burger.setAttribute('aria-expanded', String(open));
+    burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    if (open) {
+      openCollapse(menu);
+      var firstLink = menu.querySelector('a[href]');
+      if (firstLink) firstLink.focus();
+    } else {
+      closeCollapse(menu);
+    }
+  }
+  burger.addEventListener('click', function () { setMenu(!menuOpen); });
+  menu.addEventListener('click', function (e) { if (e.target.closest('a')) setMenu(false); });
+  window.addEventListener('resize', function () { if (menuOpen) menu.style.height = menu.scrollHeight + 'px'; });
+
+  /* While the menu is open, Tab cycles between the burger and the menu links
+     rather than escaping into the page behind it. Escape closes and returns
+     focus to the button that opened it. */
+  document.addEventListener('keydown', function (e) {
+    if (!menuOpen) return;
+
+    if (e.key === 'Escape') {
+      setMenu(false);
+      burger.focus();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+
+    var stops = [burger].concat(Array.prototype.slice.call(menu.querySelectorAll('a[href]')));
+    var first = stops[0];
+    var last = stops[stops.length - 1];
+    var active = document.activeElement;
+
+    if (e.shiftKey && (active === first || !menu.contains(active) && active !== burger)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  /* ---------- configurator ---------- */
+  var size = '200g', grind = 'Whole Beans', price = 14.90;
+  var priceEl = document.getElementById('price');
+
+  function group(row, cb) {
+    row.addEventListener('click', function (e) {
+      var b = e.target.closest('.option');
+      if (!b) return;
+      row.querySelectorAll('.option').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+      cb(b);
+    });
+  }
+  group(document.getElementById('sizeRow'), function (b) {
+    size = b.dataset.size;
+    price = parseFloat(b.dataset.price);
+    priceEl.textContent = 'CHF ' + price.toFixed(2);
+  });
+  group(document.getElementById('grindRow'), function (b) { grind = b.dataset.grind; });
+
+  /* ---------- cart model ---------- */
+  var cart = [], orders = [], user = null;
+  var badge = document.getElementById('badge');
+  var linesEl = document.getElementById('lines');
+  var filledEl = document.getElementById('cartFilled');
+  var emptyEl = document.getElementById('cartEmpty');
+  var summaryEl = document.getElementById('summary');
+
+  function chf(v) { return 'CHF ' + v.toFixed(2); }
+  function qty() { return cart.reduce(function (s, i) { return s + i.qty; }, 0); }
+  function sub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
+  function ship(s) { return (s >= 45 || s === 0) ? 0 : 4.90; }
+
+  function paintBadge() {
+    var n = qty();
+    badge.textContent = String(n);
+    badge.classList.toggle('is-on', n > 0);
+  }
+
+  function renderLines() {
+    linesEl.innerHTML = cart.map(function (i, idx) {
+      return '<div class="line" data-idx="' + idx + '"><div class="line__in">' +
+        '<div class="line__info"><p class="line__name">Castano — ' + i.size + ' · ' + i.grind + '</p>' +
+        '<p class="line__meta">' + chf(i.price) + ' each</p>' +
+        '<button class="remove" type="button" data-remove="' + idx + '">Remove</button></div>' +
+        '<span class="qty"><button type="button" data-dec="' + idx + '" aria-label="Decrease quantity">&minus;</button>' +
+        '<span>' + i.qty + '</span>' +
+        '<button type="button" data-inc="' + idx + '" aria-label="Increase quantity">+</button></span>' +
+        '<span class="line__price">' + chf(i.qty * i.price) + '</span>' +
+      '</div></div>';
+    }).join('');
+
+    var s = sub(), sh = ship(s);
+    summaryEl.innerHTML =
+      '<div class="row"><span>Subtotal</span><span>' + chf(s) + '</span></div>' +
+      '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
+      (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '') +
+      '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
+  }
+
+  /* Filled and empty crossfade so removing the last line is one movement. */
+  function swapState(toEmpty) {
+    var from = toEmpty ? filledEl : emptyEl;
+    var to = toEmpty ? emptyEl : filledEl;
+    if (from.hidden) { to.hidden = false; return; }
+    from.classList.add('is-fading');
+    window.setTimeout(function () {
+      from.hidden = true;
+      from.classList.remove('is-fading');
+      to.hidden = false;
+      to.classList.add('is-fading');
+      void to.offsetHeight;
+      to.classList.remove('is-fading');
+    }, D(200));
+  }
+
+  function syncCart(animate) {
+    paintBadge();
+    renderLines();
+    var isEmpty = cart.length === 0;
+    if (animate) { swapState(isEmpty); }
+    else { filledEl.hidden = isEmpty; emptyEl.hidden = !isEmpty; }
+  }
+
+  var addSwap = document.getElementById('addSwap');
+  var addTimer;
+  document.getElementById('addBtn').addEventListener('click', function () {
+    var found = null;
+    cart.forEach(function (i) { if (i.size === size && i.grind === grind) found = i; });
+    if (found) { found.qty += 1; } else { cart.push({ size: size, grind: grind, price: price, qty: 1 }); }
+    syncCart(false);
+    addSwap.classList.add('is-done');
+    window.clearTimeout(addTimer);
+    addTimer = window.setTimeout(function () { addSwap.classList.remove('is-done'); }, 1800);
+  });
+
+  linesEl.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-inc],[data-dec],[data-remove]');
+    if (!t) return;
+
+    if (t.hasAttribute('data-inc')) {
+      cart[+t.getAttribute('data-inc')].qty += 1;
+      syncCart(false);
+      return;
+    }
+    if (t.hasAttribute('data-dec')) {
+      var di = +t.getAttribute('data-dec');
+      if (cart[di].qty > 1) { cart[di].qty -= 1; syncCart(false); return; }
+      collapseRow(di);
+      return;
+    }
+    collapseRow(+t.getAttribute('data-remove'));
+  });
+
+  function collapseRow(idx) {
+    var row = linesEl.querySelector('.line[data-idx="' + idx + '"]');
+    if (!row) return;
+    row.style.height = row.scrollHeight + 'px';
+    void row.offsetHeight;
+    row.classList.add('is-going');
+    window.setTimeout(function () {
+      cart.splice(idx, 1);
+      syncCart(true);
+    }, D(200));
+  }
+
+  /* ---------- checkout ---------- */
+  var order = ['cart', 'details', 'payment', 'done'];
+  var steps = {
+    cart: document.getElementById('stepCart'),
+    details: document.getElementById('stepDetails'),
+    payment: document.getElementById('stepPayment'),
+    done: document.getElementById('stepDone')
+  };
+  var payMethod = 'Card';
+
+  function showStep(name) {
+    order.forEach(function (s) { steps[s].hidden = s !== name; });
+    var cur = order.indexOf(name);
+    document.querySelectorAll('#steps li').forEach(function (li) {
+      var i = order.indexOf(li.getAttribute('data-step'));
+      li.classList.toggle('active', i === cur);
+      li.classList.toggle('done', i < cur);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  document.getElementById('toDetails').addEventListener('click', function () {
+    if (cart.length) showStep('details');
+  });
+  document.querySelectorAll('[data-back]').forEach(function (b) {
+    b.addEventListener('click', function () { showStep(b.getAttribute('data-back')); });
+  });
+
+  function paintRecap() {
+    var s = sub(), sh = ship(s);
+    document.getElementById('recap').innerHTML =
+      cart.map(function (i) {
+        return '<div class="row"><span>' + i.qty + '&times; Castano ' + i.size + ' · ' + i.grind + '</span><span>' + chf(i.qty * i.price) + '</span></div>';
+      }).join('') +
+      '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
+      '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
+    document.getElementById('payBtn').textContent = 'Pay ' + chf(s + sh);
+  }
+
+  document.getElementById('payRow').addEventListener('click', function (e) {
+    var b = e.target.closest('.option');
+    if (!b) return;
+    document.querySelectorAll('#payRow .option').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+    b.setAttribute('aria-pressed', 'true');
+    payMethod = b.getAttribute('data-pay');
+    var isCard = payMethod === 'Card';
+    document.getElementById('cardFields').hidden = !isCard;
+    var alt = document.getElementById('payAlt');
+    alt.hidden = isCard;
+    if (!isCard) alt.textContent = 'You will be redirected to ' + payMethod + ' to complete the payment.';
+    document.querySelectorAll('#cardFields .field').forEach(function (f) {
+      if (isCard) { f.setAttribute('required', ''); } else { f.removeAttribute('required'); }
+    });
+  });
+
+  document.getElementById('stepDetails').addEventListener('submit', function (e) {
+    e.preventDefault();
+    paintRecap();
+    showStep('payment');
+  });
+
+  document.getElementById('stepPayment').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!cart.length) return;
+    var s = sub(), sh = ship(s);
+    var o = {
+      id: 'ZUNO-' + Math.floor(10000 + Math.random() * 90000),
+      date: new Date().toLocaleDateString('en-CH', { day: 'numeric', month: 'short', year: 'numeric' }),
+      n: qty(),
+      total: s + sh,
+      pay: payMethod
+    };
+    orders.unshift(o);
+    cart = [];
+    syncCart(false);
+    document.getElementById('doneNo').textContent = 'Order ' + o.id;
+    document.getElementById('doneMsg').textContent =
+      'Thank you for your order! A confirmation email with your order details and delivery updates is on its way. Total charged via ' + o.pay + ': ' + chf(o.total) + '.';
+    showStep('done');
+  });
+
+  /* ---------- account ---------- */
+  function renderAccount() {
+    var authed = !!user;
+    document.getElementById('authView').hidden = authed;
+    document.getElementById('dashView').hidden = !authed;
+    if (!authed) return;
+    document.getElementById('memberName').textContent = user.name;
+    document.getElementById('memberMail').textContent = user.email;
+    var list = document.getElementById('orderList');
+    list.innerHTML = orders.length
+      ? orders.map(function (o) {
+          return '<div class="order-card"><span>' + o.id + '</span><span>' + o.date + '</span><span>' +
+            o.n + ' item' + (o.n > 1 ? 's' : '') + '</span><span>' + chf(o.total) + '</span><span class="paid">Paid</span></div>';
+        }).join('')
+      : '<p class="lead">No orders yet — your Castano is waiting.</p>';
+  }
+  document.getElementById('loginForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var mail = this.elements.email.value.trim();
+    var name = mail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    user = { name: name, email: mail };
+    renderAccount();
+  });
+  document.getElementById('registerForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    user = { name: this.elements.name.value.trim(), email: this.elements.email.value.trim() };
+    renderAccount();
+  });
+  document.getElementById('logoutBtn').addEventListener('click', function () { user = null; renderAccount(); });
+
+  /* ---------- join form ---------- */
+  var joinForm = document.getElementById('joinForm');
+  joinForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    joinForm.style.display = 'none';
+    document.getElementById('joinOk').classList.add('is-on');
+  });
+
+  /* ---------- hash router ---------- */
+  var PAGES = ['cart', 'account', 'privacy', 'shipping', 'returns', 'imprint', 'terms'];
+  var main = document.getElementById('main');
+  var footer = document.querySelector('footer');
+
+  function route() {
+    var h = location.hash.replace('#', '');
+    var isPage = PAGES.indexOf(h) !== -1;
+
+    PAGES.forEach(function (p) {
+      document.getElementById('page-' + p).classList.toggle('is-open', isPage && p === h);
+    });
+    main.style.display = isPage ? 'none' : '';
+    footer.style.display = '';
+
+    if (isPage) {
+      if (h === 'cart') { syncCart(false); showStep('cart'); }
+      if (h === 'account') renderAccount();
+      window.scrollTo(0, 0);
+    } else if (h) {
+      var t = document.getElementById(h);
+      if (t) t.scrollIntoView();
+    }
+  }
+  window.addEventListener('hashchange', route);
+
+  document.getElementById('cartBtn').addEventListener('click', function () { location.hash = 'cart'; });
+  document.getElementById('accountBtn').addEventListener('click', function () { location.hash = 'account'; });
+  document.querySelectorAll('[data-home-btn]').forEach(function (b) {
+    b.addEventListener('click', function () { location.hash = 'product'; });
+  });
+  /* In-page anchors must leave a sub-page before they can scroll to a target. */
+  document.querySelectorAll('a[data-home]').forEach(function (a) {
+    a.addEventListener('click', function () {
+      PAGES.forEach(function (p) { document.getElementById('page-' + p).classList.remove('is-open'); });
+      main.style.display = '';
+    });
+  });
+
+  syncCart(false);
+  route();
+})();
+</script>
+</body>
+</html>

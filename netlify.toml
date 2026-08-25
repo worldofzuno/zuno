@@ -1,0 +1,17 @@
+# The repository root holds the Next.js app. The static launch site that gets
+# deployed to worldofzuno.com lives in site/, so point Netlify there and run no
+# build step — the folder is already the finished artefact.
+[build]
+  publish = "site"
+  command = ""
+
+# Hash-routed sub-pages (#imprint, #cart, …) are served by index.html, so any
+# deep path a crawler or a mistyped link produces should still land on the site
+# rather than Netlify's 404 page.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security and cache headers are defined in site/_headers so they stay next to
+# the file whose CSP hashes they pin. Do not duplicate them here.
