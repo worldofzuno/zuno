@@ -115,6 +115,23 @@ body {
   overflow-x: hidden;
 }
 
+/* The cell field sits between the gradient and the content.
+   color1 is pure black, so `screen` blending drops every black pixel to
+   nothing and only the dark-green veins survive — the gradient underneath
+   comes through untouched instead of being covered by an opaque canvas. */
+#vanta-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;   /* Vanta listens on window, so controls still work */
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 900ms var(--ease-premium);
+  contain: layout paint;  /* the canvas can never reflow the page */
+}
+#vanta-bg.is-ready { opacity: 1; }
+#vanta-bg canvas { display: block; }
+
 h1, h2, h3, h4 {
   font-family: 'Felix Titling', Georgia, serif;
   font-weight: 400;
@@ -564,6 +581,10 @@ html:not(.js) .page:target { display: block; }
 </style>
 </head>
 <body>
+<!-- Vanta CELLS draws here. Purely decorative: if WebGL is missing, the file
+     is blocked, or the device asks us not to, the div stays empty and the
+     gradient field below it is the page exactly as it was. -->
+<div id="vanta-bg" aria-hidden="true"></div>
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="nav" id="nav">
   <div class="rail nav__inner">
@@ -1460,6 +1481,97 @@ html:not(.js) .page:target { display: block; }
 
   syncCart(false);
   route();
+})();
+</script>
+
+<script>
+/* ---------------- Vanta CELLS background ----------------
+   Loaded by hand rather than with two <script src> tags, because three.js is
+   615 KB for something purely decorative. Fetching it is a decision, not a
+   default: no WebGL, a metered connection or a small-memory device and we
+   never ask for the bytes at all. The gradient field is the fallback, and it
+   is the design as approved — nothing below depends on this succeeding. */
+(function () {
+  var host = document.getElementById('vanta-bg');
+  if (!host || !window.requestAnimationFrame) return;
+
+  var net = navigator.connection || {};
+  if (net.saveData) return;
+  if (/(^|-)2g$/.test(net.effectiveType || '')) return;
+  if (navigator.deviceMemory && navigator.deviceMemory < 4) return;
+
+  /* Probe before downloading: a browser without WebGL would pull the whole
+     library only for Vanta to throw during init. */
+  try {
+    var probe = document.createElement('canvas');
+    if (!(probe.getContext('webgl') || probe.getContext('experimental-webgl'))) return;
+  } catch (e) { return; }
+
+  function load(src, next) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.async = false;          /* three must finish before vanta runs */
+    s.onload = next;
+    s.onerror = function () { /* decorative — leave the gradient alone */ };
+    document.head.appendChild(s);
+  }
+
+  function start() {
+    if (!window.VANTA || !window.VANTA.CELLS) return;
+
+    var fx = window.VANTA.CELLS({
+      el: host,
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      minHeight: 200.00,
+      minWidth: 200.00,
+      scale: 1.00,
+      color1: 0x0,
+      color2: 0x15290d,
+      size: 5.00,
+      speed: 0.00
+    });
+    if (!fx) return;
+    host.classList.add('is-ready');
+
+    /* Vanta keeps a full-screen fragment shader running at 60fps forever.
+       Stop it whenever it cannot be seen, and stop it for good for anyone
+       who asked for less motion — they still get the texture, just frozen
+       on the frame it reached. */
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function halt() { if (fx.req) window.cancelAnimationFrame(fx.req); }
+    function resume() { if (!document.hidden && !still.matches) fx.animationLoop(); }
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) halt(); else resume();
+    });
+
+    if (still.matches) {
+      /* Let it paint a few frames so the pattern is formed, then freeze. */
+      window.setTimeout(halt, 400);
+    }
+    /* React live, so toggling the OS setting does not need a reload. */
+    var onChange = function () { if (still.matches) halt(); else resume(); };
+    if (still.addEventListener) still.addEventListener('change', onChange);
+    else if (still.addListener) still.addListener(onChange);
+  }
+
+  /* After load, so the library never competes with the fonts or the hero.
+     The single-file preview build inlines both libraries ahead of this
+     script, in which case there is nothing left to fetch. */
+  function boot() {
+    if (window.VANTA && window.VANTA.CELLS) { start(); return; }
+    window.setTimeout(function () {
+      load('js/three.r134.min.js', function () {
+        load('js/vanta.cells.0.5.24.min.js', start);
+      });
+    }, 200);
+  }
+
+  if (document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot);
 })();
 </script>
 </body>
