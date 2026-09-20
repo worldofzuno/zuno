@@ -32,8 +32,11 @@
     contain: layout paint;
   }
 
+  /* 0.8, not 1: at full strength the brand green lifts the brightest
+     cells far enough to push body text under AA. Dimming the layer
+     keeps color2 exactly as specified. */
   #vanta-bg[data-ready] {
-    opacity: 1;
+    opacity: 0.8;
   }
 
   #vanta-bg canvas {

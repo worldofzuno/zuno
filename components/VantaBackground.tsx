@@ -113,7 +113,7 @@ export default function VantaBackground() {
             minWidth: 200.0,
             scale: 1.0,
             color1: 0x0,
-            color2: 0x15290d,
+            color2: 0x1e3932,
             size: 5.0,
             speed: 0.0,
           });

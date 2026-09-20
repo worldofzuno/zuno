@@ -71,13 +71,13 @@
 
   --ink: #eae4d6;
   --ink-dim: rgba(234, 228, 214, 0.62);
-  /* 0.60, not 0.38: at 0.38 the small print measured 2.76:1 against the
-     brightest part of the cell field, well under the 4.5:1 AA needs. 0.589
-     is the least that clears it there, so this is that with a little room.
-     It lands close to --ink-dim on purpose — over this ground nothing
-     lighter passes, so the step down to small print has to come from size
-     and weight rather than from opacity. */
-  --ink-faint: rgba(234, 228, 214, 0.60);
+  /* Same value as --ink-dim, not the 0.38 this once was. Against the
+     brightest part of the cell field 0.38 measured 2.76:1 and 0.60 measured
+     4.43:1, both under the 4.5:1 AA asks for; 0.62 is what clears it. The
+     two tokens are now one colour — over this ground nothing lighter
+     passes, so the step down to small print has to come from size and
+     weight rather than from opacity. */
+  --ink-faint: rgba(234, 228, 214, 0.62);
   --line: rgba(234, 228, 214, 0.12);
   --line-strong: rgba(234, 228, 214, 0.22);
 
@@ -131,7 +131,11 @@ body {
   transition: opacity 900ms var(--ease-premium);
   contain: layout paint;  /* the canvas can never reflow the page */
 }
-#vanta-bg.is-ready { opacity: 1; }
+/* 0.8, not 1: at full strength the brand green lifts the brightest cells
+   far enough that --ink-dim, the body colour, drops to 4.22:1 — under AA.
+   Dimming the layer keeps color2 exactly as specified and every text
+   token where it is. */
+#vanta-bg.is-ready { opacity: 0.8; }
 #vanta-bg canvas { display: block; }
 
 h1, h2, h3, h4 {
@@ -1537,7 +1541,7 @@ html:not(.js) .page:target { display: block; }
       minWidth: 200.00,
       scale: 1.00,
       color1: 0x0,
-      color2: 0x15290d,
+      color2: 0x1e3932,
       size: 5.00,
       speed: 0.00
     });
