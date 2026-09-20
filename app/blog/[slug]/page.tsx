@@ -28,7 +28,7 @@ export default function BlogPostPage({
   if (!post) notFound();
 
   return (
-    <MotionSection as="article" className="bg-black py-20 sm:py-28">
+    <MotionSection as="article" className="py-20 sm:py-28">
       <div className="container-content max-w-2xl">
         <RevealOnScroll>
           <Link

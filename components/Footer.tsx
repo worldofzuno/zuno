@@ -22,7 +22,7 @@ const legalLinks = [
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-black">
+    <footer className="border-t border-white/5">
       <div className="container-content grid grid-cols-1 gap-12 py-16 md:grid-cols-[1.3fr_1fr_1fr_1.3fr]">
         <div>
           <span className="font-display text-2xl tracking-[0.15em] text-gold">

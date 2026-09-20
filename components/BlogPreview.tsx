@@ -29,7 +29,7 @@ const posts = [
 
 export default function BlogPreview() {
   return (
-    <MotionSection className="bg-black py-24 sm:py-32">
+    <MotionSection className="py-24 sm:py-32">
       <div className="container-content">
         <RevealOnScroll className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>

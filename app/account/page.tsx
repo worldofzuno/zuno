@@ -13,7 +13,7 @@ export default function AccountPage() {
   return (
     <>
       <PageIntro eyebrow="Members Area" title="Your ZUNO Account" />
-      <MotionSection className="bg-black py-20 sm:py-28">
+      <MotionSection className="py-20 sm:py-28">
         <div className="container-content">
           <RevealOnScroll>
             <AccountPanel />

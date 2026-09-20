@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function ShopPage() {
   return (
-    <MotionSection className="bg-black py-20 sm:py-28">
+    <MotionSection className="py-20 sm:py-28">
       <div className="container-content">
         <RevealOnScroll>
           <ProductConfigurator />

@@ -20,7 +20,7 @@ export default function BlogIndexPage() {
         description="Brand stories, coffee knowledge, brewing tips and what's next for ZUNO."
       />
 
-      <MotionSection className="bg-black py-20 sm:py-28">
+      <MotionSection className="py-20 sm:py-28">
         <div className="container-content grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {posts.map((post, i) => (
             <RevealOnScroll key={post.slug} delay={i * 0.08}>

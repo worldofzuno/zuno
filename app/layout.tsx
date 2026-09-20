@@ -6,6 +6,7 @@ import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/components/CartContext";
 import MotionProvider from "@/components/MotionProvider";
+import VantaBackground from "@/components/VantaBackground";
 
 // Felix Titling is a titling-caps face (no lowercase or digits — see
 // app/fonts/FELIX_TITLING_COPYRIGHT.txt). Don't apply font-display to
@@ -67,6 +68,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <VantaBackground />
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:left-6 focus:top-6 focus:z-[100] focus:rounded-full focus:bg-gold focus:px-5 focus:py-2 focus:text-black"

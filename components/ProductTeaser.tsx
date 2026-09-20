@@ -5,7 +5,7 @@ import { ButtonLink } from "./Button";
 
 export default function ProductTeaser() {
   return (
-    <MotionSection className="bg-black py-24 sm:py-32">
+    <MotionSection className="py-24 sm:py-32">
       <div className="container-content grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
         <RevealOnScroll>
           <ProductVisual size="500g" className="mx-auto max-w-md" />

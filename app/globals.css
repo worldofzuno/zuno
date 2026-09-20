@@ -17,6 +17,29 @@
     @apply bg-black text-beige antialiased;
   }
 
+  /* The Vanta cell field, fixed behind everything. color1 is pure black, so
+     `screen` blending drops every black pixel to nothing and only the
+     dark-green veins land on the page. Page sections carry no background of
+     their own — an opaque one would paint straight over a z-index:-1 layer. */
+  #vanta-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none; /* Vanta listens on window, so controls still work */
+    mix-blend-mode: screen;
+    opacity: 0;
+    transition: opacity 900ms var(--ease-premium);
+    contain: layout paint;
+  }
+
+  #vanta-bg[data-ready] {
+    opacity: 1;
+  }
+
+  #vanta-bg canvas {
+    display: block;
+  }
+
   ::selection {
     @apply bg-gold/30 text-gold;
   }

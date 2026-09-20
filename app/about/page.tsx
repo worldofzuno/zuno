@@ -38,11 +38,11 @@ export default function AboutPage() {
         description="Today, ZUNO is coffee. Tomorrow, it could be something completely different."
       />
 
-      <div className="bg-black">
+      <div className="">
         {sections.map((section, i) => (
           <MotionSection
             key={section.eyebrow}
-            className={i % 2 === 1 ? "bg-green" : "bg-black"}
+            className={i % 2 === 1 ? "bg-green" : ""}
           >
             <div className="container-content max-w-2xl py-20 sm:py-24">
               <RevealOnScroll>

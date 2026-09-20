@@ -20,7 +20,7 @@ export default function ContactPage() {
         description="Let us know — we're happy to share more about our coffee, pricing, and the potential for a perfect partnership. Because let's face it, life's better with a bit of ZUNO."
       />
 
-      <MotionSection className="bg-black py-20 sm:py-28">
+      <MotionSection className="py-20 sm:py-28">
         <div className="container-content grid max-w-4xl grid-cols-1 gap-16 lg:grid-cols-[1.2fr_1fr]">
           <RevealOnScroll>
             <ContactForm />

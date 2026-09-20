@@ -104,7 +104,10 @@ export default function Nav() {
               height: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
               opacity: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
             }}
-            className="overflow-hidden border-t border-white/5 bg-black md:hidden"
+            /* The panel drops over the page, so it keeps a background of its
+               own — matching the scrolled bar rather than the transparent
+               sections behind it. */
+            className="overflow-hidden border-t border-white/5 bg-black/90 backdrop-blur-md md:hidden"
           >
             <ul className="container-content flex flex-col gap-1 py-4">
               {[...links, { href: "/account", label: "Account" }].map((link) => (

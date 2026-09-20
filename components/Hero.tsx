@@ -22,7 +22,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative flex min-h-[92dvh] items-center overflow-hidden bg-black">
+    <section className="relative flex min-h-[92dvh] items-center overflow-hidden ">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"

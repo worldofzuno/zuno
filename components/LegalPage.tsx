@@ -8,7 +8,7 @@ export default function LegalPage({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-black py-20 sm:py-28">
+    <div className="py-20 sm:py-28">
       <div className="container-content max-w-2xl">
         <h1 className="font-display text-3xl text-beige sm:text-4xl">
           {title}

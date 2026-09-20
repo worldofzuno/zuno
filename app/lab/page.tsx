@@ -58,7 +58,7 @@ export default function LabPage() {
         description="A workbench for judging motion before it goes near the site. Everything here uses the same curve, the same tokens and the same reduced-motion behaviour as the rest of ZUNO."
       />
 
-      <MotionSection className="border-b border-white/10 bg-black py-20 sm:py-28">
+      <MotionSection className="border-b border-white/10 py-20 sm:py-28">
         <div className="container-content max-w-3xl">
           <p className="text-xs uppercase tracking-[0.4em] text-gold">
             Kinetic text reveal
@@ -75,7 +75,7 @@ export default function LabPage() {
         </div>
       </MotionSection>
 
-      <MotionSection className="border-b border-white/10 bg-black py-20 sm:py-28">
+      <MotionSection className="border-b border-white/10 py-20 sm:py-28">
         <div className="container-content max-w-3xl">
           <p className="text-xs uppercase tracking-[0.4em] text-gold">
             Magnetic dock
@@ -96,7 +96,7 @@ export default function LabPage() {
         </div>
       </MotionSection>
 
-      <div className="bg-black py-20 sm:py-28">
+      <div className="py-20 sm:py-28">
         <div className="container-content max-w-3xl">
           <p className="text-xs uppercase tracking-[0.4em] text-gold">
             Sticky scroll cards
