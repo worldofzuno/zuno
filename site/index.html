@@ -75,7 +75,13 @@
 
   --ink: #eae4d6;
   --ink-dim: rgba(234, 228, 214, 0.62);
-  --ink-faint: rgba(234, 228, 214, 0.38);
+  /* 0.60, not 0.38: at 0.38 the small print measured 2.76:1 against the
+     brightest part of the cell field, well under the 4.5:1 AA needs. 0.589
+     is the least that clears it there, so this is that with a little room.
+     It lands close to --ink-dim on purpose — over this ground nothing
+     lighter passes, so the step down to small print has to come from size
+     and weight rather than from opacity. */
+  --ink-faint: rgba(234, 228, 214, 0.60);
   --line: rgba(234, 228, 214, 0.12);
   --line-strong: rgba(234, 228, 214, 0.22);
 
