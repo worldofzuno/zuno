@@ -339,17 +339,6 @@ section { position: relative; background: transparent; }
   display: block;
 }
 
-/* PROVISIONAL — remove once a photograph with the full bag is in hand.
-   The cut-out is complete (its alpha ends around 93-96% of the file height,
-   with the contact shadow below that), but the bag is black on a near-black
-   page, so the base has no contrast and reads as a cut. Fading the last 15%
-   trades that hard break for a soft one: the bottom eighth of the bag and
-   the whole contact shadow go with it, so the bag floats rather than
-   stands. Delete this block to get the real base back. */
-.shot img {
-  -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
-}
 
 .product h2 { font-size: clamp(1.8rem, 2.2vw + 1.1rem, 2.6rem); line-height: 1.15; margin-top: 14px; }
 .product .lede { color: var(--ink-dim); margin: 20px 0 0; max-width: 46ch; font-size: 0.95rem; }
@@ -667,7 +656,7 @@ html:not(.js) .page:target { display: block; }
   <div class="rail product">
     <div data-reveal>
       <div class="shot">
-        <img width="588" height="898" loading="lazy" decoding="async" src="img/castano-bag.webp" alt="ZUNO Castano coffee bag">
+        <img width="636" height="881" loading="lazy" decoding="async" src="img/castano-bag.webp" alt="ZUNO Castano coffee bag">
       </div>
     </div>
 
