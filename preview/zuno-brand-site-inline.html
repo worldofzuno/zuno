@@ -319,22 +319,10 @@ section { position: relative; background: transparent; }
 
 /* ---------------- Product ---------------- */
 .product { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 90px); align-items: center; }
-/* The photograph is lit on black, so it sits directly on the page ground.
-   Its backdrop is levelled to true black in the file itself; the mask then
-   feathers the frame away so no rectangle edge survives. The bottom inset is
-   small because the bag and its shadow reach almost to that edge. */
-/* The bag is cut out, so there is no rectangle left to hide. The edge mask
-   that used to live here faded the photograph's studio sweep into the page;
-   against a transparent PNG it would only eat into the bag itself, which is
-   why it is gone rather than retuned. The contact shadow is baked into the
-   file's alpha, so it lands on whatever the field is doing behind it. */
-/* The box keeps the footprint the landscape photograph had, so nothing in
-   the layout moves; the portrait cutout is fitted inside it. Without the
-   dead studio sweep around it the bag itself reads larger at the same
-   box size, which is the point of cutting it out. */
-/* Taller than the landscape photograph's box was, so the bag reads about a
-   third larger. The text column next to it is taller still, and the grid
-   centres both, so the section's own height does not move. */
+/* The bag is a cut-out with a transparent ground, so the box carries no
+   backdrop of its own. Its ratio is taller than the source photograph's,
+   which renders the bag about a third larger; the text column beside it is
+   taller still and the grid centres both, so the section does not grow. */
 .shot {
   position: relative;
   background: transparent;
@@ -345,6 +333,18 @@ section { position: relative; background: transparent; }
   height: 100%;
   object-fit: contain;
   display: block;
+}
+
+/* PROVISIONAL — remove once a photograph with the full bag is in hand.
+   The cut-out is complete (its alpha ends around 93-96% of the file height,
+   with the contact shadow below that), but the bag is black on a near-black
+   page, so the base has no contrast and reads as a cut. Fading the last 15%
+   trades that hard break for a soft one: the bottom eighth of the bag and
+   the whole contact shadow go with it, so the bag floats rather than
+   stands. Delete this block to get the real base back. */
+.shot img {
+  -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
 }
 
 .product h2 { font-size: clamp(1.8rem, 2.2vw + 1.1rem, 2.6rem); line-height: 1.15; margin-top: 14px; }
