@@ -218,8 +218,6 @@ button, input, textarea, select { font-family: inherit; }
      baked into the image and would stay on the ground. */
   .btn:hover { transform: translateY(-2px); }
   .option:hover { transform: translateY(-1px); }
-  .view:hover { border-color: var(--ink-dim); }
-  .view.is-on:hover { border-color: var(--gold); }
   .portrait { transition: transform var(--panel) var(--ease-premium); }
   .portrait:hover { transform: translateY(-4px); }
 }
@@ -387,31 +385,38 @@ section { position: relative; background: transparent; }
   background: transparent;
   aspect-ratio: 1300 / 1360;
 }
-.shot img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  transition: opacity 180ms var(--ease-premium);
+/* Both faces are stacked and cross-faded, which is what lets hover work at
+   all — a src swap cannot fade. The one that is not showing is taken out of
+   the accessibility tree in step with the visual state, so the description a
+   screen reader gets is always the picture that is actually on screen. */
+.shot__face {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain; display: block;
+  opacity: 0;
+  transition: opacity 260ms var(--ease-premium);
 }
-.shot img.is-swapping { opacity: 0; }
+.shot__face.is-on { opacity: 1; }
 
-/* Two views of the one bag. Both cut-outs share a canvas, a bag height and a
-   standing line, so switching changes the picture without moving the bag. */
-.views {
-  display: flex; gap: 12px; justify-content: center;
-  margin-top: clamp(18px, 2.5vw, 28px);
+/* An invisible button over the whole shot. Hover alone would leave the back
+   unreachable by keyboard; this way pointer, touch and keyboard are one path. */
+.shot__toggle {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  padding: 0; border: 0; background: none;
+  cursor: pointer; border-radius: 14px;
 }
-.view {
-  width: 62px; height: 74px; padding: 6px;
-  border: 1px solid var(--line); border-radius: 12px;
-  background: rgba(234, 228, 214, 0.04);
-  cursor: pointer;
-  transition: border-color var(--control) var(--ease-premium),
-              background-color var(--control) var(--ease-premium);
+.shot__hint {
+  margin: clamp(14px, 2vw, 22px) 0 0;
+  text-align: center;
+  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-faint);
 }
-.view img { width: 100%; height: 100%; object-fit: contain; display: block; transition: none; }
-.view.is-on { border-color: var(--gold); background: rgba(234, 199, 134, 0.10); }
+.shot__hint--pointer { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .shot__hint--pointer { display: inline; }
+  .shot__hint--touch { display: none; }
+}
 
 
 .product h2 { font-size: clamp(1.8rem, 2.2vw + 1.1rem, 2.6rem); line-height: 1.15; margin-top: 14px; }
@@ -761,22 +766,13 @@ html:not(.js) .page:target { display: block; }
   <div class="rail product">
     <div data-reveal>
       <div class="shot">
-        <img id="shotImg" width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag.webp" alt="The ZUNO Castano bag, front: the gold ZUNO wordmark and the Castano label on a matt black pouch">
-      </div>
-      <div class="views" role="group" aria-label="Product views">
-        <button class="view is-on" type="button" aria-pressed="true"
-                data-src="img/castano-bag.webp"
-                data-alt="The ZUNO Castano bag, front: the gold ZUNO wordmark and the Castano label on a matt black pouch">
-          <img width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag.webp" alt="">
-          <span class="visually-hidden">Front</span>
-        </button>
-        <button class="view" type="button" aria-pressed="false"
-                data-src="img/castano-bag-back.webp"
-                data-alt="The same bag from the back: a large gold Z and the words nutty, chocolaty and effortlessly good">
-          <img width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag-back.webp" alt="">
-          <span class="visually-hidden">Back</span>
+        <img id="shotFront" class="shot__face is-on" width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag.webp" alt="The ZUNO Castano bag, front: the gold ZUNO wordmark and the Castano label on a matt black pouch">
+        <img id="shotBack" class="shot__face" width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag-back.webp" alt="The same bag from the back: a large gold Z and the words nutty, chocolaty and effortlessly good" aria-hidden="true">
+        <button class="shot__toggle" id="shotToggle" type="button" aria-pressed="false">
+          <span class="visually-hidden" id="shotToggleLabel">Show the back of the bag</span>
         </button>
       </div>
+      <p class="shot__hint" aria-hidden="true"><span class="shot__hint--pointer">Hover to see the back</span><span class="shot__hint--touch">Tap to see the back</span></p>
     </div>
 
     <div data-reveal>
@@ -1274,32 +1270,44 @@ html:not(.js) .page:target { display: block; }
   }
 
   /* ---------- product views ----------
-     One <img> whose src and alt are swapped, rather than two stacked images.
-     A hidden second image would sit in the accessibility tree carrying an alt
-     of its own, and the alt has to describe what is actually on screen. The
-     thumbnails below already hold both files, so the one being switched to is
-     in cache by the time it is asked for. */
-  var shotImg = document.getElementById('shotImg');
-  var views = document.querySelectorAll('.view');
-  views.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      if (btn.getAttribute('aria-pressed') === 'true') return;
-      views.forEach(function (b) {
-        var on = b === btn;
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
-        b.classList.toggle('is-on', on);
-      });
-      var src = btn.getAttribute('data-src');
-      var alt = btn.getAttribute('data-alt');
-      if (reduce.matches) { shotImg.src = src; shotImg.alt = alt; return; }
-      shotImg.classList.add('is-swapping');
-      window.setTimeout(function () {
-        shotImg.src = src;
-        shotImg.alt = alt;
-        shotImg.classList.remove('is-swapping');
-      }, 180);
+     One state, three ways in. A mouse previews the back while it is over the
+     shot; a tap or a keypress latches it, because touch has no hover and a
+     preview you cannot hold is no use. The hidden face leaves the
+     accessibility tree in step with the fade, so whichever description a
+     screen reader reads is the picture that is on screen. */
+  var shotFront = document.getElementById('shotFront');
+  var shotBack = document.getElementById('shotBack');
+  var shotToggle = document.getElementById('shotToggle');
+  if (shotFront && shotBack && shotToggle) {
+    var shotLabel = document.getElementById('shotToggleLabel');
+    var latched = false;
+
+    function showBack(on) {
+      shotBack.classList.toggle('is-on', on);
+      shotFront.classList.toggle('is-on', !on);
+      shotBack.setAttribute('aria-hidden', on ? 'false' : 'true');
+      shotFront.setAttribute('aria-hidden', on ? 'true' : 'false');
+    }
+
+    shotToggle.addEventListener('click', function () {
+      latched = !latched;
+      showBack(latched);
+      shotToggle.setAttribute('aria-pressed', latched ? 'true' : 'false');
+      shotLabel.textContent = latched ? 'Show the front of the bag'
+                                      : 'Show the back of the bag';
     });
-  });
+
+    /* pointerType keeps the preview off touch, where the tap has already
+       latched and a stray hover event would fight it. */
+    shotToggle.addEventListener('pointerenter', function (e) {
+      if (e.pointerType === 'mouse' && !latched) showBack(true);
+    });
+    shotToggle.addEventListener('pointerleave', function (e) {
+      if (e.pointerType === 'mouse' && !latched) showBack(false);
+    });
+    shotToggle.addEventListener('focus', function () { if (!latched) showBack(true); });
+    shotToggle.addEventListener('blur', function () { if (!latched) showBack(false); });
+  }
 
   var reveals = document.querySelectorAll('[data-reveal]');
   if ('IntersectionObserver' in window) {
