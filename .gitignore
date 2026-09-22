@@ -6,3 +6,6 @@ __pycache__/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# impeccable writes its per-repo hook state here
+.impeccable/
