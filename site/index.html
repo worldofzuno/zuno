@@ -67,9 +67,16 @@
 }
 
 :root {
+  /* The page is dark by design, so tell the browser: scrollbars, select
+     popups, spellcheck underlines and autofill all follow it. Without
+     this, autofill paints its pale yellow over the checkout fields. */
+  color-scheme: dark;
   --black: #000000;
   --gold: #f8d99b;
   --gold-dim: #c9ae7c;
+  /* Ink on gold surfaces. Not --black: a hair of the gold's warmth is
+     mixed in so the button face reads as one material. */
+  --on-gold: #16150e;
   --green: #1e3932;
   --beige: #ede4d3;
 
@@ -118,7 +125,10 @@ body {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  /* No overflow-x:hidden. It was clipping content rather than fixing
+     anything: measured across 7 pages at 320, 390, 768 and 1440 there
+     is nothing to clip, and at extreme text scale a scrollbar leaves
+     the content reachable where hidden would silently lose it. */
 }
 
 /* The cell field sits between the gradient and the content.
@@ -195,7 +205,7 @@ button, input, textarea, select { font-family: inherit; }
 .nav__inner { height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .nav__mark { display: flex; align-items: center; text-decoration: none; }
 .nav__mark img { height: 21px; width: auto; display: block; }
-.nav__links { display: flex; gap: 40px; list-style: none; margin: 0; padding: 0; }
+.nav__links ul { display: flex; gap: 40px; list-style: none; margin: 0; padding: 0; }
 .nav__links a {
   font-size: 0.88rem; font-weight: 500; color: rgba(234, 228, 214, 0.9);
   text-decoration: none; transition: color var(--control) var(--ease-premium);
@@ -228,13 +238,20 @@ button, input, textarea, select { font-family: inherit; }
 .burger { display: none; }
 @media (max-width: 820px) { .nav__links { display: none; } .burger { display: flex; } }
 
+/* Collapses on grid-template-rows rather than height: the row goes 0fr to
+   1fr on the compositor, so opening the menu no longer reflows the page
+   below it on every frame — and nothing has to measure scrollHeight. */
 .menu {
-  overflow: hidden; height: 0; opacity: 0;
+  display: grid; grid-template-rows: 0fr; opacity: 0;
   background: rgba(0, 0, 0, 0.96);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition: height var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium);
+  transition: grid-template-rows var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium);
 }
-.menu.is-open { opacity: 1; }
+.menu.is-open { grid-template-rows: 1fr; opacity: 1; }
+/* The clipping has to sit on the direct grid child — that is .rail here,
+   not the ul. A grid item keeps min-height:auto and refuses to shrink
+   below its content, which leaves the 0fr track at full height. */
+.menu > * { overflow: hidden; min-height: 0; }
 .menu ul { list-style: none; margin: 0; padding: 12px 0 20px; display: flex; flex-direction: column; }
 .menu a {
   display: flex; align-items: center; min-height: 46px; font-size: 1rem;
@@ -255,7 +272,7 @@ button, input, textarea, select { font-family: inherit; }
     color var(--press) var(--ease-premium);
 }
 .btn:active { transform: scale(0.97); }
-.btn--primary { background: var(--gold); color: #16150e; }
+.btn--primary { background: var(--gold); color: var(--on-gold); }
 .btn--outline { border-color: rgba(248, 217, 155, 0.4); color: var(--gold); background: transparent; }
 @media (hover: hover) and (pointer: fine) {
   .btn--primary:hover { background: var(--gold-dim); }
@@ -273,7 +290,7 @@ button, input, textarea, select { font-family: inherit; }
     color var(--press) var(--ease-premium);
 }
 .option:active { transform: scale(0.97); }
-.option[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #16150e; }
+.option[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--on-gold); }
 @media (hover: hover) and (pointer: fine) {
   .option:not([aria-pressed="true"]):hover { border-color: rgba(248, 217, 155, 0.5); }
 }
@@ -302,7 +319,15 @@ section { position: relative; background: transparent; }
   min-height: 92svh;
   display: flex; align-items: center; text-align: center;
 }
-.hero h1 { font-size: clamp(2.5rem, 6vw + 0.5rem, 5rem); line-height: 1.08; max-width: 16ch; margin: 0 auto; }
+/* The clamp's floor is in rem, so at 200% text scale it doubled to 80px and
+   "STARTING" no longer fitted a 350px column — the overflow was swallowed by
+   overflow-x:hidden, losing the headline. min() caps it against the viewport
+   instead. At every normal size the cap is slack and the size is unchanged;
+   it only bites once the reader scales text up on a narrow screen. */
+.hero h1 {
+  font-size: min(clamp(2.5rem, 6vw + 0.5rem, 5rem), 12.5vw);
+  line-height: 1.08; max-width: 16ch; margin: 0 auto;
+}
 .hero h1 em { font-style: normal; color: var(--gold); }
 .hero__sub { margin: 26px auto 0; max-width: 46ch; color: var(--ink-dim); }
 .hero__cta { margin-top: 38px; }
@@ -431,9 +456,10 @@ html:not(.js) .page:target { display: block; }
 .steps li.active { color: var(--gold); }
 .steps li.done { color: var(--ink-dim); }
 
-.line { overflow: hidden; transition: height var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium); }
-.line.is-going { height: 0 !important; opacity: 0; }
-.line__in { display: flex; align-items: center; gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+/* Same reason as .menu: removing a row must not reflow the rows beneath it. */
+.line { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium); }
+.line.is-going { grid-template-rows: 0fr; opacity: 0; }
+.line__in { overflow: hidden; min-height: 0; display: flex; align-items: center; gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .line__info { flex: 1; min-width: 180px; }
 .line__name { margin: 0; font-size: 0.95rem; color: var(--ink); }
 .line__meta { margin: 4px 0 0; font-size: 0.8rem; color: var(--ink-faint); }
@@ -547,7 +573,7 @@ html:not(.js) .page:target { display: block; }
   position: absolute;
   left: 16px; top: -80px;
   z-index: 200;
-  background: var(--gold); color: #16150e;
+  background: var(--gold); color: var(--on-gold);
   padding: 12px 22px; border-radius: 999px;
   font-size: 0.88rem; font-weight: 500; text-decoration: none;
   transition: top var(--control) var(--ease-premium);
@@ -598,11 +624,13 @@ html:not(.js) .page:target { display: block; }
   <div class="rail nav__inner">
     <a href="#top" class="nav__mark" data-home aria-label="ZUNO"><img width="620" height="95" decoding="async" fetchpriority="high" src="img/zuno-wordmark.png" alt="ZUNO"></a>
 
-    <ul class="nav__links">
-      <li><a href="#product" data-home>Shop</a></li>
-      <li><a href="#about" data-home>About Us</a></li>
-      <li><a href="#join" data-home>Contact</a></li>
-    </ul>
+    <nav class="nav__links" aria-label="Primary">
+      <ul>
+        <li><a href="#product" data-home>Shop</a></li>
+        <li><a href="#about" data-home>About Us</a></li>
+        <li><a href="#join" data-home>Contact</a></li>
+      </ul>
+    </nav>
 
     <div class="nav__right">
       <button class="icon-btn" id="accountBtn" aria-label="Account">
@@ -1146,13 +1174,10 @@ html:not(.js) .page:target { display: block; }
     reveals.forEach(function (el) { el.classList.add('is-in'); });
   }
 
-  function openCollapse(el) { el.classList.add('is-open'); el.style.height = el.scrollHeight + 'px'; }
-  function closeCollapse(el) {
-    el.style.height = el.scrollHeight + 'px';
-    void el.offsetHeight;
-    el.classList.remove('is-open');
-    el.style.height = '0px';
-  }
+  /* The collapse is pure CSS now (grid-template-rows), so these only toggle
+     the class — no scrollHeight read, no forced reflow, no resize handler. */
+  function openCollapse(el) { el.classList.add('is-open'); }
+  function closeCollapse(el) { el.classList.remove('is-open'); }
 
   var burger = document.getElementById('burger');
   var menu = document.getElementById('menu');
@@ -1171,7 +1196,6 @@ html:not(.js) .page:target { display: block; }
   }
   burger.addEventListener('click', function () { setMenu(!menuOpen); });
   menu.addEventListener('click', function (e) { if (e.target.closest('a')) setMenu(false); });
-  window.addEventListener('resize', function () { if (menuOpen) menu.style.height = menu.scrollHeight + 'px'; });
 
   /* While the menu is open, Tab cycles between the burger and the menu links
      rather than escaping into the page behind it. Escape closes and returns
@@ -1317,8 +1341,6 @@ html:not(.js) .page:target { display: block; }
   function collapseRow(idx) {
     var row = linesEl.querySelector('.line[data-idx="' + idx + '"]');
     if (!row) return;
-    row.style.height = row.scrollHeight + 'px';
-    void row.offsetHeight;
     row.classList.add('is-going');
     window.setTimeout(function () {
       cart.splice(idx, 1);
