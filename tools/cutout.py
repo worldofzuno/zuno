@@ -25,10 +25,13 @@ and not:
    top fold are brighter than the modelled backdrop, so a plain luminance
    threshold punches holes straight through the bag.
 
-3. Contour colour is the nearest core pixel extended outward, NOT the
-   un-mixing formula F = (I - (1-a)B) / a. That formula is correct in theory
-   and unusable in practice: at small alpha it divides by almost nothing and
-   throws bright pixels into the edge, which reads as a halo.
+3. Contour colour is the nearest unambiguously-dark subject pixel extended
+   outward, NOT the un-mixing formula F = (I - (1-a)B) / a. That formula is
+   correct in theory and unusable in practice: at small alpha it divides by
+   almost nothing and throws bright pixels into the edge, which reads as a
+   halo. Note that "may donate colour outward" and "keeps its own colour" are
+   deliberately different masks — see cut_out(). Merging them erases the gold
+   foil on the label.
 """
 
 import argparse
@@ -47,7 +50,7 @@ ALPHA_LO, ALPHA_HI = 15.0, 110.0
 # shadow and let a stronger shadow into the silhouette, where it survived the
 # erosion and then supplied its bright colour to the whole contour.
 SILHOUETTE_FRAC = 0.45
-CORE_FRAC = 0.60           # colour may only be sampled from clearly-subject pixels
+CORE_FRAC = 0.60           # only this dark may DONATE colour outward; see cut_out()
 SHADOW_CAP = 0.45          # nothing outside the bag may become near-solid
 SPECK_MIN_PX = 2000        # smaller disconnected blobs are dirt, not shadow
 SHADOW_RGB = (1.0, 1.0, 1.2)
@@ -114,22 +117,25 @@ def cut_out(path):
     a = ndimage.gaussian_filter(a, 0.6)
     a[inner] = 1.0
 
-    # Colour may only be carried outward from pixels that are unambiguously
-    # subject. Erosion alone is not enough: a shadow that crept into the
-    # silhouette can survive it and then paint the whole contour its own
-    # backdrop-bright colour.
-    core = ndimage.binary_erosion(sil, np.ones((9, 9))) & (d > CORE_FRAC * subject_d)
-    core = largest_component(core)
-    idx = ndimage.distance_transform_edt(~core, return_distances=False, return_indices=True)
-    rgb = np.where(core[..., None], I, I[idx[0], idx[1]])
+    # Two different questions, which must not share one mask:
+    #   who keeps their own colour  -> everything inside the silhouette, so
+    #     gold foil and specular highlights survive intact;
+    #   who may donate colour outward -> only unambiguously dark subject, so a
+    #     shadow that crept into the silhouette cannot paint the contour with
+    #     its backdrop-bright colour.
+    # Collapsing these into one mask erases every bright detail on the label.
+    keep = ndimage.binary_erosion(sil, np.ones((9, 9)))
+    donor = largest_component(keep & (d > CORE_FRAC * subject_d))
+    idx = ndimage.distance_transform_edt(~donor, return_distances=False, return_indices=True)
+    rgb = np.where(keep[..., None], I, I[idx[0], idx[1]])
     rgb[outside & (a > 0)] = np.array(SHADOW_RGB, np.float32)
 
     bg_p99 = float(np.percentile(
         d[~ndimage.binary_dilation(sil, np.ones((31, 31)))], 99))
-    # A halo is contour colour brighter than anything the core could have
+    # A halo is contour colour brighter than anything a donor could have
     # supplied, which is the signature of backdrop leaking into the edge.
-    ceiling = float(np.percentile(I[core].mean(1), 99)) + 20
-    edge = (a > 0.05) & (a < 0.95)
+    ceiling = float(np.percentile(I[donor].mean(1), 99)) + 20
+    edge = (a > 0.05) & (a < 0.95) & ~keep
     halo = int((edge & (rgb.mean(2) > ceiling)).sum())
     print(f"  subject darkness {subject_d:.1f} (silhouette at {sil_thresh:.0f})"
           f"  |  background residual p99 {bg_p99:.1f}"
