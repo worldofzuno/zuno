@@ -6,3 +6,6 @@ __pycache__/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# claude-flow runtime state (policy receipts, per-session audit log)
+.claude-flow/

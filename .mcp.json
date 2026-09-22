@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "claude-flow": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "ruflo@3.38.12",
+        "mcp",
+        "start"
+      ],
+      "env": {}
+    }
+  }
+}
