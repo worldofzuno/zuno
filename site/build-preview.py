@@ -47,13 +47,13 @@ for tag in re.findall(r'<link rel="(?:icon|apple-touch-icon)"[^>]*href="([^"]+)"
     if not tag.startswith("data:"):
         html = html.replace(f'href="{tag}"', f'href="{data_uri(tag)}"')
 
-# 4. The Vanta libraries. The loader in index.html checks for window.VANTA
-#    first, so inlining them ahead of it is all that is needed.
+# 4. The cells shader. The loader in index.html checks for window.VANTA
+#    first, so inlining it ahead of it is all that is needed.
 libs = "\n".join(
     f"<script>{(HERE / 'js' / name).read_text()}</script>"
-    for name in ("three.r134.min.js", "vanta.cells.0.5.24.min.js")
+    for name in ("cells.js",)
 )
-marker = "<script>\n/* ---------------- Vanta CELLS background ----------------"
+marker = "<script>\n/* ---------------- CELLS background ----------------"
 if marker not in html:
     sys.exit("could not find the Vanta loader block to inline ahead of")
 html = html.replace(marker, libs + "\n" + marker, 1)

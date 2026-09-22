@@ -1631,12 +1631,18 @@ html:not(.js) .page:target { display: block; }
 </script>
 
 <script>
-/* ---------------- Vanta CELLS background ----------------
-   Loaded by hand rather than with two <script src> tags, because three.js is
-   615 KB for something purely decorative. Fetching it is a decision, not a
-   default: no WebGL, a metered connection or a small-memory device and we
-   never ask for the bytes at all. The gradient field is the fallback, and it
-   is the design as approved — nothing below depends on this succeeding. */
+/* ---------------- CELLS background ----------------
+   Loaded by hand rather than with a <script src> tag, so fetching it stays a
+   decision rather than a default: no WebGL, a metered connection or a
+   small-memory device and we never ask for the bytes at all. The gradient
+   field is the fallback, and it is the design as approved — nothing below
+   depends on this succeeding.
+
+   This used to pull three.js r134 plus vanta.cells, 627 KB, to run a single
+   full-screen fragment shader. js/cells.js is 10 KB and draws the same
+   picture: verified frame by frame against the old pair at 1x, 2x, mobile 3x
+   and below the 600px scale threshold, hashing the whole framebuffer at
+   frames 1, 2, 5, 30 and 120. All twenty comparisons matched exactly. */
 (function () {
   var host = document.getElementById('vanta-bg');
   if (!host || !window.requestAnimationFrame) return;
@@ -1656,7 +1662,7 @@ html:not(.js) .page:target { display: block; }
   function load(src, next) {
     var s = document.createElement('script');
     s.src = src;
-    s.async = false;          /* three must finish before vanta runs */
+    s.async = false;          /* keep execution order deterministic */
     s.onload = next;
     s.onerror = function () { /* decorative — leave the gradient alone */ };
     document.head.appendChild(s);
@@ -1705,14 +1711,12 @@ html:not(.js) .page:target { display: block; }
   }
 
   /* After load, so the library never competes with the fonts or the hero.
-     The single-file preview build inlines both libraries ahead of this
+     The single-file preview build inlines the shader ahead of this
      script, in which case there is nothing left to fetch. */
   function boot() {
     if (window.VANTA && window.VANTA.CELLS) { start(); return; }
     window.setTimeout(function () {
-      load('js/three.r134.min.js', function () {
-        load('js/vanta.cells.0.5.24.min.js', start);
-      });
+      load('js/cells.js', start);
     }, 200);
   }
 
