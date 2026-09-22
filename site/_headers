@@ -2,7 +2,7 @@
 # Regenerate after any change to the inline <script> or <style> in index.html.
 
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self'; font-src 'self'; style-src 'self' 'sha256-zj/Y9jnotwJtuIPkgL5rKkjKWZwl/FipDCM0rmFabvM='; script-src 'self' 'sha256-/x7W7R75k8Roq0WaVRQX9blP4OufE5xbAdzklGxsgpw=' 'sha256-KOkCT4TyQ2+71UarkN/QPPd6y1kv4D6CA2+5+Eq6OIQ=' 'sha256-N3CmZTp7Uip/GXuVLqlvAl9A+cvtmRlcViIlZyYSfDQ='; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self'; font-src 'self'; style-src 'self' 'sha256-n5ABInVCQI70kpfEs+kQD302cLM0VvAXi1K5xiE2ut8='; script-src 'self' 'sha256-/x7W7R75k8Roq0WaVRQX9blP4OufE5xbAdzklGxsgpw=' 'sha256-ADHVahDynM+yYLgX5z4KPH5uJaI2utCcdKRqsj4egmU=' 'sha256-N3CmZTp7Uip/GXuVLqlvAl9A+cvtmRlcViIlZyYSfDQ='; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin

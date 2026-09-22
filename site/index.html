@@ -223,6 +223,15 @@ button, input, textarea, select { font-family: inherit; }
 
 @media (hover: hover) and (pointer: fine) {
   .nav__links a:hover, .icon-btn:hover, .menu a:hover { color: var(--gold); }
+  /* Feedback only, so it stays under the press tier at 140ms. Both already
+     transition transform for their :active state, so this costs nothing new.
+     .belief is left out — it shares a border with its sibling and lifting one
+     tears the pair apart; .shot is left out because its contact shadow is
+     baked into the image and would stay on the ground. */
+  .btn:hover { transform: translateY(-2px); }
+  .option:hover { transform: translateY(-1px); }
+  .portrait { transition: transform var(--panel) var(--ease-premium); }
+  .portrait:hover { transform: translateY(-4px); }
 }
 
 .badge {
@@ -332,8 +341,10 @@ section { position: relative; background: transparent; }
 .hero__sub { margin: 26px auto 0; max-width: 46ch; color: var(--ink-dim); }
 .hero__cta { margin-top: 38px; }
 
+/* 28px, not 18. Below roughly 24px the eye registers the fade but not the
+   travel, which is why the page read as static despite animating. */
 .js .stagger > * {
-  opacity: 0; transform: translateY(18px);
+  opacity: 0; transform: translateY(28px);
   transition: opacity 600ms var(--ease-premium), transform 600ms var(--ease-premium);
 }
 .js .stagger.is-in > * { opacity: 1; transform: translateY(0); }
@@ -341,7 +352,7 @@ section { position: relative; background: transparent; }
 .js .stagger.is-in > :nth-child(3) { transition-delay: 140ms; }
 
 .js [data-reveal] {
-  opacity: 0; transform: translateY(16px);
+  opacity: 0; transform: translateY(28px);
   transition: opacity 500ms var(--ease-premium), transform 500ms var(--ease-premium);
 }
 .js [data-reveal].is-in { opacity: 1; transform: translateY(0); }
@@ -445,8 +456,23 @@ footer { border-top: 1px solid var(--line); padding: 64px 0 40px; }
 @media (hover: hover) and (pointer: fine) { .foot__bottom a:hover { color: var(--gold); } }
 
 /* ---------------- Sub-pages ---------------- */
-.page { display: none; padding: 150px 0 110px; min-height: 60vh; min-height: 60svh; }
-.page.is-open { display: block; }
+/* Cart, account and the legal pages used to teleport in. A display:none box
+   cannot be transitioned, so the switch rides on allow-discrete: display
+   flips at the far end of the timeline while opacity and transform run, and
+   @starting-style gives the arriving page something to come from. Browsers
+   without it fall back to the instant swap this had before. */
+.page {
+  display: none; padding: 150px 0 110px; min-height: 60vh; min-height: 60svh;
+  opacity: 0; transform: translateY(10px);
+  transition:
+    opacity var(--control) var(--ease-premium),
+    transform var(--control) var(--ease-premium),
+    display var(--control) var(--ease-premium) allow-discrete;
+}
+.page.is-open { display: block; opacity: 1; transform: translateY(0); }
+@starting-style {
+  .page.is-open { opacity: 0; transform: translateY(10px); }
+}
 html:not(.js) .page:target { display: block; }
 .step-title { font-size: 1.3rem; margin-top: 44px; }
 
@@ -609,6 +635,13 @@ html:not(.js) .page:target { display: block; }
   html { scroll-behavior: auto; }
   .js .stagger > *, .js [data-reveal] { transform: none !important; }
   .js .stagger.is-in > :nth-child(n) { transition-delay: 0ms !important; }
+  /* The sibling offset is set inline by the observer, so it needs the same
+     override as the nth-child delays above. */
+  .js [data-reveal] { transition-delay: 0ms !important; }
+  /* The new hover lifts and the page slide go; their fades stay, because
+     reduced motion means less movement, not less feedback. */
+  .btn:hover, .option:hover, .portrait:hover { transform: none !important; }
+  .page, .page.is-open { transform: none !important; }
   .badge { transform: none !important; transition: opacity var(--control) linear; }
   .btn:active, .option:active, .remove:active, .qty button:active { transform: none; }
 }
@@ -1166,8 +1199,24 @@ html:not(.js) .page:target { display: block; }
 
   var reveals = document.querySelectorAll('[data-reveal]');
   if ('IntersectionObserver' in window) {
+    /* Reveals that share a parent used to land at the same instant — the
+       product shot with its copy, the two beliefs, the portrait with its
+       text. Offsetting each by its position makes the pair read as a
+       sequence instead of a single jump. */
     var io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var el = e.target, i = 0;
+        if (el.parentElement) {
+          var sibs = [].slice.call(el.parentElement.children).filter(function (c) {
+            return c.hasAttribute('data-reveal');
+          });
+          i = sibs.indexOf(el);
+        }
+        if (i > 0) el.style.transitionDelay = (i * 80) + 'ms';
+        el.classList.add('is-in');
+        io.unobserve(el);
+      });
     }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
     reveals.forEach(function (el) { io.observe(el); });
   } else {
