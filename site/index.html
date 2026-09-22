@@ -32,19 +32,20 @@
 <link rel="manifest" href="site.webmanifest">
 
 <link rel="preload" href="fonts/felix-titling.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
 
 <style>
-/* One file, not three. inter-400/500/600.woff2 were byte-identical — the same
-   variable font shipped three times, 84 KB of pure duplication on every load.
-   Declared as a weight range so the axis is addressed properly instead of the
-   browser inferring it from three single-weight descriptors. */
+/* Archivo, not Inter: a grotesque with sign-painting lineage that stands up to
+   the very fine, high-contrast Felix Titling instead of standing politely next
+   to it. Its wider figures also carry the price and the cart total.
+   One variable file, declared as a weight range so the axis is addressed
+   properly rather than inferred from single-weight descriptors. */
 @font-face {
-  font-family: 'Inter';
+  font-family: 'Archivo';
   font-style: normal;
   font-weight: 400 600;
   font-display: swap;
-  src: url('fonts/inter-var.woff2') format('woff2');
+  src: url('fonts/archivo-var.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
@@ -109,7 +110,7 @@ body {
   background-size: 100% 100svh, 100% 140svh, 100% 140svh, 100% 140svh;
   background-position: top center;
   color: var(--ink);
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   /* No overflow-x:hidden. It was clipping content rather than fixing
