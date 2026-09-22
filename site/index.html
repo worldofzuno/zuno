@@ -338,6 +338,10 @@ section { position: relative; background: transparent; }
   line-height: 1.08; max-width: 16ch; margin: 0 auto;
 }
 .hero h1 em { font-style: normal; color: var(--gold); }
+/* One <span class="h-line"> per written line, replacing the old <br>. The clip
+   would shave the descender off "Starting", so the box is grown and pulled
+   back by the same amount — the line spacing is unchanged. */
+.hero h1 .h-line { display: block; overflow: hidden; padding-bottom: 0.09em; margin-bottom: -0.09em; }
 .hero__sub { margin: 26px auto 0; max-width: 46ch; color: var(--ink-dim); }
 .hero__cta { margin-top: 38px; }
 
@@ -348,8 +352,33 @@ section { position: relative; background: transparent; }
   transition: opacity 600ms var(--ease-premium), transform 600ms var(--ease-premium);
 }
 .js .stagger.is-in > * { opacity: 1; transform: translateY(0); }
-.js .stagger.is-in > :nth-child(2) { transition-delay: 70ms; }
-.js .stagger.is-in > :nth-child(3) { transition-delay: 140ms; }
+.js .stagger.is-in > :nth-child(2) { transition-delay: 300ms; }
+.js .stagger.is-in > :nth-child(3) { transition-delay: 400ms; }
+
+/* ---------------- Hero entrance ----------------
+   One cascade on first paint: wordmark, nav, then the headline line by line,
+   then the sub and the button. The headline moves its own lines out of the
+   clip, so the h1 itself only fades — otherwise the two travels would fight. */
+.js .hero h1 { transform: none; }
+.js .hero h1 .h-line > span {
+  display: block; transform: translateY(105%);
+  transition: transform 850ms var(--ease-premium);
+}
+.js .stagger.is-in h1 .h-line > span { transform: translateY(0); }
+.js .stagger.is-in h1 .h-line:nth-child(2) > span { transition-delay: 90ms; }
+
+/* The bar comes down from its own edge rather than up from the page. */
+.js .nav__mark, .js .nav__links li, .js .nav__right > * {
+  opacity: 0; transform: translateY(-10px);
+  transition: opacity 500ms var(--ease-premium), transform 500ms var(--ease-premium);
+}
+.js.is-entered .nav__mark,
+.js.is-entered .nav__links li,
+.js.is-entered .nav__right > * { opacity: 1; transform: translateY(0); }
+.js.is-entered .nav__links li:nth-child(1) { transition-delay: 120ms; }
+.js.is-entered .nav__links li:nth-child(2) { transition-delay: 170ms; }
+.js.is-entered .nav__links li:nth-child(3) { transition-delay: 220ms; }
+.js.is-entered .nav__right > * { transition-delay: 260ms; }
 
 .js [data-reveal] {
   opacity: 0; transform: translateY(28px);
@@ -641,6 +670,12 @@ html:not(.js) .page:target { display: block; }
   /* The new hover lifts and the page slide go; their fades stay, because
      reduced motion means less movement, not less feedback. */
   .btn:hover, .option:hover, .portrait:hover { transform: none !important; }
+  /* The entrance still happens — it just arrives instead of travelling, and
+     without the cascade, so nothing is staged behind a delay. */
+  .js .hero h1 .h-line > span,
+  .js .nav__mark, .js .nav__links li, .js .nav__right > * { transform: none !important; }
+  .js.is-entered .nav__links li, .js.is-entered .nav__right > *,
+  .js .stagger.is-in h1 .h-line:nth-child(n) > span { transition-delay: 0ms !important; }
   .page, .page.is-open { transform: none !important; }
   .badge { transform: none !important; transition: opacity var(--control) linear; }
   .btn:active, .option:active, .remove:active, .qty button:active { transform: none; }
@@ -706,7 +741,7 @@ html:not(.js) .page:target { display: block; }
 <section class="hero">
   <div class="rail">
     <div class="stagger" id="heroStagger">
-      <h1>Starting with Coffee<br><em>Not Stopping There</em></h1>
+      <h1><span class="h-line"><span>Starting with Coffee</span></span><span class="h-line"><span><em>Not Stopping There</em></span></span></h1>
       <p class="hero__sub">A modern Swiss lifestyle brand, built on quality, origin, design and community. Today it&rsquo;s coffee. Tomorrow, who knows.</p>
       <div class="hero__cta"><a class="btn btn--primary" href="#product">Shop</a></div>
     </div>
@@ -1193,9 +1228,27 @@ html:not(.js) .page:target { display: block; }
   document.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () { document.getElementById('heroStagger').classList.add('is-in'); });
-  });
+  /* The entrance waits for the webfonts, so a swap cannot land in the middle
+     of a slide — but never longer than 700ms: a slow font must not hold the
+     headline hostage. The two frames are what lets the start styles commit,
+     otherwise the class flip has nothing to transition from. */
+  var entered = false;
+  function enter() {
+    if (entered) return;
+    entered = true;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        document.documentElement.classList.add('is-entered');
+        document.getElementById('heroStagger').classList.add('is-in');
+      });
+    });
+  }
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(enter, enter);
+    window.setTimeout(enter, 700);
+  } else {
+    enter();
+  }
 
   var reveals = document.querySelectorAll('[data-reveal]');
   if ('IntersectionObserver' in window) {
@@ -1306,6 +1359,29 @@ html:not(.js) .page:target { display: block; }
   function sub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
   function ship(s) { return (s >= 45 || s === 0) ? 0 : 4.90; }
 
+  /* A number is only worth tweening when it actually moved. The product price
+     is never animated — a price mid-tween is a wrong price — but the cart
+     total travels from a real previous value to a real new one, and the tween
+     is what makes that difference legible. It always lands on the exact
+     figure, and the first paint of a stored cart does not animate. */
+  var lastTotal = null, totalRaf = 0;
+  function countTotal(el, to) {
+    var from = lastTotal;
+    lastTotal = to;
+    if (from === null || from === to || reduce.matches) { el.textContent = chf(to); return; }
+    var t0 = 0, span = to - from, dur = 420;
+    el.textContent = chf(from);
+    cancelAnimationFrame(totalRaf);
+    totalRaf = requestAnimationFrame(function step(ts) {
+      if (!t0) t0 = ts;
+      var k = Math.min((ts - t0) / dur, 1);
+      /* ease-out: decisive at the start, settles at the end. Never ease-in. */
+      el.textContent = chf(from + span * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) totalRaf = requestAnimationFrame(step);
+      else el.textContent = chf(to);
+    });
+  }
+
   function paintBadge() {
     var n = qty();
     badge.textContent = String(n);
@@ -1331,6 +1407,9 @@ html:not(.js) .page:target { display: block; }
       '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
       (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '') +
       '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
+
+    var totalEl = summaryEl.querySelector('.row.total span:last-child');
+    if (totalEl) countTotal(totalEl, s + sh);
   }
 
   /* Filled and empty crossfade so removing the last line is one movement. */
