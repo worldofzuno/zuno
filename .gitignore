@@ -9,3 +9,7 @@ next-env.d.ts
 
 # impeccable writes its per-repo hook state here
 .impeccable/
+
+# Scratch comparison builds. site/ is the published folder — anything left
+# here is served from the live domain, so these must never be committed.
+site/_cmp.html
