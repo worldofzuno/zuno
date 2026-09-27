@@ -17,3 +17,7 @@ site/_cmp.html
 # Generated label textures for the 3D viewer. The generator is the source;
 # the build inlines them into viewer/castano-3d.html.
 viewer/assets/
+
+# Rendered output. tools/render-bag.py regenerates it; the HDRI it needs is
+# committed under render/env/.
+render/*.png
