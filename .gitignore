@@ -13,3 +13,7 @@ next-env.d.ts
 # Scratch comparison builds. site/ is the published folder — anything left
 # here is served from the live domain, so these must never be committed.
 site/_cmp.html
+
+# Generated label textures for the 3D viewer. The generator is the source;
+# the build inlines them into viewer/castano-3d.html.
+viewer/assets/

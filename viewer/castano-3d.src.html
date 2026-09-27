@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ZUNO Castano — 3D</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    color: rgba(234, 228, 214, 0.62);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The viewer fills whatever box it is dropped into. Give the host element a
+     height; everything inside is absolute. */
+  #zuno3d {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 320px;
+    background: #000;
+    overflow: hidden;
+    touch-action: none;          /* we handle pan and pinch ourselves */
+  }
+  #zuno3d canvas { display: block; width: 100%; height: 100%; }
+
+  .z3-state {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    text-align: center; padding: 24px;
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    transition: opacity 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .z3-state[hidden] { display: none; }
+  .z3-state.is-gone { opacity: 0; pointer-events: none; }
+
+  .z3-spin {
+    width: 26px; height: 26px; margin: 0 auto 14px;
+    border: 1px solid rgba(234, 228, 214, 0.22);
+    border-top-color: #e6c98a;
+    border-radius: 50%;
+    animation: z3turn 900ms linear infinite;
+  }
+  @keyframes z3turn { to { transform: rotate(360deg); } }
+
+  .z3-hint {
+    position: absolute; left: 0; right: 0; bottom: 14px;
+    text-align: center; pointer-events: none;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: rgba(234, 228, 214, 0.42);
+    transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .z3-hint.is-gone { opacity: 0; }
+  .z3-hint--touch { display: none; }
+  @media (hover: none) {
+    .z3-hint--pointer { display: none; }
+    .z3-hint--touch { display: inline; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .z3-spin { animation-duration: 2400ms; }
+  }
+</style>
+</head>
+<body>
+
+<div id="zuno3d">
+  <div class="z3-state" id="z3loading"><div><div class="z3-spin"></div>Loading</div></div>
+  <div class="z3-state" id="z3failed" hidden><div>3D is not available on this device.</div></div>
+  <p class="z3-hint" id="z3hint">
+    <span class="z3-hint--pointer">Drag to rotate · scroll to zoom</span>
+    <span class="z3-hint--touch">Drag to rotate · pinch to zoom</span>
+  </p>
+</div>
+
+<script>
+/* =========================================================================
+   ZUNO Castano — 500 g stand-up flat-bottom pouch
+
+   Everything below is one file. three.js is the only outside dependency; it
+   is fetched from a CDN with an SRI hash, and only once the viewer scrolls
+   into view, so a page that embeds this does not pay 670 KB for a widget
+   nobody looked at.
+
+   The bag is built from measurements rather than scanned, and the labels are
+   drawn as flat artwork rather than projected photographs. A photograph
+   carries its studio lighting and its perspective with it; projected onto a
+   mesh it arrives already lit, and then gets lit again by the scene.
+   ========================================================================= */
+
+/* ---- the numbers. real millimetres; change these and nothing else. ------ */
+const MM = 0.001;                  // scene works in metres
+const BAG = {
+  width:        135 * MM,   // front panel, side crease to side crease
+  height:       245 * MM,   // standing base to the top of the seal
+  depth:         90 * MM,   // front-to-back footprint when stood up
+  bottomFold:    45 * MM,   // the box-bottom panel
+  topSeal:       40 * MM,   // flat fin above the zipper
+
+  bellyBulge:   0.038,      // how much a filled bag swells past its panels
+  topCornerDip:   6 * MM,   // rounding where the seal is pressed flat
+  topFoldLean:    4 * MM,   // the sealed top leans forward; more than this hooks like a bottle
+  creaseSharp:   0.88,     // higher = flatter panel with the curvature gathered at the creases      // 0 = oval cross-section, 1 = hard side creases
+  wrinkle:      0.9 * MM,   // amplitude of the surface irregularity
+};
+
+/* Label placement, as a fraction of the panel. Estimated off the photographs
+   rather than measured off the print, so these are the two constants most
+   worth correcting if you have the artwork spec. */
+const LABEL = {
+  frontWidth:    76 * MM,  // measured across the surface, not as an angle
+  frontHeight:   82 * MM,
+  frontCentreV:  0.42,     // height of the label centre, 0 = base, 1 = top
+  backWidth:     82 * MM,
+  backHeight:    99 * MM,
+  backCentreV:   0.40,
+  zipWidth:     124 * MM,
+  zipHeight:     16 * MM,
+  zipCentreV:    0.822,    // sits directly under the seal line
+  lift:        0.35 * MM,  // how far a decal floats off the body
+};
+
+const MATERIAL = {
+  bagColour:   0x0d0d0d,   // matte black film, dark but not a hole in the page
+  bagRough:    0.86,
+  microNormal: 0.055,      // film grain, not leather: this wants to be barely there
+  grainRepeat: 7,          // how many times the grain tiles across the bag
+  envIntensity: 1.25,
+  exposure:    1.12,
+};
+
+const CAM = { fov: 32, dist: 0.62, minDist: 0.34, maxDist: 1.15 };
+
+const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js';
+/* sha384 of the 0.160.0 build/three.min.js as published on npm. See the note
+   in the README: this hash was computed from the npm tarball because the CDN
+   is not reachable from where it was built. Verify once before going live:
+   curl -s <THREE_URL> | openssl dgst -sha384 -binary | openssl base64 -A   */
+const THREE_SRI = 'sha384-qOkzR5Ke/XkQxuGVJ9hpFEpDlcoLtWwVYhnJf06cLIZa2vaIptSqaubivErzmD5O';
+
+const TEX = {
+  front:    '__LABEL_FRONT__',
+  frontOrm: '__LABEL_FRONT_ORM__',
+  back:     '__LABEL_BACK__',
+  backOrm:  '__LABEL_BACK_ORM__',
+  zip:      '__ZIPPER__',
+  zipOrm:   '__ZIPPER_ORM__',
+};
+
+(function () {
+  'use strict';
+
+  const host = document.getElementById('zuno3d');
+  const loading = document.getElementById('z3loading');
+  const failed = document.getElementById('z3failed');
+  const hint = document.getElementById('z3hint');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  let started = false;
+
+  function fail() {
+    loading.hidden = true;
+    hint.hidden = true;
+    failed.hidden = false;
+  }
+
+  /* WebGL is probed before the library is fetched: a device without it would
+     otherwise download 670 KB only for three.js to throw on the first line. */
+  function hasWebGL() {
+    try {
+      const c = document.createElement('canvas');
+      return !!(window.WebGLRenderingContext &&
+        (c.getContext('webgl') || c.getContext('experimental-webgl')));
+    } catch (e) { return false; }
+  }
+
+  function boot() {
+    if (started) return;
+    started = true;
+    if (!hasWebGL()) { fail(); return; }
+    const s = document.createElement('script');
+    s.src = THREE_URL;
+    s.integrity = THREE_SRI;
+    s.crossOrigin = 'anonymous';
+    s.referrerPolicy = 'no-referrer';
+    s.onload = function () { try { build(); } catch (e) { console.error(e); fail(); } };
+    s.onerror = fail;     // also fires when the integrity check rejects the file
+    document.head.appendChild(s);
+  }
+
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(function (es) {
+      if (es.some(e => e.isIntersecting)) { io.disconnect(); boot(); }
+    }, { rootMargin: '200px' });
+    io.observe(host);
+  } else {
+    boot();
+  }
+
+  /* =====================================================================
+     Geometry
+
+     The pouch is a loft. Each horizontal slice is a closed curve; the curve
+     morphs from a rounded rectangle at the standing base into a lens pinched
+     at the two side creases, and finally collapses to a flat fin at the seal.
+     One function gives the surface point for any (u around, v up), which is
+     also what lets the labels be cut from the same surface instead of being
+     flat planes that would sink into a curved panel.
+     ===================================================================== */
+
+  function smoothstep(a, b, x) {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  }
+  function mix(a, b, t) { return a + (b - a) * t; }
+
+  /* cheap value noise, enough for film grain and soft creases */
+  function hash(x, y) {
+    let h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+    return h - Math.floor(h);
+  }
+  function vnoise(x, y) {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    return mix(mix(hash(xi, yi), hash(xi + 1, yi), u),
+               mix(hash(xi, yi + 1), hash(xi + 1, yi + 1), u), v) * 2 - 1;
+  }
+
+  const FOLD_V = BAG.bottomFold / BAG.height;
+  const SEAL_V = 1 - BAG.topSeal / BAG.height;
+
+  function halfWidth(v) {
+    const topTaper = 1 - 0.035 * smoothstep(0.86, 1, v);
+    return BAG.width * 0.5 * topTaper;
+  }
+  function halfDepth(v) {
+    /* Fitted to the side-on photograph rather than assumed. Measured there as
+       a fraction of full depth: 95% at v=0.45, 75% at 0.65, 20% at 0.85, 8%
+       at the very top. So the bag holds its depth well past the middle and
+       then closes fast, and the seal runs to a point rather than staying a
+       flat fin — which is what an earlier version of this had wrong. */
+    /* A power curve, not a smoothstep: the real shoulder is a fold, so the
+       taper above it runs straight to the tip rather than bowing outwards.
+       Fitted to the photograph at v = 0.45 / 0.65 / 0.85 / 0.98. */
+    const t = Math.min(1, Math.max(0, (v - 0.58) / 0.39));
+    const collapse = Math.pow(1 - t, 1.5) * 0.94 + 0.06;
+    /* The belly swells in the lower body only. Carrying it up into the
+       shoulder is what turned the side profile into a bottle. */
+    const bulge = 1 + BAG.bellyBulge * Math.sin(Math.PI * Math.min(1, Math.max(0, (v - 0.04) / 0.62)));
+    return BAG.depth * 0.5 * collapse * bulge;
+  }
+
+  /* surface point, without the wrinkle */
+  function base(u, v) {
+    const phi = u * Math.PI * 2;          // 0 = +X side crease, PI/2 = front
+    const c = Math.cos(phi), s = Math.sin(phi);
+    const rectness = 1 - smoothstep(0, FOLD_V * 1.7, v);
+
+    // rounded rectangle (superellipse) — the standing base
+    const n = 0.48;   // superellipse corner; smaller = boxier, and boxy read as a carton
+    const xr = Math.sign(c) * Math.pow(Math.abs(c), n);
+    const zr = Math.sign(s) * Math.pow(Math.abs(s), n);
+    // lens pinched at the side creases — the filled body
+    const g = BAG.creaseSharp;
+    const xl = c;
+    const zl = s * Math.pow(Math.abs(s), g);
+
+    const x = mix(xl, xr, rectness) * halfWidth(v);
+    const z = mix(zl, zr, rectness) * halfDepth(v);
+
+    // the pressed seal is rounded off at its two corners
+    const edge = Math.pow(Math.abs(c), 14);   // the dip belongs at the corners, not across the panel
+    const y = v * BAG.height - edge * BAG.topCornerDip * smoothstep(0.86, 1, v);
+    // and the whole seal is folded forward, which is the silhouette detail
+    // that reads as "coffee bag" rather than "pillow"
+    const lean = BAG.topFoldLean * smoothstep(0.62, 0.95, v);   // a lean over the shoulder, not a hook at the tip
+    return [x, y, z + lean];
+  }
+
+  /* wrinkle displacement along the surface normal */
+  function wrinkleAt(u, v) {
+    const phi = u * Math.PI * 2;
+    const soft = smoothstep(0.02, 0.16, v) * (1 - smoothstep(0.80, 0.97, v));
+    let n = vnoise(Math.cos(phi) * 3.1 + 7, v * 7.5) * 0.6
+          + vnoise(Math.cos(phi) * 7.3 + 3, v * 15.0) * 0.28;
+    // the diagonal folds that run up from the bottom corners of a box bottom
+    const near = Math.pow(Math.abs(Math.cos(phi)), 3);
+    n += near * Math.sin((v - FOLD_V) * 9.0) * 0.35 * (1 - smoothstep(FOLD_V, 0.62, v));
+    return n * BAG.wrinkle * soft;
+  }
+
+  function surface(u, v) {
+    const p = base(u, v);
+    const d = 1e-3;
+    const pu = base(u + d, v), pv = base(u, Math.min(1, v + d));
+    const tu = [pu[0] - p[0], pu[1] - p[1], pu[2] - p[2]];
+    const tv = [pv[0] - p[0], pv[1] - p[1], pv[2] - p[2]];
+    let nx = tv[1] * tu[2] - tv[2] * tu[1];
+    let ny = tv[2] * tu[0] - tv[0] * tu[2];
+    let nz = tv[0] * tu[1] - tv[1] * tu[0];
+    const L = Math.hypot(nx, ny, nz) || 1;
+    nx /= L; ny /= L; nz /= L;
+    const w = wrinkleAt(u, v);
+    return { p: [p[0] + nx * w, p[1] + ny * w, p[2] + nz * w], n: [nx, ny, nz] };
+  }
+
+  let BAG_UV_U = 6, BAG_UV_V = 9;
+
+  function buildBody(THREE, nu, nv) {
+    const pos = [], nor = [], uvs = [], idx = [];
+    for (let j = 0; j <= nv; j++) {
+      const v = j / nv;
+      for (let i = 0; i <= nu; i++) {
+        const u = i / nu;
+        const s = surface(u === 1 ? 0 : u, v);
+        pos.push(s.p[0], s.p[1], s.p[2]);
+        nor.push(s.n[0], s.n[1], s.n[2]);
+        uvs.push(u * BAG_UV_U, v * BAG_UV_V);   // tiled, only the grain uses this
+      }
+    }
+    for (let j = 0; j < nv; j++) {
+      for (let i = 0; i < nu; i++) {
+        const a = j * (nu + 1) + i, b = a + nu + 1;
+        idx.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();          // picks up the wrinkle
+    return g;
+  }
+
+  /* the flat base cap, so the bag is closed when seen from below */
+  function buildBase(THREE, nu) {
+    const pos = [0, 0, 0], nor = [0, -1, 0], uvs = [0.5, 0.5], idx = [];
+    for (let i = 0; i <= nu; i++) {
+      const p = base(i / nu, 0);
+      pos.push(p[0], p[1], p[2]);
+      nor.push(0, -1, 0);
+      uvs.push(0.5, 0.5);
+    }
+    for (let i = 1; i <= nu; i++) idx.push(0, i + 1, i);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(idx);
+    return g;
+  }
+
+  /* Arc length around the cross-section at a given height. A label measured
+     in degrees comes out too wide and stretched in the middle, because equal
+     steps in u cover more surface across the flat of a panel than they do
+     near a crease. Everything below is measured in millimetres of surface. */
+  function arcTable(v, steps) {
+    const us = [0], ls = [0];
+    let prev = base(0, v), total = 0;
+    for (let i = 1; i <= steps; i++) {
+      const u = i / steps, q = base(u, v);
+      total += Math.hypot(q[0] - prev[0], q[2] - prev[2]);
+      us.push(u); ls.push(total);
+      prev = q;
+    }
+    return { us, ls, total };
+  }
+  /* u at a given arc length, by inverting that table */
+  function uAtArc(tab, len) {
+    const L = ((len % tab.total) + tab.total) % tab.total;
+    let i = 1;
+    while (i < tab.ls.length && tab.ls[i] < L) i++;
+    const a = tab.ls[i - 1], b = tab.ls[i];
+    const t = b > a ? (L - a) / (b - a) : 0;
+    return tab.us[i - 1] + (tab.us[i] - tab.us[i - 1]) * t;
+  }
+
+  /* A decal is a patch cut from the same surface and floated off it, so it
+     follows the panel's curve instead of slicing through it. Its columns are
+     spaced by equal arc length, so the artwork is not stretched. */
+  function buildDecal(THREE, uCentre, widthM, vCentre, vHalf, n) {
+    const pos = [], nor = [], uvs = [], idx = [];
+    const tab = arcTable(vCentre, 720);
+    const centreArc = tab.ls[Math.round(uCentre * 720)];
+    const halfArc = widthM / 2;                     // real millimetres of surface
+    for (let j = 0; j <= n; j++) {
+      const tv = j / n, v = vCentre - vHalf + 2 * vHalf * tv;
+      for (let i = 0; i <= n; i++) {
+        const tu = i / n;
+        const u = uAtArc(tab, centreArc - halfArc + 2 * halfArc * tu);
+        const s = surface((u + 1) % 1, v);
+        pos.push(s.p[0] + s.n[0] * LABEL.lift,
+                 s.p[1] + s.n[1] * LABEL.lift,
+                 s.p[2] + s.n[2] * LABEL.lift);
+        nor.push(s.n[0], s.n[1], s.n[2]);
+        uvs.push(1 - tu, tv);   // texture left must land on the viewer's left
+      }
+    }
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const a = j * (n + 1) + i, b = a + n + 1;
+        idx.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+
+  /* =====================================================================
+     Textures made in the page: the film grain and the floor.
+     ===================================================================== */
+
+  function grainNormal(THREE, size) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(size, size);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const h = (a, b) => vnoise(a * 0.5, b * 0.5);
+        const dx = h(x + 1, y) - h(x - 1, y);
+        const dy = h(x, y + 1) - h(x, y - 1);
+        const i = (y * size + x) * 4;
+        img.data[i] = 128 + dx * 90;
+        img.data[i + 1] = 128 + dy * 90;
+        img.data[i + 2] = 255;
+        img.data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+
+  /* One plane under the bag carrying both a faint floor glow and the contact
+     shadow. On a black page a cast shadow has nothing to fall on, so the
+     glow is what gives the shadow something to darken. */
+  function floorTexture(THREE, size) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    g.addColorStop(0, 'rgba(56,62,58,0.85)');
+    g.addColorStop(0.45, 'rgba(22,26,24,0.45)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    // the footprint, blurred, darkening the glow
+    const w = size * 0.30, h = size * 0.20;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.filter = 'blur(' + (size * 0.035) + 'px)';
+    ctx.fillStyle = 'rgba(0,0,0,0.92)';
+    ctx.beginPath();
+    ctx.roundRect(size / 2 - w / 2, size / 2 - h / 2, w, h, size * 0.02);
+    ctx.fill();
+    ctx.filter = 'none';
+    ctx.globalCompositeOperation = 'source-over';
+
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+
+  /* A small studio, turned into an environment map. Cheaper and more
+     predictable than shipping an HDRI, and it is what makes the foil read as
+     metal rather than as yellow paint. */
+  function studioEnv(THREE, renderer) {
+    const s = new THREE.Scene();
+    s.background = new THREE.Color(0x0b0d0c);
+    const panel = (w, h, colour, intensity, pos, look) => {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ color: colour })
+      );
+      m.material.color.multiplyScalar(intensity);
+      m.position.set(pos[0], pos[1], pos[2]);
+      m.lookAt(look[0], look[1], look[2]);
+      s.add(m);
+    };
+    panel(7, 5, 0xffffff, 6.5, [-3, 3.6, 3.6], [0, 0, 0]);   // key, upper left front
+    panel(6, 5, 0xdfe6ff, 2.4, [4.2, 2.2, 1.6], [0, 0, 0]);  // cool fill, right
+    panel(6, 4, 0xfff2e2, 1.3, [0.5, 2.2, -4], [0, 0, 0]);   // rim, behind — kept low, it was tinting the back panel brown
+    panel(7, 4, 0xffffff, 1.6, [0, 4.5, -0.5], [0, 0, 0]);   // soft top, opens the shoulders
+    panel(9, 9, 0x0e100f, 1.0, [0, -3, 0], [0, 1, 0]);       // dark floor
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    const rt = pmrem.fromScene(s, 0.04);
+    pmrem.dispose();
+    s.traverse(o => { if (o.geometry) { o.geometry.dispose(); o.material.dispose(); } });
+    return rt.texture;
+  }
+
+  /* =====================================================================
+     Scene
+     ===================================================================== */
+
+  function build() {
+    const THREE = window.THREE;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: dpr < 2, alpha: false, powerPreference: 'high-performance',
+    });
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(host.clientWidth, host.clientHeight, false);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = MATERIAL.exposure;
+    host.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    scene.environment = studioEnv(THREE, renderer);
+
+    const camera = new THREE.PerspectiveCamera(CAM.fov, 1, 0.01, 40);
+
+    const loader = new THREE.TextureLoader();
+    const colourTex = (src) => {
+      const t = loader.load(src, () => invalidate());
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return t;
+    };
+    const dataTex = (src) => {
+      const t = loader.load(src, () => invalidate());
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return t;
+    };
+
+    BAG_UV_U = MATERIAL.grainRepeat;
+    BAG_UV_V = Math.round(MATERIAL.grainRepeat * BAG.height / BAG.width);
+    const grain = grainNormal(THREE, 512);
+
+    const bagMat = new THREE.MeshStandardMaterial({
+      color: MATERIAL.bagColour,
+      roughness: MATERIAL.bagRough,
+      metalness: 0.0,
+      normalMap: grain,
+      normalScale: new THREE.Vector2(MATERIAL.microNormal, MATERIAL.microNormal),
+      envMapIntensity: MATERIAL.envIntensity,
+    });
+
+    /* roughness and metalness come entirely from the packed map, so the
+       scalars have to be 1 or they would scale the map down */
+    function decalMat(colour, orm, transparent) {
+      return new THREE.MeshStandardMaterial({
+        map: colourTex(colour),
+        roughnessMap: dataTex(orm),
+        metalnessMap: dataTex(orm),
+        roughness: 1.0,
+        metalness: 1.0,
+        transparent: !!transparent,
+        alphaTest: transparent ? 0.5 : 0,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      });
+    }
+
+    const group = new THREE.Group();
+    /* A phone gets a coarser loft. 43k triangles is nothing for a GPU, but
+       the shading cost is real on a small one and the silhouette survives. */
+    const fine = Math.min(window.innerWidth, window.innerHeight) > 620;
+    const bodyGeo = buildBody(THREE, fine ? 128 : 88, fine ? 150 : 104);
+    const baseGeo = buildBase(THREE, fine ? 128 : 88);
+    group.add(new THREE.Mesh(bodyGeo, bagMat));
+    group.add(new THREE.Mesh(baseGeo, bagMat));
+
+    // front is +Z, so u = 0.25; back is -Z, u = 0.75
+    const vHalf = (mm) => mm / BAG.height / 2;
+    const frontGeo = buildDecal(THREE, 0.25, LABEL.frontWidth,
+      LABEL.frontCentreV, vHalf(LABEL.frontHeight), 30);
+    const backGeo = buildDecal(THREE, 0.75, LABEL.backWidth,
+      LABEL.backCentreV, vHalf(LABEL.backHeight), 30);
+    const zipGeo = buildDecal(THREE, 0.25, LABEL.zipWidth,
+      LABEL.zipCentreV, vHalf(LABEL.zipHeight), 26);
+
+    const matFront = decalMat(TEX.front, TEX.frontOrm, false);
+    const matBack = decalMat(TEX.back, TEX.backOrm, false);
+    const matZip = decalMat(TEX.zip, TEX.zipOrm, true);
+
+    group.add(new THREE.Mesh(frontGeo, matFront));
+    group.add(new THREE.Mesh(backGeo, matBack));
+    group.add(new THREE.Mesh(zipGeo, matZip));
+
+    // stand it on the origin and centre the orbit on the middle of the bag
+    group.position.y = -BAG.height / 2;
+    scene.add(group);
+
+    const floorMat = new THREE.MeshBasicMaterial({
+      map: floorTexture(THREE, 512), transparent: true, depthWrite: false,
+    });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -BAG.height / 2 + 0.0004;
+    scene.add(floor);
+
+    /* ---- controls: written here rather than pulled in, because r160 ships
+       OrbitControls only as an ES module and this page runs the UMD build --- */
+    const ctl = {
+      az: Math.PI * 0.08, azV: 0,
+      pol: Math.PI * 0.46, polV: 0,
+      dist: CAM.dist, distV: 0,
+      drag: false, lastX: 0, lastY: 0, pinch: 0,
+      auto: !reduce.matches, touched: false,
+    };
+    const POL_MIN = Math.PI * 0.14, POL_MAX = Math.PI * 0.86;
+
+    function place() {
+      const sp = Math.sin(ctl.pol), cp = Math.cos(ctl.pol);
+      camera.position.set(
+        ctl.dist * sp * Math.sin(ctl.az),
+        ctl.dist * cp,
+        ctl.dist * sp * Math.cos(ctl.az)
+      );
+      camera.lookAt(0, 0, 0);
+    }
+
+    function stopAuto() {
+      if (!ctl.touched) {
+        ctl.touched = true;
+        ctl.auto = false;
+        hint.classList.add('is-gone');
+      }
+    }
+
+    host.addEventListener('pointerdown', (e) => {
+      ctl.drag = true; ctl.lastX = e.clientX; ctl.lastY = e.clientY;
+      stopAuto();
+      host.setPointerCapture(e.pointerId);
+    });
+    host.addEventListener('pointermove', (e) => {
+      if (!ctl.drag) return;
+      ctl.azV += -(e.clientX - ctl.lastX) * 0.0062;
+      ctl.polV += -(e.clientY - ctl.lastY) * 0.0062;
+      ctl.lastX = e.clientX; ctl.lastY = e.clientY;
+      invalidate();
+    });
+    const release = (e) => {
+      ctl.drag = false;
+      if (e.pointerId !== undefined && host.hasPointerCapture &&
+          host.hasPointerCapture(e.pointerId)) host.releasePointerCapture(e.pointerId);
+    };
+    host.addEventListener('pointerup', release);
+    host.addEventListener('pointercancel', release);
+
+    host.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      stopAuto();
+      ctl.distV += e.deltaY * 0.00035;
+      invalidate();
+    }, { passive: false });
+
+    host.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        ctl.drag = false;
+        ctl.pinch = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY);
+        stopAuto();
+      }
+    }, { passive: true });
+    host.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && ctl.pinch) {
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY);
+        ctl.distV += (ctl.pinch - d) * 0.0016;
+        ctl.pinch = d;
+        e.preventDefault();
+        invalidate();
+      }
+    }, { passive: false });
+    host.addEventListener('touchend', () => { ctl.pinch = 0; }, { passive: true });
+
+    reduce.addEventListener('change', () => {
+      if (reduce.matches) { ctl.auto = false; hint.classList.add('is-gone'); }
+    });
+
+    /* ---- render on demand: a still frame costs nothing ------------------ */
+    let dirty = true, visible = true, raf = 0, disposed = false;
+    function invalidate() { dirty = true; }
+
+    function resize() {
+      const w = host.clientWidth, h = host.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      invalidate();
+    }
+    if ('ResizeObserver' in window) new ResizeObserver(resize).observe(host);
+    else window.addEventListener('resize', resize);
+
+    function frame() {
+      raf = requestAnimationFrame(frame);
+      if (!visible || disposed) return;
+
+      if (ctl.auto) { ctl.az += 0.0022; dirty = true; }
+
+      // damping
+      if (Math.abs(ctl.azV) > 1e-5 || Math.abs(ctl.polV) > 1e-5 || Math.abs(ctl.distV) > 1e-6) {
+        ctl.az += ctl.azV; ctl.pol += ctl.polV; ctl.dist += ctl.distV;
+        ctl.azV *= 0.86; ctl.polV *= 0.86; ctl.distV *= 0.86;
+        dirty = true;
+      }
+      ctl.pol = Math.min(POL_MAX, Math.max(POL_MIN, ctl.pol));
+      ctl.dist = Math.min(CAM.maxDist, Math.max(CAM.minDist, ctl.dist));
+
+      if (!dirty) return;
+      dirty = false;
+      place();
+      renderer.render(scene, camera);
+    }
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((es) => {
+        visible = es.some(e => e.isIntersecting);
+        if (visible) invalidate();
+      }, { threshold: 0.01 }).observe(host);
+    }
+    document.addEventListener('visibilitychange', () => {
+      visible = !document.hidden && visible;
+      if (!document.hidden) invalidate();
+    });
+
+    resize();
+    place();
+    renderer.render(scene, camera);
+    frame();
+
+    loading.classList.add('is-gone');
+    window.setTimeout(() => { loading.hidden = true; }, 450);
+    if (reduce.matches) hint.classList.add('is-gone');
+
+    /* ---- give it all back when the page goes away ----------------------- */
+    function dispose() {
+      if (disposed) return;
+      disposed = true;
+      cancelAnimationFrame(raf);
+      scene.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) {
+          for (const k of ['map', 'roughnessMap', 'metalnessMap', 'normalMap']) {
+            if (o.material[k]) o.material[k].dispose();
+          }
+          o.material.dispose();
+        }
+      });
+      if (scene.environment) scene.environment.dispose();
+      renderer.dispose();
+      if (renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
+      }
+    }
+    window.addEventListener('pagehide', dispose);
+    window.zunoViewerDispose = dispose;
+
+    /* Let the embedding page choose the opening angle, and give a test
+       harness something deterministic to point at.
+       zunoViewerSetView(azimuthDegrees, polarDegrees, metresFromCentre) */
+    window.zunoViewerSetView = function (azDeg, polDeg, dist) {
+      ctl.az = (azDeg || 0) * Math.PI / 180;
+      if (polDeg !== undefined) ctl.pol = Math.min(POL_MAX, Math.max(POL_MIN, polDeg * Math.PI / 180));
+      if (dist !== undefined) ctl.dist = Math.min(CAM.maxDist, Math.max(CAM.minDist, dist));
+      ctl.azV = ctl.polV = ctl.distV = 0;
+      invalidate();
+    };
+    window.zunoViewerAutoRotate = function (on) { ctl.auto = !!on && !reduce.matches; invalidate(); };
+  }
+})();
+</script>
+</body>
+</html>
