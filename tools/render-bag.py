@@ -112,20 +112,27 @@ def u_at_arc(tab, length):
 
 
 # --------------------------------------------------------------------------
+def to_blender(p):
+    """three.js is Y-up, Blender is Z-up. A plain axis swap would also mirror
+    the model, so this is the rotation, not the swap."""
+    x, y, z = p
+    return (x, -z, y)
+
+
 def build(nu, nv):
     """Body plus base cap, as one mesh."""
     verts, faces = [], []
     for j in range(nv + 1):
         v = j / nv
         for i in range(nu):
-            verts.append(surface(i / nu, v))
+            verts.append(to_blender(surface(i / nu, v)))
     for j in range(nv):
         for i in range(nu):
             a = j * nu + i
             b = j * nu + (i + 1) % nu
             faces.append((a, b, b + nu, a + nu))
     centre = len(verts)
-    verts.append((0.0, 0.0, 0.0))
+    verts.append(to_blender((0.0, 0.0, 0.0)))
     for i in range(nu):
         faces.append((centre, (i + 1) % nu, i))
     return verts, faces
@@ -147,7 +154,7 @@ def decal(u_centre, width, v_centre, v_half, n=34):
             dx, dz = x1 - x, z1 - z
             L = math.hypot(dx, dz) or 1
             nx, nz = dz / L, -dx / L
-            verts.append((x + nx * LABEL["lift"], y, z + nz * LABEL["lift"]))
+            verts.append(to_blender((x + nx * LABEL["lift"], y, z + nz * LABEL["lift"])))
             uvs.append((1 - tu, tv))
     for j in range(n):
         for i in range(n):
@@ -173,7 +180,10 @@ def scene(args):
     sc.render.resolution_x = args.width
     sc.render.resolution_y = args.height
     sc.render.film_transparent = False
-    sc.view_settings.view_transform = "Filmic" if args.filmic else "Standard"
+    # AgX rolls the highlights off instead of clipping them, which matters
+    # where a narrow key hits a curved matte panel.
+    sc.view_settings.view_transform = "AgX" if args.agx else "Standard"
+    sc.view_settings.exposure = args.exposure
     sc.view_settings.look = "None"
 
     def mesh_object(name, verts, faces, uvs=None):
@@ -208,8 +218,12 @@ def scene(args):
     film = bpy.data.materials.new("film")
     film.use_nodes = True
     bsdf = film.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Base Color"].default_value = (0.035, 0.035, 0.035, 1)
-    bsdf.inputs["Roughness"].default_value = 0.62
+    # Measured off the photograph: bag to backdrop is about 57:1 in linear
+    # light, which 3.5% albedo against a 28% sweep cannot produce — that only
+    # gives 8:1, and the render came out mid-grey because it was right. Good
+    # matte black packaging film sits nearer 1%.
+    bsdf.inputs["Base Color"].default_value = (0.011, 0.011, 0.011, 1)
+    bsdf.inputs["Roughness"].default_value = 0.55
     bsdf.inputs["Metallic"].default_value = 0.0
     body.data.materials.append(film)
 
@@ -254,15 +268,27 @@ def scene(args):
     sweep = bpy.data.materials.new("sweep")
     sweep.use_nodes = True
     sb = sweep.node_tree.nodes["Principled BSDF"]
-    sb.inputs["Base Color"].default_value = (0.28, 0.29, 0.285, 1)
+    sb.inputs["Base Color"].default_value = (0.20, 0.205, 0.20, 1)
     sb.inputs["Roughness"].default_value = 0.55
     floor.data.materials.append(sweep)
 
+    # The backdrop is a light box, not a lit wall. That is the whole trick
+    # for a black product: it separates the silhouette and rim-lights the
+    # edges without putting anything on the front, which is what keeps the
+    # film black instead of grey.
     bpy.ops.mesh.primitive_plane_add(size=4)
     wall = bpy.context.object
     wall.rotation_euler = (math.radians(90), 0, 0)
-    wall.location = (0, 1.1, 2)
-    wall.data.materials.append(sweep)
+    wall.location = (0, 1.25, 1.4)
+    lit = bpy.data.materials.new("lightbox")
+    lit.use_nodes = True
+    nt = lit.node_tree
+    nt.nodes.remove(nt.nodes["Principled BSDF"])
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (1, 1, 1, 1)
+    em.inputs["Strength"].default_value = args.backdrop
+    nt.links.new(nt.nodes["Material Output"].inputs["Surface"], em.outputs["Emission"])
+    wall.data.materials.append(lit)
 
     # ---- light ----
     world = bpy.data.worlds.new("world")
@@ -290,9 +316,28 @@ def scene(args):
         return ob
 
     # narrow and strong draws the edge; broad and soft washes matte film flat
-    area("key", (-0.62, -0.42, 0.34), (math.radians(64), 0, math.radians(-52)), 0.16, 0.85, 95)
-    area("kick", (0.70, -0.16, 0.26), (math.radians(74), 0, math.radians(66)), 0.10, 0.70, 70)
-    area("top", (0, 0.10, 0.85), (0, 0, 0), 1.1, 1.1, 40)
+    # Watts, at these distances, on a 245 mm object. The first pass used 95
+    # and blew the whole frame to white.
+    # Three lamps all aimed at the product is what turned matte black into
+    # grey: the sweep only caught spill, so the 8:1 albedo ratio between film
+    # and backdrop collapsed to under 3:1. The environment now does most of
+    # the work, because it lights both equally and preserves that ratio; the
+    # lamps are left only to draw the edges.
+    # A black dielectric still mirrors about 4% of whatever surrounds it,
+    # whatever its base colour is. That is why lowering the albedo barely
+    # moved the render: the bag was reflecting a bright room. A photographer
+    # solves this by shooting black products into darkness with a few
+    # controlled sources, and lighting the backdrop separately. So: almost no
+    # environment, two narrow sources for the edges, and a lamp that hits the
+    # sweep but not the product.
+    area("key", (-0.62, -0.46, 0.34), (math.radians(64), 0, math.radians(-52)), 0.16, 0.85, 9.0)
+    area("kick", (0.72, -0.18, 0.26), (math.radians(74), 0, math.radians(66)), 0.10, 0.70, 5.5)
+    area("top", (0, 0.10, 0.90), (0, 0, 0), 0.9, 0.9, 1.6)
+    # A soft frontal fill, only for the label. The green stock and the foil
+    # are several times the reflectance of the film, so this makes the label
+    # readable long before it lifts the bag off black.
+    area("fill", (-0.10, -0.85, 0.22), (math.radians(84), 0, math.radians(-6)), 0.55, 0.55, args.fill)
+
 
     # ---- camera ----
     az, el = VIEWS[args.view]
@@ -328,10 +373,18 @@ def main():
     ap.add_argument("--height", type=int, default=1250)
     ap.add_argument("--nu", type=int, default=160)
     ap.add_argument("--nv", type=int, default=190)
-    ap.add_argument("--dist", type=float, default=0.62)
+    # 85 mm on a 36x24 sensor covers 300 mm of height at about 1.05 m,
+    # which frames a 245 mm bag with air around it.
+    ap.add_argument("--dist", type=float, default=0.95)
     ap.add_argument("--lens", type=float, default=85.0)
-    ap.add_argument("--env", type=float, default=0.55)
-    ap.add_argument("--filmic", action="store_true")
+    ap.add_argument("--env", type=float, default=0.04)
+    ap.add_argument("--backdrop", type=float, default=2.6)
+    ap.add_argument("--fill", type=float, default=0.85)
+    # Standard keeps blacks black; AgX lifts the shadows, which is wrong
+    # for a product whose whole character is that it is very dark.
+    ap.add_argument("--agx", action="store_true", default=False)
+    ap.add_argument("--standard", dest="agx", action="store_false")
+    ap.add_argument("--exposure", type=float, default=0.0)
     args = ap.parse_args()
 
     if not (ASSETS / "label-front.png").exists():
