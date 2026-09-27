@@ -128,8 +128,17 @@ const MATERIAL = {
   bagRough:    0.86,
   microNormal: 0.055,      // film grain, not leather: this wants to be barely there
   grainRepeat: 7,          // how many times the grain tiles across the bag
-  envIntensity: 1.25,
-  exposure:    1.12,
+  /* Matte black stays matte black. Lighting it harder only turns it grey,
+     because at roughness 0.86 the environment feeds the diffuse term. What
+     makes the product read in the photographs is not a bright bag, it is a
+     dark bag against a light ground. */
+  envIntensity: 0.75,
+  exposure:    1.18,
+  /* A spotlit sweep: light behind the product so it separates, falling to
+     near-black at the frame so it still sits on a dark page. Set both to
+     0x000000 for a flat black background. */
+  bgCentre:    0x5c625e,
+  bgEdge:      0x070808,
 };
 
 const CAM = { fov: 32, dist: 0.62, minDist: 0.34, maxDist: 1.15 };
@@ -451,8 +460,8 @@ const TEX = {
     c.width = c.height = size;
     const ctx = c.getContext('2d');
     const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    g.addColorStop(0, 'rgba(56,62,58,0.85)');
-    g.addColorStop(0.45, 'rgba(22,26,24,0.45)');
+    g.addColorStop(0, 'rgba(74,80,76,0.9)');
+    g.addColorStop(0.45, 'rgba(30,34,32,0.5)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
@@ -473,6 +482,41 @@ const TEX = {
     return t;
   }
 
+  /* A spotlit sweep, drawn as a screen-filling quad behind everything so it
+     does not move with the camera and does not light the product. */
+  function backdropMesh(THREE, centre, edge) {
+    const S = 512;
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    const ctx = c.getContext('2d');
+    const hex = (v) => '#' + v.toString(16).padStart(6, '0');
+    ctx.fillStyle = hex(edge); ctx.fillRect(0, 0, S, S);
+    const g = ctx.createRadialGradient(S * 0.5, S * 0.42, 0, S * 0.5, S * 0.42, S * 0.62);
+    g.addColorStop(0, hex(centre));
+    g.addColorStop(0.45, hex(centre));
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      new THREE.MeshBasicMaterial({ map: t, depthTest: false, depthWrite: false })
+    );
+    m.material.toneMapped = false;
+    m.frustumCulled = false;
+    m.renderOrder = -1;
+    // stick it to the camera so it always fills the frame
+    m.onBeforeRender = function (r, sc, cam) {
+      this.position.copy(cam.position);
+      this.quaternion.copy(cam.quaternion);
+      this.translateZ(-1);
+      // a plane one unit from the camera fills the frustum at this size
+      const h = 2 * Math.tan(cam.fov * Math.PI / 360) * 1.02;
+      this.scale.set(h * cam.aspect, h, 1);
+    };
+    return m;
+  }
+
   /* A small studio, turned into an environment map. Cheaper and more
      predictable than shipping an HDRI, and it is what makes the foil read as
      metal rather than as yellow paint. */
@@ -489,10 +533,15 @@ const TEX = {
       m.lookAt(look[0], look[1], look[2]);
       s.add(m);
     };
-    panel(7, 5, 0xffffff, 6.5, [-3, 3.6, 3.6], [0, 0, 0]);   // key, upper left front
-    panel(6, 5, 0xdfe6ff, 2.4, [4.2, 2.2, 1.6], [0, 0, 0]);  // cool fill, right
-    panel(6, 4, 0xfff2e2, 1.3, [0.5, 2.2, -4], [0, 0, 0]);   // rim, behind — kept low, it was tinting the back panel brown
-    panel(7, 4, 0xffffff, 1.6, [0, 4.5, -0.5], [0, 0, 0]);   // soft top, opens the shoulders
+    /* A tall narrow key at the left is what draws the bright vertical edge
+       down a matte pouch. A big square softbox just washes it flat, which is
+       what the first build did. */
+    /* Narrow and bright beats broad and soft here: on matte film a big
+       source washes the whole panel to grey, a narrow one draws the edge. */
+    panel(1.3, 7, 0xffffff, 26.0, [-2.6, 1.6, 2.4], [0, 0.4, 0]);   // key, tall and narrow
+    panel(1.1, 6, 0xeef3ff, 14.0, [3.0, 1.4, 1.0], [0, 0.4, 0]);    // kicker, right edge
+    panel(6, 5, 0xdfe6ff, 0.5, [4.6, 2.2, 1.0], [0, 0, 0]);         // cool fill, barely there
+    panel(8, 5, 0xffffff, 0.8, [0, 4.6, -0.5], [0, 0, 0]);          // top, opens the shoulders
     panel(9, 9, 0x0e100f, 1.0, [0, -3, 0], [0, 1, 0]);       // dark floor
 
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -522,7 +571,8 @@ const TEX = {
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
+    scene.background = new THREE.Color(MATERIAL.bgEdge);
+    scene.add(backdropMesh(THREE, MATERIAL.bgCentre, MATERIAL.bgEdge));
     scene.environment = studioEnv(THREE, renderer);
 
     const camera = new THREE.PerspectiveCamera(CAM.fov, 1, 0.01, 40);
