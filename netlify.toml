@@ -5,6 +5,20 @@
   publish = "site"
   command = ""
 
+# The checkout session is created server side. The Stripe secret key lives in
+# this site's environment variables and never reaches the browser.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# This rule must come before the catch-all below. Rules are matched in order,
+# and /* -> /index.html would otherwise answer every function call with the
+# home page, which fails as a silent 200 rather than an error.
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
 # Hash-routed sub-pages (#imprint, #cart, …) are served by index.html, so any
 # deep path a crawler or a mistyped link produces should still land on the site
 # rather than Netlify's 404 page.
