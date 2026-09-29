@@ -95,22 +95,16 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
-/* Self-tiling gradient field. The tile is 140vh while every gradient fades
-   to full black well before 100vh, so each repeat begins on pure black and
-   the seams between sections are mathematically invisible. Sections are all
-   transparent — the field runs unbroken behind the whole page. */
+/* Flat black. There used to be a tiling field of four radial gradients
+   here, under the cell canvas. Measured with every element hidden so only
+   the background remained, that layer produced a large-scale brightness
+   swing of 0.01139 on its own and carried almost no structure with it
+   (fine detail was 6% of it) — a smooth haze, which is what made the
+   page look smudged. The cell field gives the same green with actual
+   shape to it, so the gradients were subtracting rather than adding. */
 body {
   margin: 0;
   background-color: var(--black);
-  background-image:
-    radial-gradient(ellipse 70% 55% at 50% 10%, rgba(30, 57, 50, 0.60) 0%, rgba(0, 0, 0, 0) 62%),
-    radial-gradient(ellipse 65% 20% at 50% 22%, rgba(30, 57, 50, 0.55) 0%, rgba(0, 0, 0, 0) 58%),
-    radial-gradient(ellipse 55% 18% at 85% 55%, rgba(248, 217, 155, 0.08) 0%, rgba(0, 0, 0, 0) 58%),
-    radial-gradient(ellipse 60% 20% at 12% 85%, rgba(30, 57, 50, 0.40) 0%, rgba(0, 0, 0, 0) 58%);
-  background-repeat: no-repeat, repeat-y, repeat-y, repeat-y;
-  background-size: 100% 100vh, 100% 140vh, 100% 140vh, 100% 140vh;   /* fallback */
-  background-size: 100% 100svh, 100% 140svh, 100% 140svh, 100% 140svh;
-  background-position: top center;
   color: var(--ink);
   font-family: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
@@ -135,16 +129,12 @@ body {
   transition: opacity 900ms var(--ease-premium);
   contain: layout paint;  /* the canvas can never reflow the page */
 }
-/* 0.35. Vanta's own shader ends on an off-centre vignette —
-   `t *= exp(-length2(abs(0.7*uv - 1.0)))` — which is exp(-0.18)=0.835 at
-   the top right against exp(-2.0)=0.135 at the bottom left, so the field
-   is built 6.2x brighter in one corner. The canvas is fixed and the
-   pattern shifts by 5/255 in fourteen seconds, so that corner never
-   moves: at 0.8 it read as a smudge on the glass rather than as texture.
-   Dimming the layer keeps the veins and the brand green exactly as they
-   are and takes the corner down with everything else. (0.8 was itself
-   chosen to keep --ink-dim above AA; at 0.35 there is far more room.) */
-#vanta-bg.is-ready { opacity: 0.35; }
+/* Full strength, now that the gradient layer below is gone.
+   0.8 was chosen to keep --ink-dim above AA against the gradients plus
+   the field together; with the field alone there is room for all of it,
+   and dimming turned out to be the wrong lever anyway — it scaled the
+   structure down faster than the haze, leaving a smoother smudge. */
+#vanta-bg.is-ready { opacity: 1; }
 #vanta-bg canvas { display: block; }
 
 h1, h2, h3, h4 {
