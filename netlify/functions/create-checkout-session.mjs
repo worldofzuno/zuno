@@ -172,5 +172,3 @@ export default async function handler(req) {
     return json(502, { error: 'could not start checkout' });
   }
 }
-
-export const config = { path: '/.netlify/functions/create-checkout-session' };

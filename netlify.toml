@@ -5,6 +5,11 @@
   publish = "site"
   command = ""
 
+# Pinned so a change to Netlify's default cannot quietly move the function to
+# a runtime the Stripe SDK was not tested against here.
+[build.environment]
+  NODE_VERSION = "20"
+
 # The checkout session is created server side. The Stripe secret key lives in
 # this site's environment variables and never reaches the browser.
 [functions]
