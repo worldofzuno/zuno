@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script>document.documentElement.classList.add('js');</script>
 <title>ZUNO — Swiss Specialty Coffee</title>
 <meta name="description" content="ZUNO is a Swiss specialty coffee and lifestyle brand. Meet Castano — a nutty, chocolaty blend roasted in Bern. Free delivery in Switzerland and Liechtenstein from CHF 45.">
@@ -431,6 +431,17 @@ section { position: relative; background: transparent; }
    caused. This is the page telling them it could not do its job. */
 .note--warn { color: var(--ink); border-left: 2px solid var(--gold); padding-left: 12px; }
 
+/* Every form on this page is handled in JavaScript and posts nowhere. With
+   scripting off the submit buttons would fall back to a real POST — which
+   for the sign-in and join cards means a password leaving the browser to a
+   route that does nothing with it. So without JS the forms are not offered
+   at all, and a line says why. */
+.note--nojs { display: none; }
+html:not(.js) .note--nojs { display: block; }
+html:not(.js) #loginForm,
+html:not(.js) #registerForm,
+html:not(.js) #joinForm { display: none; }
+
 .swap { display: grid; }
 .swap > span { grid-area: 1 / 1; transition: opacity var(--press) var(--ease-premium); }
 .swap > .swap__b { opacity: 0; }
@@ -639,14 +650,18 @@ html:not(.js) .page:target { display: block; }
 
 .skip-link {
   position: absolute;
-  left: 16px; top: -80px;
+  left: 16px; top: 16px;
   z-index: 200;
   background: var(--gold); color: var(--on-gold);
   padding: 12px 22px; border-radius: 999px;
   font-size: 0.88rem; font-weight: 500; text-decoration: none;
-  transition: top var(--control) var(--ease-premium);
+  /* Parked above the viewport by transform, not by a negative top: animating
+     an offset is a layout animation, and the compositor can do this one
+     without touching layout at all. */
+  transform: translateY(calc(-100% - 32px));
+  transition: transform var(--control) var(--ease-premium);
 }
-.skip-link:focus { top: 16px; }
+.skip-link:focus { transform: translateY(0); }
 
 /* Sub-page titles carry the old h1 scale; the document keeps a single h1. */
 .page__title { font-size: clamp(2rem, 2.2vw + 1.3rem, 3rem); margin-top: 12px; }
@@ -691,6 +706,9 @@ html:not(.js) .page:target { display: block; }
   .js .stagger.is-in h1 .h-line:nth-child(n) > span { transition-delay: 0ms !important; }
   .page, .page.is-open { transform: none !important; }
   .badge { transform: none !important; transition: opacity var(--control) linear; }
+  /* The skip link still has to move — it is parked off-screen — so this
+     drops the travel time rather than the travel. */
+  .skip-link { transition-duration: 1ms; }
   .btn:active, .option:active, .remove:active, .qty button:active { transform: none; }
 }
 </style>
@@ -871,6 +889,8 @@ html:not(.js) .page:target { display: block; }
       <button class="btn btn--primary" type="submit">Send Inquiry</button>
     </form>
 
+    <p class="note note--nojs">This form needs JavaScript. Please write to <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a> instead.</p>
+
     <p class="join__ok" id="joinOk">Thank you &mdash; your inquiry is on its way. We&rsquo;ll get back to you shortly.</p>
 
     <!-- [PLACEHOLDER: instagram url — derived from the @worldofzuno handle, please confirm] -->
@@ -952,6 +972,7 @@ html:not(.js) .page:target { display: block; }
           <label class="visually-hidden" for="f-password-19">Password</label><input id="f-password-19" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="new-password" required>
           <button class="btn btn--outline" type="submit">Join ZUNO</button>
         </form>
+        <p class="note note--nojs">Accounts need JavaScript. Please enable it to sign in.</p>
       </div>
     </div>
 

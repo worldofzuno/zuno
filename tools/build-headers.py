@@ -13,7 +13,9 @@ import pathlib
 import re
 import sys
 
-HERE = pathlib.Path(__file__).parent
+# Lives in tools/, not in site/: site/ is the published folder, and a build
+# script left there is served from the live domain.
+HERE = pathlib.Path(__file__).resolve().parent.parent / "site"
 html = (HERE / "index.html").read_text()
 
 

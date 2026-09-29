@@ -16,7 +16,8 @@ import pathlib
 import re
 import sys
 
-HERE = pathlib.Path(__file__).parent
+# Lives in tools/, not in site/: everything in site/ goes live.
+HERE = pathlib.Path(__file__).resolve().parent.parent / "site"
 ROOT = HERE.parent
 OUT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "preview" / "zuno-brand-site-inline.html"
 
