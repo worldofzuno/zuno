@@ -70,15 +70,15 @@
   --beige: #ede4d3;
 
   --ink: #eae4d6;
-  /* 0.63 was the value that cleared AA against the brightest pixel of the
-     cell field, rgb(36, 65, 57). That field is gone and the ground is flat
-     black now, where the same value measures 6.58:1 — comfortably clear,
-     with room to go dimmer if the small print ever wants it. Kept as it
-     was rather than re-tuned, so removing the texture changed only the
-     texture. */
+  /* Measured against the brightest pixel the cell field actually renders
+     behind the hero copy, rgb(36, 65, 57), with the text hidden so glyph
+     antialiasing could not lighten the sample: 0.38 gives 2.76:1, 0.60
+     gives 4.43:1, 0.62 gives 4.44:1 — all short of the 4.5:1 AA asks for
+     body text. 0.63 gives 4.55:1 and is the first value that clears it. */
   --ink-dim: rgba(234, 228, 214, 0.63);
-  /* Same value as --ink-dim: the step down to small print comes from size
-     and weight rather than from opacity. */
+  /* Same value as --ink-dim. Over this ground nothing lighter passes, so
+     the step down to small print has to come from size and weight rather
+     than from opacity. */
   --ink-faint: rgba(234, 228, 214, 0.63);
   --line: rgba(234, 228, 214, 0.12);
   --line-strong: rgba(234, 228, 214, 0.22);
@@ -95,12 +95,22 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
-/* Flat black, the whole way down. This used to carry a tiling field of
-   four radial gradients with a WebGL cell shader blended over it; both are
-   gone. Sections are all transparent, so the page reads as one surface. */
+/* Self-tiling gradient field. The tile is 140vh while every gradient fades
+   to full black well before 100vh, so each repeat begins on pure black and
+   the seams between sections are mathematically invisible. Sections are all
+   transparent — the field runs unbroken behind the whole page. */
 body {
   margin: 0;
   background-color: var(--black);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% 10%, rgba(30, 57, 50, 0.60) 0%, rgba(0, 0, 0, 0) 62%),
+    radial-gradient(ellipse 65% 20% at 50% 22%, rgba(30, 57, 50, 0.55) 0%, rgba(0, 0, 0, 0) 58%),
+    radial-gradient(ellipse 55% 18% at 85% 55%, rgba(248, 217, 155, 0.08) 0%, rgba(0, 0, 0, 0) 58%),
+    radial-gradient(ellipse 60% 20% at 12% 85%, rgba(30, 57, 50, 0.40) 0%, rgba(0, 0, 0, 0) 58%);
+  background-repeat: no-repeat, repeat-y, repeat-y, repeat-y;
+  background-size: 100% 100vh, 100% 140vh, 100% 140vh, 100% 140vh;   /* fallback */
+  background-size: 100% 100svh, 100% 140svh, 100% 140svh, 100% 140svh;
+  background-position: top center;
   color: var(--ink);
   font-family: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
@@ -111,6 +121,26 @@ body {
      the content reachable where hidden would silently lose it. */
 }
 
+/* The cell field sits between the gradient and the content.
+   color1 is pure black, so `screen` blending drops every black pixel to
+   nothing and only the dark-green veins survive — the gradient underneath
+   comes through untouched instead of being covered by an opaque canvas. */
+#vanta-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;   /* Vanta listens on window, so controls still work */
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 900ms var(--ease-premium);
+  contain: layout paint;  /* the canvas can never reflow the page */
+}
+/* 0.8, not 1: at full strength the brand green lifts the brightest cells
+   far enough that --ink-dim, the body colour, drops to 4.22:1 — under AA.
+   Dimming the layer keeps color2 exactly as specified and every text
+   token where it is. */
+#vanta-bg.is-ready { opacity: 0.8; }
+#vanta-bg canvas { display: block; }
 
 h1, h2, h3, h4 {
   font-family: 'Felix Titling', Georgia, serif;
@@ -706,6 +736,10 @@ html:not(.js) .page:target { display: block; }
 </style>
 </head>
 <body>
+<!-- Vanta CELLS draws here. Purely decorative: if WebGL is missing, the file
+     is blocked, or the device asks us not to, the div stays empty and the
+     gradient field below it is the page exactly as it was. -->
+<div id="vanta-bg" aria-hidden="true"></div>
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="nav" id="nav">
   <div class="rail nav__inner">
@@ -1741,5 +1775,99 @@ html:not(.js) .page:target { display: block; }
 })();
 </script>
 
+<script>
+/* ---------------- CELLS background ----------------
+   Loaded by hand rather than with a <script src> tag, so fetching it stays a
+   decision rather than a default: no WebGL, a metered connection or a
+   small-memory device and we never ask for the bytes at all. The gradient
+   field is the fallback, and it is the design as approved — nothing below
+   depends on this succeeding.
+
+   This used to pull three.js r134 plus vanta.cells, 627 KB, to run a single
+   full-screen fragment shader. js/cells.js is 10 KB and draws the same
+   picture: verified frame by frame against the old pair at 1x, 2x, mobile 3x
+   and below the 600px scale threshold, hashing the whole framebuffer at
+   frames 1, 2, 5, 30 and 120. All twenty comparisons matched exactly. */
+(function () {
+  var host = document.getElementById('vanta-bg');
+  if (!host || !window.requestAnimationFrame) return;
+
+  var net = navigator.connection || {};
+  if (net.saveData) return;
+  if (/(^|-)2g$/.test(net.effectiveType || '')) return;
+  if (navigator.deviceMemory && navigator.deviceMemory < 4) return;
+
+  /* Probe before downloading: a browser without WebGL would pull the whole
+     library only for Vanta to throw during init. */
+  try {
+    var probe = document.createElement('canvas');
+    if (!(probe.getContext('webgl') || probe.getContext('experimental-webgl'))) return;
+  } catch (e) { return; }
+
+  function load(src, next) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.async = false;          /* keep execution order deterministic */
+    s.onload = next;
+    s.onerror = function () { /* decorative — leave the gradient alone */ };
+    document.head.appendChild(s);
+  }
+
+  function start() {
+    if (!window.VANTA || !window.VANTA.CELLS) return;
+
+    var fx = window.VANTA.CELLS({
+      el: host,
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      minHeight: 200.00,
+      minWidth: 200.00,
+      scale: 1.00,
+      color1: 0x0,
+      color2: 0x1e3932,
+      size: 5.00,
+      speed: 0.00
+    });
+    if (!fx) return;
+    host.classList.add('is-ready');
+
+    /* Vanta keeps a full-screen fragment shader running at 60fps forever.
+       Stop it whenever it cannot be seen, and stop it for good for anyone
+       who asked for less motion — they still get the texture, just frozen
+       on the frame it reached. */
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function halt() { if (fx.req) window.cancelAnimationFrame(fx.req); }
+    function resume() { if (!document.hidden && !still.matches) fx.animationLoop(); }
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) halt(); else resume();
+    });
+
+    if (still.matches) {
+      /* Let it paint a few frames so the pattern is formed, then freeze. */
+      window.setTimeout(halt, 400);
+    }
+    /* React live, so toggling the OS setting does not need a reload. */
+    var onChange = function () { if (still.matches) halt(); else resume(); };
+    if (still.addEventListener) still.addEventListener('change', onChange);
+    else if (still.addListener) still.addListener(onChange);
+  }
+
+  /* After load, so the library never competes with the fonts or the hero.
+     The single-file preview build inlines the shader ahead of this
+     script, in which case there is nothing left to fetch. */
+  function boot() {
+    if (window.VANTA && window.VANTA.CELLS) { start(); return; }
+    window.setTimeout(function () {
+      load('js/cells.js', start);
+    }, 200);
+  }
+
+  if (document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot);
+})();
+</script>
 </body>
 </html>

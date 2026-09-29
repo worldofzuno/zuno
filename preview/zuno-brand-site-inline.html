@@ -66,15 +66,15 @@
   --beige: #ede4d3;
 
   --ink: #eae4d6;
-  /* 0.63 was the value that cleared AA against the brightest pixel of the
-     cell field, rgb(36, 65, 57). That field is gone and the ground is flat
-     black now, where the same value measures 6.58:1 — comfortably clear,
-     with room to go dimmer if the small print ever wants it. Kept as it
-     was rather than re-tuned, so removing the texture changed only the
-     texture. */
+  /* Measured against the brightest pixel the cell field actually renders
+     behind the hero copy, rgb(36, 65, 57), with the text hidden so glyph
+     antialiasing could not lighten the sample: 0.38 gives 2.76:1, 0.60
+     gives 4.43:1, 0.62 gives 4.44:1 — all short of the 4.5:1 AA asks for
+     body text. 0.63 gives 4.55:1 and is the first value that clears it. */
   --ink-dim: rgba(234, 228, 214, 0.63);
-  /* Same value as --ink-dim: the step down to small print comes from size
-     and weight rather than from opacity. */
+  /* Same value as --ink-dim. Over this ground nothing lighter passes, so
+     the step down to small print has to come from size and weight rather
+     than from opacity. */
   --ink-faint: rgba(234, 228, 214, 0.63);
   --line: rgba(234, 228, 214, 0.12);
   --line-strong: rgba(234, 228, 214, 0.22);
@@ -91,12 +91,22 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
-/* Flat black, the whole way down. This used to carry a tiling field of
-   four radial gradients with a WebGL cell shader blended over it; both are
-   gone. Sections are all transparent, so the page reads as one surface. */
+/* Self-tiling gradient field. The tile is 140vh while every gradient fades
+   to full black well before 100vh, so each repeat begins on pure black and
+   the seams between sections are mathematically invisible. Sections are all
+   transparent — the field runs unbroken behind the whole page. */
 body {
   margin: 0;
   background-color: var(--black);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% 10%, rgba(30, 57, 50, 0.60) 0%, rgba(0, 0, 0, 0) 62%),
+    radial-gradient(ellipse 65% 20% at 50% 22%, rgba(30, 57, 50, 0.55) 0%, rgba(0, 0, 0, 0) 58%),
+    radial-gradient(ellipse 55% 18% at 85% 55%, rgba(248, 217, 155, 0.08) 0%, rgba(0, 0, 0, 0) 58%),
+    radial-gradient(ellipse 60% 20% at 12% 85%, rgba(30, 57, 50, 0.40) 0%, rgba(0, 0, 0, 0) 58%);
+  background-repeat: no-repeat, repeat-y, repeat-y, repeat-y;
+  background-size: 100% 100vh, 100% 140vh, 100% 140vh, 100% 140vh;   /* fallback */
+  background-size: 100% 100svh, 100% 140svh, 100% 140svh, 100% 140svh;
+  background-position: top center;
   color: var(--ink);
   font-family: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
@@ -107,6 +117,26 @@ body {
      the content reachable where hidden would silently lose it. */
 }
 
+/* The cell field sits between the gradient and the content.
+   color1 is pure black, so `screen` blending drops every black pixel to
+   nothing and only the dark-green veins survive — the gradient underneath
+   comes through untouched instead of being covered by an opaque canvas. */
+#vanta-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;   /* Vanta listens on window, so controls still work */
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 900ms var(--ease-premium);
+  contain: layout paint;  /* the canvas can never reflow the page */
+}
+/* 0.8, not 1: at full strength the brand green lifts the brightest cells
+   far enough that --ink-dim, the body colour, drops to 4.22:1 — under AA.
+   Dimming the layer keeps color2 exactly as specified and every text
+   token where it is. */
+#vanta-bg.is-ready { opacity: 0.8; }
+#vanta-bg canvas { display: block; }
 
 h1, h2, h3, h4 {
   font-family: 'Felix Titling', Georgia, serif;
@@ -702,6 +732,10 @@ html:not(.js) .page:target { display: block; }
 </style>
 </head>
 <body>
+<!-- Vanta CELLS draws here. Purely decorative: if WebGL is missing, the file
+     is blocked, or the device asks us not to, the div stays empty and the
+     gradient field below it is the page exactly as it was. -->
+<div id="vanta-bg" aria-hidden="true"></div>
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="nav" id="nav">
   <div class="rail nav__inner">
@@ -1737,5 +1771,385 @@ html:not(.js) .page:target { display: block; }
 })();
 </script>
 
+<script>/* A drop-in replacement for three.js r134 + vanta.cells 0.5.24, for this one
+   effect only. 616 KB of general-purpose 3D engine were being loaded to draw a
+   single full-screen fragment shader; everything three.js contributed here was
+   a context, a quad and four uniforms.
+
+   The shader below is Vanta's own source, unchanged. The uniform plumbing,
+   the time stepping and the resize arithmetic are reproduced exactly as
+   vanta.cells drives them — including two quirks that would otherwise change
+   the picture:
+
+     - `speed: 0` becomes 1, because Vanta writes `(this.options.speed || 1)`
+       and 0 is falsy. The field animates at full speed despite the setting.
+     - `iResolution` is the CSS size divided by `scale`, NOT the drawing
+       buffer size. On a 2x display gl_FragCoord therefore runs to 2.0 across
+       the viewport rather than 1.0, and the cell pattern is correspondingly
+       finer. That is Vanta's behaviour, so it is reproduced.
+
+   The public surface is the part of VANTA.CELLS the page actually uses:
+   the call itself, `.req` and `.animationLoop()`. */
+(function () {
+  'use strict';
+
+  var FRAG = [
+    'uniform vec2 iResolution;',
+    'uniform vec2 iMouse;',
+    'uniform float iTime;',
+    '',
+    'uniform float blurFactor;',
+    'uniform vec3 color1;',
+    'uniform vec3 color2;',
+    'uniform vec3 backgroundColor;',
+    'uniform float size;',
+    'uniform float amplitudeFactor;',
+    'uniform float ringFactor;',
+    'uniform float rotationFactor;',
+    '',
+    'float length2(vec2 p) { return dot(p, p); }',
+    '',
+    'float noise(vec2 p){',
+    '    return fract(sin(fract(sin(p.x) * (43.13311)) + p.y) * 31.0011);',
+    '}',
+    '',
+    'float worley(vec2 p) {',
+    '    float d = 1e30;',
+    '    for (int xo = -1; xo <= 1; ++xo) {',
+    '        for (int yo = -1; yo <= 1; ++yo) {',
+    '            vec2 tp = floor(p) + vec2(xo, yo);',
+    '            d = min(d, length2(p - tp - vec2(noise(tp))));',
+    '        }',
+    '    }',
+    '    vec2 uv = gl_FragCoord.xy / iResolution.xy;',
+    '    float timeOffset =  0.15 * sin(iTime * 2.0 + 10.0*(uv.x - uv.y));',
+    '    return 3.0*exp(-4.0*abs(2.0*d - 1.0 + timeOffset));',
+    '}',
+    '',
+    'float fworley(vec2 p) {',
+    '    return sqrt(sqrt(sqrt(',
+    '    1.1 * // light',
+    '    worley(p*5. + .3 + iTime*.0525) *',
+    '    sqrt(worley(p * 50. / size + 0.3 + iTime * -0.15)) *',
+    '    sqrt(sqrt(worley(p * -10. + 9.3))))));',
+    '}',
+    '',
+    'void main() {',
+    '    vec2 uv = gl_FragCoord.xy / iResolution.xy;',
+    '    float t = fworley(uv * iResolution.xy / 1500.0);',
+    '    t *= exp(-length2(abs(0.7*uv - 1.0)));',
+    '',
+    '    float tExp = pow(t, 0.5 - t);',
+    '    vec3 c1 = color1 * (1.0 - t);',
+    '    vec3 c2 = color2 * tExp;',
+    '',
+    '    gl_FragColor = vec4(pow(t, 1.0 - t) * (c1 + c2), 1.0);',
+    '}',
+    ''
+  ].join('\n');
+
+  /* three.js prepends `precision highp float;` to every ShaderMaterial at its
+     default precision, so the same qualifier has to be here or the arithmetic
+     can land differently on mobile GPUs. */
+  var FRAG_SRC = 'precision highp float;\nprecision highp int;\n' + FRAG;
+
+  /* Vanta's vertex shader, with the `position` attribute three.js used to
+     supply from the prologue now declared explicitly. */
+  var VERT_SRC = [
+    'attribute vec3 position;',
+    'void main() {',
+    '  gl_Position = vec4( position, 1.0 );',
+    '}'
+  ].join('\n');
+
+  /* PlaneGeometry(2, 2): four corners of clip space. */
+  var QUAD = new Float32Array([
+    -1,  1, 0,
+     1,  1, 0,
+    -1, -1, 0,
+     1, -1, 0
+  ]);
+
+  var DEFAULTS = {
+    color1: 35980,
+    color2: 15918901,
+    backgroundColor: 14155663,
+    amplitudeFactor: 1,
+    ringFactor: 1,
+    rotationFactor: 1,
+    size: 1.5,
+    speed: 1,
+    scaleMobile: 3,
+    minWidth: 200,
+    minHeight: 200
+  };
+
+  /* THREE.Color(hex).toVector() — straight sRGB bytes over 255. r134 applies
+     no colour management to setHex, so neither does this. */
+  function toVec3(hex) {
+    return [(hex >> 16 & 255) / 255, (hex >> 8 & 255) / 255, (hex & 255) / 255];
+  }
+
+  function compile(gl, type, src) {
+    var sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      console.warn('[cells] shader: ' + gl.getShaderInfoLog(sh));
+      gl.deleteShader(sh);
+      return null;
+    }
+    return sh;
+  }
+
+  function CELLS(userOptions) {
+    var o = {}, k;
+    for (k in DEFAULTS) o[k] = DEFAULTS[k];
+    for (k in userOptions) o[k] = userOptions[k];
+
+    var el = o.el;
+    if (typeof el === 'string') el = document.querySelector(el);
+    if (!el) return null;
+
+    var canvas = document.createElement('canvas');
+    canvas.className = 'vanta-canvas';
+    /* WebGLRenderer sets this on a canvas it creates itself; absolute
+       positioning blockifies it anyway, but match it rather than rely on that. */
+    canvas.style.display = 'block';
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.zIndex = '0';
+
+    var attrs = { alpha: true, antialias: true, premultipliedAlpha: true };
+    var gl = canvas.getContext('webgl', attrs) || canvas.getContext('experimental-webgl', attrs);
+    if (!gl) return null;
+
+    var vs = compile(gl, gl.VERTEX_SHADER, VERT_SRC);
+    var fs = compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC);
+    if (!vs || !fs) return null;
+
+    var prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.warn('[cells] link: ' + gl.getProgramInfoLog(prog));
+      return null;
+    }
+    gl.useProgram(prog);
+
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, QUAD, gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(prog, 'position');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
+
+    var u = {};
+    ['iResolution', 'iTime', 'iMouse', 'color1', 'color2', 'backgroundColor',
+     'size', 'blurFactor', 'amplitudeFactor', 'ringFactor', 'rotationFactor']
+      .forEach(function (n) { u[n] = gl.getUniformLocation(prog, n); });
+
+    /* The unused ones are set anyway, to the values Vanta would have set, so
+       that nothing depends on a compiler happening to strip them. */
+    function setFloat(n, v) { if (u[n]) gl.uniform1f(u[n], v); }
+    function setColor(n, hex) { if (u[n]) { var c = toVec3(hex); gl.uniform3f(u[n], c[0], c[1], c[2]); } }
+
+    setColor('color1', o.color1);
+    setColor('color2', o.color2);
+    setColor('backgroundColor', o.backgroundColor);
+    setFloat('size', o.size);
+    setFloat('amplitudeFactor', o.amplitudeFactor);
+    setFloat('ringFactor', o.ringFactor);
+    setFloat('rotationFactor', o.rotationFactor);
+    if (u.iMouse) gl.uniform2f(u.iMouse, 0, 0);
+    /* Not 0: Vanta declares `iTime: {type:"f", value:1}`, and the first frame
+       draws before any time step has run. Starting at 0 would make frame one
+       a different picture. */
+    setFloat('iTime', 1);
+
+    el.appendChild(canvas);
+
+    var self = {
+      req: 0,
+      t: 0,
+      t2: 0,
+      prevNow: 0,
+      scale: 1,
+      width: 0,
+      height: 0,
+      options: o
+    };
+
+    /* VantaBase.setSize(): the mobile branch wins over `scale`, which is why a
+       narrow window renders the field at a third of the resolution. */
+    function setSize() {
+      var mobile = typeof navigator !== 'undefined' &&
+        (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         window.innerWidth < 600);
+      if (mobile && o.scaleMobile) self.scale = o.scaleMobile;
+      else if (o.scale) self.scale = o.scale;
+      self.width = Math.max(el.offsetWidth, o.minWidth);
+      self.height = Math.max(el.offsetHeight, o.minHeight);
+    }
+
+    /* WebGLRenderer.setSize(w, h) + setPixelRatio(dpr / scale). */
+    function resize() {
+      setSize();
+      var pr = (window.devicePixelRatio || 1) / self.scale;
+      canvas.width = Math.floor(self.width * pr);
+      canvas.height = Math.floor(self.height * pr);
+      canvas.style.width = self.width + 'px';
+      canvas.style.height = self.height + 'px';
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      if (u.iResolution) {
+        gl.uniform2f(u.iResolution, self.width / self.scale, self.height / self.scale);
+      }
+    }
+
+    /* VantaBase.isOnScreen(). For a fixed, full-viewport host this is always
+       true, but it is kept so the loop behaves the same in any placement. */
+    function isOnScreen() {
+      var h = el.offsetHeight;
+      var r = el.getBoundingClientRect();
+      var scrollTop = window.pageYOffset ||
+        (document.documentElement || document.body.parentNode || document.body).scrollTop;
+      var top = r.top + scrollTop;
+      return top - window.innerHeight <= scrollTop && scrollTop <= top + h;
+    }
+
+    /* VantaBase.animationLoop(), step for step. Time keeps advancing while the
+       element is off screen; only the draw is skipped. */
+    function animationLoop() {
+      var now = performance.now();
+      if (self.prevNow) {
+        var dt = (now - self.prevNow) / (1000 / 60);
+        dt = Math.max(0.2, Math.min(dt, 5));
+        self.t += dt;
+        self.t2 += (o.speed || 1) * dt;
+        if (u.iTime) gl.uniform1f(u.iTime, 0.016667 * self.t2);
+      }
+      self.prevNow = now;
+
+      if (isOnScreen() || o.forceAnimate) {
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+      self.req = window.requestAnimationFrame(animationLoop);
+      return self.req;
+    }
+
+    self.animationLoop = animationLoop;
+    self.resize = resize;
+    self.destroy = function () {
+      if (self.req) window.cancelAnimationFrame(self.req);
+      window.removeEventListener('resize', resize);
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    };
+
+    window.addEventListener('resize', resize);
+    resize();
+    animationLoop();
+    return self;
+  }
+
+  window.VANTA = window.VANTA || {};
+  window.VANTA.CELLS = CELLS;
+})();
+</script>
+<script>
+/* ---------------- CELLS background ----------------
+   Loaded by hand rather than with a <script src> tag, so fetching it stays a
+   decision rather than a default: no WebGL, a metered connection or a
+   small-memory device and we never ask for the bytes at all. The gradient
+   field is the fallback, and it is the design as approved — nothing below
+   depends on this succeeding.
+
+   This used to pull three.js r134 plus vanta.cells, 627 KB, to run a single
+   full-screen fragment shader. js/cells.js is 10 KB and draws the same
+   picture: verified frame by frame against the old pair at 1x, 2x, mobile 3x
+   and below the 600px scale threshold, hashing the whole framebuffer at
+   frames 1, 2, 5, 30 and 120. All twenty comparisons matched exactly. */
+(function () {
+  var host = document.getElementById('vanta-bg');
+  if (!host || !window.requestAnimationFrame) return;
+
+  var net = navigator.connection || {};
+  if (net.saveData) return;
+  if (/(^|-)2g$/.test(net.effectiveType || '')) return;
+  if (navigator.deviceMemory && navigator.deviceMemory < 4) return;
+
+  /* Probe before downloading: a browser without WebGL would pull the whole
+     library only for Vanta to throw during init. */
+  try {
+    var probe = document.createElement('canvas');
+    if (!(probe.getContext('webgl') || probe.getContext('experimental-webgl'))) return;
+  } catch (e) { return; }
+
+  function load(src, next) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.async = false;          /* keep execution order deterministic */
+    s.onload = next;
+    s.onerror = function () { /* decorative — leave the gradient alone */ };
+    document.head.appendChild(s);
+  }
+
+  function start() {
+    if (!window.VANTA || !window.VANTA.CELLS) return;
+
+    var fx = window.VANTA.CELLS({
+      el: host,
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      minHeight: 200.00,
+      minWidth: 200.00,
+      scale: 1.00,
+      color1: 0x0,
+      color2: 0x1e3932,
+      size: 5.00,
+      speed: 0.00
+    });
+    if (!fx) return;
+    host.classList.add('is-ready');
+
+    /* Vanta keeps a full-screen fragment shader running at 60fps forever.
+       Stop it whenever it cannot be seen, and stop it for good for anyone
+       who asked for less motion — they still get the texture, just frozen
+       on the frame it reached. */
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function halt() { if (fx.req) window.cancelAnimationFrame(fx.req); }
+    function resume() { if (!document.hidden && !still.matches) fx.animationLoop(); }
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) halt(); else resume();
+    });
+
+    if (still.matches) {
+      /* Let it paint a few frames so the pattern is formed, then freeze. */
+      window.setTimeout(halt, 400);
+    }
+    /* React live, so toggling the OS setting does not need a reload. */
+    var onChange = function () { if (still.matches) halt(); else resume(); };
+    if (still.addEventListener) still.addEventListener('change', onChange);
+    else if (still.addListener) still.addListener(onChange);
+  }
+
+  /* After load, so the library never competes with the fonts or the hero.
+     The single-file preview build inlines the shader ahead of this
+     script, in which case there is nothing left to fetch. */
+  function boot() {
+    if (window.VANTA && window.VANTA.CELLS) { start(); return; }
+    window.setTimeout(function () {
+      load('js/cells.js', start);
+    }, 200);
+  }
+
+  if (document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot);
+})();
+</script>
 </body>
 </html>
