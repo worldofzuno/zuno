@@ -131,11 +131,16 @@ body {
   transition: opacity 900ms var(--ease-premium);
   contain: layout paint;  /* the canvas can never reflow the page */
 }
-/* 0.8, not 1: at full strength the brand green lifts the brightest cells
-   far enough that --ink-dim, the body colour, drops to 4.22:1 — under AA.
-   Dimming the layer keeps color2 exactly as specified and every text
-   token where it is. */
-#vanta-bg.is-ready { opacity: 0.8; }
+/* 0.35. Vanta's own shader ends on an off-centre vignette —
+   `t *= exp(-length2(abs(0.7*uv - 1.0)))` — which is exp(-0.18)=0.835 at
+   the top right against exp(-2.0)=0.135 at the bottom left, so the field
+   is built 6.2x brighter in one corner. The canvas is fixed and the
+   pattern shifts by 5/255 in fourteen seconds, so that corner never
+   moves: at 0.8 it read as a smudge on the glass rather than as texture.
+   Dimming the layer keeps the veins and the brand green exactly as they
+   are and takes the corner down with everything else. (0.8 was itself
+   chosen to keep --ink-dim above AA; at 0.35 there is far more room.) */
+#vanta-bg.is-ready { opacity: 0.35; }
 #vanta-bg canvas { display: block; }
 
 h1, h2, h3, h4 {
