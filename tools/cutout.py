@@ -54,6 +54,12 @@ CORE_FRAC = 0.60           # only this dark may DONATE colour outward; see cut_o
 SHADOW_CAP = 0.45          # nothing outside the bag may become near-solid
 SPECK_MIN_PX = 2000        # smaller disconnected blobs are dirt, not shadow
 SHADOW_RGB = (1.0, 1.0, 1.2)
+# Contour. EDGE_SIGMA is how much of the one-pixel staircase gets ironed out
+# of the distance field; EDGE_PX is how many pixels the coverage ramp spans,
+# so ~2 pixels carry intermediate alpha. DIFFUSE_PX is how far the donor
+# colour is carried outward. See antialias() and diffuse_outward().
+EDGE_SIGMA, EDGE_PX = 1.1, 1.5
+DIFFUSE_PX = 6.0
 
 
 def backdrop_model(I, x0, x1):
@@ -79,6 +85,52 @@ def largest_component(mask):
         return mask
     sizes = ndimage.sum(mask, lab, range(1, n + 1))
     return lab == (int(np.argmax(sizes)) + 1)
+
+
+def antialias(a):
+    """Turn a near-binary mask into real sub-pixel coverage.
+
+    Thresholding a photograph gives an alpha that steps 0 -> 1 inside one
+    pixel and repeats the same two values row after row. Blurring that
+    only softens the staircase; the steps stay where they are. So the
+    contour is rebuilt from a signed distance field instead: the field is
+    smoothed, which straightens the steps, and then mapped back to
+    coverage across EDGE_PX. The partial alpha already present refines
+    the field to sub-pixel position, so the contour does not snap to the
+    pixel grid on the way through.
+
+    Anything well clear of the subject keeps the alpha it had — that is
+    the shadow on the ground, which is genuinely soft and must not be
+    re-cut as if it were an outline.
+    """
+    body = a >= 0.5
+    sdf = (ndimage.distance_transform_edt(body)
+           - ndimage.distance_transform_edt(~body))
+    sdf = np.where(body, sdf - 0.5, sdf + 0.5) + (a - 0.5)
+    sdf = ndimage.gaussian_filter(sdf, EDGE_SIGMA)
+    edge = np.clip(0.5 + sdf / EDGE_PX, 0.0, 1.0)
+    far = ndimage.distance_transform_edt(~body) > 3
+    return np.maximum(edge, np.where(far, a, 0.0))
+
+
+def diffuse_outward(I, donor):
+    """Carry the donor colour outward smoothly instead of copying the nearest.
+
+    The nearest-donor fill this replaces stamped one pixel's colour across
+    a whole horizontal run wherever the contour ran near-vertical, so the
+    band became a flat strip. Worse, the donor sits far enough inside to
+    catch folds and highlights, so the strip's brightness jumped between
+    neighbouring rows — measured 22, 48, 74 down one edge, which is what
+    those light blocks on the outline were.
+
+    A normalised blur over the donor region continues the interior
+    gradually, so the contour picks up the colour the bag actually has
+    there rather than the colour of one pixel further in.
+    """
+    w = donor.astype(np.float32)
+    num = ndimage.gaussian_filter(I * w[..., None], (DIFFUSE_PX, DIFFUSE_PX, 0))
+    den = ndimage.gaussian_filter(w, DIFFUSE_PX)[..., None]
+    return num / np.maximum(den, 1e-6)
 
 
 def cut_out(path):
@@ -114,7 +166,7 @@ def cut_out(path):
         keep = [i + 1 for i, s in enumerate(sizes) if s > SPECK_MIN_PX]
         a[speck & ~np.isin(lab, keep)] = 0.0
 
-    a = ndimage.gaussian_filter(a, 0.6)
+    a = antialias(a)
     a[inner] = 1.0
 
     # Two different questions, which must not share one mask:
@@ -126,8 +178,7 @@ def cut_out(path):
     # Collapsing these into one mask erases every bright detail on the label.
     keep = ndimage.binary_erosion(sil, np.ones((9, 9)))
     donor = largest_component(keep & (d > CORE_FRAC * subject_d))
-    idx = ndimage.distance_transform_edt(~donor, return_distances=False, return_indices=True)
-    rgb = np.where(keep[..., None], I, I[idx[0], idx[1]])
+    rgb = np.where(keep[..., None], I, diffuse_outward(I, donor))
     rgb[outside & (a > 0)] = np.array(SHADOW_RGB, np.float32)
 
     bg_p99 = float(np.percentile(
