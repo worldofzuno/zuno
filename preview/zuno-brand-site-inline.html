@@ -427,6 +427,9 @@ section { position: relative; background: transparent; }
 .field-label { display: block; font-size: 0.7rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-faint); margin: 26px 0 12px; }
 .option-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .note { margin: 18px 0 0; font-size: 0.78rem; color: var(--ink-faint); max-width: 46ch; }
+/* Not red on black — it fails contrast and it reads as an error the customer
+   caused. This is the page telling them it could not do its job. */
+.note--warn { color: var(--ink); border-left: 2px solid var(--gold); padding-left: 12px; }
 
 .swap { display: grid; }
 .swap > span { grid-area: 1 / 1; transition: opacity var(--press) var(--ease-premium); }
@@ -887,8 +890,7 @@ html:not(.js) .page:target { display: block; }
     <h2 class="page__title">Your Cart</h2>
     <ol class="steps" id="steps">
       <li data-step="cart" class="active">Cart</li>
-      <li data-step="details">Delivery</li>
-      <li data-step="payment">Payment</li>
+      <li data-step="pay">Secure payment</li>
       <li data-step="done">Confirmation</li>
     </ol>
 
@@ -898,8 +900,10 @@ html:not(.js) .page:target { display: block; }
         <div class="summary" id="summary"></div>
         <div class="actions">
           <button class="btn btn--outline" type="button" data-home-btn>Continue Shopping</button>
-          <button class="btn btn--primary" type="button" id="toDetails">Proceed to Checkout</button>
+          <button class="btn btn--primary" type="button" id="checkoutBtn">Proceed to Checkout</button>
         </div>
+        <p class="note" id="checkoutNote" role="status" hidden></p>
+        <p class="note note--warn" id="checkoutError" role="alert" hidden></p>
       </div>
       <div class="cart-state cart-empty" id="cartEmpty">
         <p>Your cart is still empty.</p>
@@ -907,50 +911,9 @@ html:not(.js) .page:target { display: block; }
       </div>
     </div>
 
-    <!-- [PLACEHOLDER: form endpoint — checkout delivery] -->
-      <form method="post" action="/form-not-connected" id="stepDetails" hidden>
-      <h2 class="step-title">Delivery Details</h2>
-      <div class="grid2">
-        <label class="visually-hidden" for="f-firstname-4">First name</label><input id="f-firstname-4" class="field field--box" name="firstname" placeholder="First name" autocomplete="given-name" required>
-        <label class="visually-hidden" for="f-lastname-5">Last name</label><input id="f-lastname-5" class="field field--box" name="lastname" placeholder="Last name" autocomplete="family-name" required>
-        <label class="visually-hidden" for="f-email-6">Email address</label><input id="f-email-6" class="field field--box full" name="email" type="email" placeholder="Email address" autocomplete="email" required>
-        <label class="visually-hidden" for="f-street-7">Street and number</label><input id="f-street-7" class="field field--box" name="street" placeholder="Street &amp; number" autocomplete="street-address" required>
-        <label class="visually-hidden" for="f-zipcity-8">ZIP and city</label><input id="f-zipcity-8" class="field field--box" name="zipcity" placeholder="ZIP / City" required>
-        <label class="visually-hidden" for="f-country-9">Country</label><select id="f-country-9" class="field field--box full" name="country">
-          <option>Switzerland</option>
-          <option>Liechtenstein</option>
-        </select>
-        <label class="visually-hidden" for="f-phone-10">Phone</label><input id="f-phone-10" class="field field--box full" name="phone" type="tel" placeholder="Phone (optional — for delivery updates)" autocomplete="tel">
-      </div>
-      <p class="note">Flat shipping fee CHF 4.90 &mdash; free for orders over CHF 45. We deliver within Switzerland &amp; Liechtenstein.</p>
-      <div class="actions">
-        <button class="btn btn--outline" type="button" data-back="cart">Back to Cart</button>
-        <button class="btn btn--primary" type="submit">Continue to Payment</button>
-      </div>
-    </form>
-
-    <!-- [PLACEHOLDER: form endpoint — checkout payment] -->
-      <form method="post" action="/form-not-connected" id="stepPayment" hidden>
-      <h2 class="step-title">Payment</h2>
-      <div class="option-row option-row--pay" id="payRow">
-        <button class="option" type="button" aria-pressed="true" data-pay="Card">Card</button>
-        <button class="option" type="button" aria-pressed="false" data-pay="TWINT">TWINT</button>
-        <button class="option" type="button" aria-pressed="false" data-pay="PayPal">PayPal</button>
-      </div>
-      <div class="grid2" id="cardFields">
-        <label class="visually-hidden" for="f-cardno-11">Card number</label><input id="f-cardno-11" class="field field--box full" name="cardno" placeholder="Card number" inputmode="numeric" autocomplete="cc-number" required>
-        <label class="visually-hidden" for="f-expiry-12">Expiry date</label><input id="f-expiry-12" class="field field--box" name="expiry" placeholder="MM / YY" autocomplete="cc-exp" required>
-        <label class="visually-hidden" for="f-cvc-13">CVC</label><input id="f-cvc-13" class="field field--box" name="cvc" placeholder="CVC" inputmode="numeric" autocomplete="cc-csc" required>
-        <label class="visually-hidden" for="f-cardname-14">Name on card</label><input id="f-cardname-14" class="field field--box full" name="cardname" placeholder="Name on card" autocomplete="cc-name" required>
-      </div>
-      <p class="pay-alt" id="payAlt" hidden></p>
-      <div class="recap" id="recap"></div>
-      <div class="actions">
-        <button class="btn btn--outline" type="button" data-back="details">Back</button>
-        <button class="btn btn--primary" type="submit" id="payBtn">Pay</button>
-      </div>
-      <p class="note">Demo checkout &mdash; no real payment is processed.</p>
-    </form>
+    <!-- Delivery address and payment are collected by Stripe Checkout, which
+         is also where the promotion-code field lives. Nothing on this page
+         asks for a card, and nothing here computes what is owed. -->
 
     <div id="stepDone" hidden>
       <h2 class="step-title">Thank You</h2>
@@ -1403,6 +1366,37 @@ html:not(.js) .page:target { display: block; }
 
   /* ---------- cart model ---------- */
   var cart = [], orders = [], user = null;
+
+  /* The cart used to live only in memory, which was fine while the whole shop
+     was one page that never navigated. Handing off to a hosted checkout means
+     leaving the site and coming back, so it has to survive the round trip —
+     otherwise an abandoned payment looks like a cleared basket.
+     Storage can be absent or throw (private windows, blocked site data), and
+     the cart still has to work when it is. */
+  var CART_KEY = 'zuno.cart.v1';
+  function persistCart() {
+    try { window.localStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) { /* fine */ }
+  }
+  function restoreCart() {
+    var raw;
+    try { raw = window.localStorage.getItem(CART_KEY); } catch (e) { return; }
+    if (!raw) return;
+    try {
+      var saved = JSON.parse(raw);
+      if (!Array.isArray(saved)) return;
+      /* Rebuilt field by field: whatever is in storage is not trusted, and a
+         price out of it is never used for anything but display — the charge
+         comes from the Stripe catalogue. */
+      cart = saved.slice(0, 10).map(function (i) {
+        return {
+          size: i && i.size === '500g' ? '500g' : '200g',
+          grind: i && i.grind === 'Pre-Ground' ? 'Pre-Ground' : 'Whole Beans',
+          price: i && i.size === '500g' ? 29.90 : 14.90,
+          qty: Math.min(20, Math.max(1, parseInt(i && i.qty, 10) || 1))
+        };
+      });
+    } catch (e) { cart = []; }
+  }
   var badge = document.getElementById('badge');
   var linesEl = document.getElementById('lines');
   var filledEl = document.getElementById('cartFilled');
@@ -1484,6 +1478,7 @@ html:not(.js) .page:target { display: block; }
   }
 
   function syncCart(animate) {
+    persistCart();
     paintBadge();
     renderLines();
     var isEmpty = cart.length === 0;
@@ -1532,85 +1527,95 @@ html:not(.js) .page:target { display: block; }
   }
 
   /* ---------- checkout ---------- */
-  var order = ['cart', 'details', 'payment', 'done'];
+  var order = ['cart', 'done'];
   var steps = {
     cart: document.getElementById('stepCart'),
-    details: document.getElementById('stepDetails'),
-    payment: document.getElementById('stepPayment'),
     done: document.getElementById('stepDone')
   };
-  var payMethod = 'Card';
 
   function showStep(name) {
     order.forEach(function (s) { steps[s].hidden = s !== name; });
     var cur = order.indexOf(name);
     document.querySelectorAll('#steps li').forEach(function (li) {
-      var i = order.indexOf(li.getAttribute('data-step'));
+      var i = { cart: 0, pay: 0.5, done: 1 }[li.getAttribute('data-step')];
       li.classList.toggle('active', i === cur);
       li.classList.toggle('done', i < cur);
     });
     window.scrollTo(0, 0);
   }
 
-  document.getElementById('toDetails').addEventListener('click', function () {
-    if (cart.length) showStep('details');
-  });
-  document.querySelectorAll('[data-back]').forEach(function (b) {
-    b.addEventListener('click', function () { showStep(b.getAttribute('data-back')); });
-  });
+  /* ---------- checkout ----------
+     The cart hands Stripe a list of what was chosen. It does not send a
+     price, and it could not be trusted with one if it did: the amounts live
+     in the Stripe catalogue and the function reads them back from there.
+     The promotion-code field is Stripe's own, on Stripe's page. */
+  var checkoutBtn = document.getElementById('checkoutBtn');
+  var checkoutError = document.getElementById('checkoutError');
+  var checkoutNote = document.getElementById('checkoutNote');
+  var SKU = { '200g': 'castano-200g', '500g': 'castano-500g' };
 
-  function paintRecap() {
-    var s = sub(), sh = ship(s);
-    document.getElementById('recap').innerHTML =
-      cart.map(function (i) {
-        return '<div class="row"><span>' + i.qty + '&times; Castano ' + i.size + ' · ' + i.grind + '</span><span>' + chf(i.qty * i.price) + '</span></div>';
-      }).join('') +
-      '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
-      '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
-    document.getElementById('payBtn').textContent = 'Pay ' + chf(s + sh);
+  function say(el, text) {
+    el.textContent = text;
+    el.hidden = !text;
   }
 
-  document.getElementById('payRow').addEventListener('click', function (e) {
-    var b = e.target.closest('.option');
-    if (!b) return;
-    document.querySelectorAll('#payRow .option').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
-    b.setAttribute('aria-pressed', 'true');
-    payMethod = b.getAttribute('data-pay');
-    var isCard = payMethod === 'Card';
-    document.getElementById('cardFields').hidden = !isCard;
-    var alt = document.getElementById('payAlt');
-    alt.hidden = isCard;
-    if (!isCard) alt.textContent = 'You will be redirected to ' + payMethod + ' to complete the payment.';
-    document.querySelectorAll('#cardFields .field').forEach(function (f) {
-      if (isCard) { f.setAttribute('required', ''); } else { f.removeAttribute('required'); }
+  checkoutBtn.addEventListener('click', function () {
+    if (!cart.length || checkoutBtn.disabled) return;
+    say(checkoutError, '');
+    say(checkoutNote, '');
+    var label = checkoutBtn.textContent;
+    checkoutBtn.disabled = true;
+    checkoutBtn.textContent = 'Taking you to checkout…';
+
+    window.fetch('/.netlify/functions/create-checkout-session', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        items: cart.map(function (i) {
+          return { sku: SKU[i.size], qty: i.qty, grind: i.grind };
+        })
+      })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        if (!r.ok || !b.url) throw new Error('no session');
+        return b.url;
+      });
+    }).then(function (url) {
+      window.location.assign(url);
+    }).catch(function () {
+      checkoutBtn.disabled = false;
+      checkoutBtn.textContent = label;
+      say(checkoutError,
+        'We could not reach the checkout just now. Your cart is saved — please try again in a moment.');
     });
   });
 
-  document.getElementById('stepDetails').addEventListener('submit', function (e) {
-    e.preventDefault();
-    paintRecap();
-    showStep('payment');
-  });
+  /* Coming back from Stripe is a fresh page load, so the cart has to survive
+     the round trip or an abandoned payment would look like a cleared basket. */
+  (function returnFromStripe() {
+    var q;
+    try { q = new URLSearchParams(window.location.search); } catch (e) { return; }
+    var state = q.get('checkout');
+    if (!state) return;
+    /* Drop the query so a refresh does not replay the message. */
+    try {
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    } catch (e) { /* not fatal */ }
 
-  document.getElementById('stepPayment').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (!cart.length) return;
-    var s = sub(), sh = ship(s);
-    var o = {
-      id: 'ZUNO-' + Math.floor(10000 + Math.random() * 90000),
-      date: new Date().toLocaleDateString('en-CH', { day: 'numeric', month: 'short', year: 'numeric' }),
-      n: qty(),
-      total: s + sh,
-      pay: payMethod
-    };
-    orders.unshift(o);
-    cart = [];
-    syncCart(false);
-    document.getElementById('doneNo').textContent = 'Order ' + o.id;
-    document.getElementById('doneMsg').textContent =
-      'Thank you for your order! A confirmation email with your order details and delivery updates is on its way. Total charged via ' + o.pay + ': ' + chf(o.total) + '.';
-    showStep('done');
-  });
+    if (state === 'success') {
+      cart = [];
+      persistCart();
+      syncCart(false);
+      var ref = (q.get('session_id') || '').slice(-8).toUpperCase();
+      document.getElementById('doneNo').textContent = ref ? 'Reference ' + ref : 'Thank you';
+      document.getElementById('doneMsg').textContent =
+        'Your payment went through and a receipt is on its way by email. ' +
+        'It carries the final amount, including any promotion code you used.';
+      window.setTimeout(function () { showStep('done'); }, 0);
+    } else if (state === 'cancelled') {
+      say(checkoutNote, 'Payment cancelled — your cart is exactly as you left it.');
+    }
+  })();
 
   /* ---------- account ---------- */
   function renderAccount() {
@@ -1692,6 +1697,9 @@ html:not(.js) .page:target { display: block; }
     });
   });
 
+  /* Restore before the first sync: syncCart persists, so an empty cart would
+     otherwise overwrite the stored one on every load. */
+  restoreCart();
   syncCart(false);
   route();
 })();
