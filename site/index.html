@@ -635,14 +635,23 @@ html:not(.js) .page:target { display: block; }
   .faces .portrait { order: -1; }
   .beliefs { grid-template-columns: 1fr; }
   .belief + .belief { border-left: none; border-top: 1px solid var(--line); }
+  /* Two columns with the Z block across the top. It used to be a plain 2x2
+     with a fourth block filling the last cell; that block is gone, so
+     without the span the Company list would sit alone on the second row
+     beside a hole. */
   .foot { grid-template-columns: 1fr 1fr; }
+  .foot > :first-child { grid-column: 1 / -1; }
   .auth { grid-template-columns: 1fr; }
   .member .btn { margin-left: 0; }
 }
 @media (max-width: 560px) {
   .facts, .grid2 { grid-template-columns: 1fr; }
-  .foot { grid-template-columns: 1fr; }
   .line__price { text-align: left; }
+  /* The footer keeps two columns down to the smallest phone rather than
+     collapsing to one: the Z and its line want the full width, but Shop and
+     Company are short lists that read better beside each other than as one
+     long stack the thumb has to scroll past. */
+  .foot { gap: 32px 24px; }
 }
 
 /* Replaces the four former style="" attributes, so the CSP needs no
@@ -1053,7 +1062,7 @@ html:not(.js) .page:target { display: block; }
 <section class="page policy" id="page-shipping">
   <div class="rail rail--narrow">
     <p class="eyebrow eyebrow--sm">Legal</p>
-    <h2 class="page__title">Shipping Policy</h2>
+    <h2 class="page__title">Shipping &amp; Returns</h2>
 
     <h2>Shipping Terms</h2>
     <p>Our shipping terms apply to deliveries within Switzerland and the Principality of Liechtenstein. Currently, we do not ship internationally.</p>
@@ -1067,15 +1076,11 @@ html:not(.js) .page:target { display: block; }
     <p>Shipping is free for orders over CHF 45.</p>
     <p>The shipping fee includes packaging, postage and handling costs.</p>
     <p>If not all items in an order are available immediately, any additional shipping costs for subsequent deliveries will be covered by us. However, we aim to ship all items together whenever possible. If this is not feasible, the order may be held until all items are available.</p>
-  </div>
-</section>
 
-<section class="page policy" id="page-returns">
-  <div class="rail rail--narrow">
-    <p class="eyebrow eyebrow--sm">Legal</p>
-    <h2 class="page__title">Return Policy</h2>
+    <hr class="legal-rule">
 
-    <p class="intro">If a customer receives a damaged or defective item, we will provide a replacement or a full refund once the damaged or defective product has been returned to us.</p>
+    <h2>Returns</h2>
+    <p>If a customer receives a damaged or defective item, we will provide a replacement or a full refund once the damaged or defective product has been returned to us.</p>
     <p>Used items or products damaged by the customer are excluded from the return policy. Ground coffee is excluded from exchange or return and will always be charged.</p>
     <p>If a customer places an order that was unwanted, incorrect or made by mistake, the return shipping costs (postage and return label) must be fully covered by the customer.</p>
 
@@ -1139,7 +1144,7 @@ html:not(.js) .page:target { display: block; }
 
     <h3>4. Prices</h3>
     <p>All prices displayed on the website are shown in Swiss francs (CHF) and include VAT.</p>
-    <p>Shipping costs are calculated and displayed during checkout. See our <a href="#shipping">Shipping Policy</a>.</p>
+    <p>Shipping costs are calculated and displayed during checkout. See our <a href="#shipping">Shipping &amp; Returns</a>.</p>
     <!-- REMOVED: the source's customs-duty and import-tax clause applies to
          international orders, which ZUNO does not accept. -->
 
@@ -1167,7 +1172,7 @@ html:not(.js) .page:target { display: block; }
     <p>ZUNO ships within Switzerland and the Principality of Liechtenstein. We do not currently ship internationally.</p>
     <p>Unless otherwise stated, orders are ready for dispatch within two business days and are shipped via Swiss Post.</p>
     <p>ZUNO is not responsible for delays caused by shipping carriers or other external circumstances.</p>
-    <p>Full details are set out in our <a href="#shipping">Shipping Policy</a>.</p>
+    <p>Full details are set out in our <a href="#shipping">Shipping &amp; Returns</a>.</p>
 
     <h3>8. Returns and Refunds</h3>
     <!-- CHANGED: the source allowed 30 days and did not exclude ground coffee.
@@ -1176,7 +1181,7 @@ html:not(.js) .page:target { display: block; }
     <p>Ground coffee is excluded from exchange or return for hygiene and safety reasons and will always be charged.</p>
     <p>Unopened products may be returned within the return period, provided that the product is unused and in its original packaging.</p>
     <p>Where the return is not due to a damaged or defective item, the customer bears the return shipping costs.</p>
-    <p>If a product arrives damaged or incorrect, please contact us within 5 days of receiving the order. Full details are set out in our <a href="#returns">Return Policy</a>.</p>
+    <p>If a product arrives damaged or incorrect, please contact us within 5 days of receiving the order. Full details are set out in our <a href="#shipping">Shipping &amp; Returns</a>.</p>
 
     <h3>9. Liability</h3>
     <p>ZUNO shall only be liable for damages caused by intentional misconduct or gross negligence.</p>
@@ -1199,7 +1204,7 @@ html:not(.js) .page:target { display: block; }
   <div class="rail foot">
     <div>
       <p class="foot__z"><img width="179" height="200" loading="lazy" decoding="async" src="img/z-mark.png" alt="ZUNO"></p>
-      <p class="foot__line">Starting with Coffee. Not Stopping There.</p>
+      <p class="foot__line">Starting with Coffee.<br>Not Stopping There.</p>
     </div>
     <div>
       <h3>Shop</h3>
@@ -1216,18 +1221,13 @@ html:not(.js) .page:target { display: block; }
         <li><a href="#join" data-home>Contact</a></li>
       </ul>
     </div>
-    <div>
-      <h3>Join the World of ZUNO</h3>
-      <p class="small">New products, brand news and future releases.</p>
-    </div>
   </div>
   <div class="rail foot__bottom">
     <p class="foot__copy">&copy; 2026 ZUNO. All rights reserved.</p>
     <ul>
       <li><a href="#legal">Legal Notice &amp; Terms</a></li>
       <li><a href="#privacy">Privacy Policy</a></li>
-      <li><a href="#shipping">Shipping Policy</a></li>
-      <li><a href="#returns">Return Policy</a></li>
+      <li><a href="#shipping">Shipping &amp; Returns</a></li>
     </ul>
   </div>
 </footer>
@@ -1724,9 +1724,11 @@ html:not(.js) .page:target { display: block; }
   });
 
   /* ---------- hash router ---------- */
-  var PAGES = ['cart', 'account', 'privacy', 'shipping', 'returns', 'legal'];
-  /* The imprint and the terms used to be separate pages; keep those links alive. */
-  var ALIASES = { imprint: 'legal', terms: 'legal' };
+  var PAGES = ['cart', 'account', 'privacy', 'shipping', 'legal'];
+  /* Pages that were once their own and have since been folded into another.
+     The old hashes stay alive, so anything already linked or bookmarked
+     still lands somewhere sensible. */
+  var ALIASES = { imprint: 'legal', terms: 'legal', returns: 'shipping' };
   var main = document.getElementById('main');
   var footer = document.querySelector('footer');
 
