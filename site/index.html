@@ -70,14 +70,16 @@
   --beige: #ede4d3;
 
   --ink: #eae4d6;
-  --ink-dim: rgba(234, 228, 214, 0.62);
-  /* Same value as --ink-dim, not the 0.38 this once was. Against the
-     brightest part of the cell field 0.38 measured 2.76:1 and 0.60 measured
-     4.43:1, both under the 4.5:1 AA asks for; 0.62 is what clears it. The
-     two tokens are now one colour — over this ground nothing lighter
-     passes, so the step down to small print has to come from size and
-     weight rather than from opacity. */
-  --ink-faint: rgba(234, 228, 214, 0.62);
+  /* Measured against the brightest pixel the cell field actually renders
+     behind the hero copy, rgb(36, 65, 57), with the text hidden so glyph
+     antialiasing could not lighten the sample: 0.38 gives 2.76:1, 0.60
+     gives 4.43:1, 0.62 gives 4.44:1 — all short of the 4.5:1 AA asks for
+     body text. 0.63 gives 4.55:1 and is the first value that clears it. */
+  --ink-dim: rgba(234, 228, 214, 0.63);
+  /* Same value as --ink-dim. Over this ground nothing lighter passes, so
+     the step down to small print has to come from size and weight rather
+     than from opacity. */
+  --ink-faint: rgba(234, 228, 214, 0.63);
   --line: rgba(234, 228, 214, 0.12);
   --line-strong: rgba(234, 228, 214, 0.22);
 
@@ -435,16 +437,16 @@ section { position: relative; background: transparent; }
    caused. This is the page telling them it could not do its job. */
 .note--warn { color: var(--ink); border-left: 2px solid var(--gold); padding-left: 12px; }
 
-/* Every form on this page is handled in JavaScript and posts nowhere. With
-   scripting off the submit buttons would fall back to a real POST — which
-   for the sign-in and join cards means a password leaving the browser to a
-   route that does nothing with it. So without JS the forms are not offered
-   at all, and a line says why. */
+/* The sign-in and join cards are handled in JavaScript and post nowhere.
+   With scripting off their submit buttons would fall back to a real POST,
+   which means a password leaving the browser for a route that does nothing
+   with it. So without JS they are not offered at all, and a line says why.
+   The contact form is not in here: Netlify receives that one natively, so
+   its no-JS path is the good path. */
 .note--nojs { display: none; }
 html:not(.js) .note--nojs { display: block; }
 html:not(.js) #loginForm,
-html:not(.js) #registerForm,
-html:not(.js) #joinForm { display: none; }
+html:not(.js) #registerForm { display: none; }
 
 .swap { display: grid; }
 .swap > span { grid-area: 1 / 1; transition: opacity var(--press) var(--ease-premium); }
@@ -485,6 +487,13 @@ html:not(.js) #joinForm { display: none; }
 .join form .btn { margin-top: 6px; align-self: center; }
 .join__ok { display: none; color: var(--gold); font-size: 0.92rem; margin-top: 28px; }
 .join__ok.is-on { display: block; }
+/* The failure line borrows the success line's placement; only the colour
+   separates them, and the copy says which it is. */
+.join__err { color: var(--ink); }
+.join__err a { color: var(--gold); }
+/* The honeypot. display:none keeps it unseen, unfocusable and unread, and
+   the browser still submits it — which is the whole point. */
+.honeypot { display: none; }
 .ig {
   margin-top: 26px; display: inline-flex; align-items: center; gap: 10px;
   color: var(--ink-dim); text-decoration: none; font-size: 0.9rem;
@@ -883,8 +892,14 @@ html:not(.js) .page:target { display: block; }
     <h2>Want to add some ZUNO vibes to your place?</h2>
     <p>Let us know &mdash; we&rsquo;re happy to share more about our coffee, pricing, and the potential for a perfect partnership. Because let&rsquo;s face it, life&rsquo;s better with a bit of ZUNO.</p>
 
-    <!-- [PLACEHOLDER: form endpoint — contact enquiry] -->
-      <form method="post" action="/form-not-connected" id="joinForm">
+    <!-- Netlify picks this form up out of the deployed HTML by its name and
+         the data-netlify flag; the submissions land in the site's Forms tab.
+         Nothing here needs a function or a third-party endpoint. -->
+      <form method="post" action="/" name="contact" data-netlify="true" data-netlify-honeypot="bot-field" id="joinForm">
+      <input type="hidden" name="form-name" value="contact">
+      <!-- The honeypot. Hidden from everyone, so anything that fills it in is
+           not a person; display:none keeps it out of the tab order too. -->
+      <p class="honeypot"><label>Leave this field empty <input name="bot-field" autocomplete="off" tabindex="-1"></label></p>
       <div class="join__row">
         <label class="visually-hidden" for="f-name-1">Name</label><input id="f-name-1" class="field" type="text" name="name" placeholder="Your name" required>
         <label class="visually-hidden" for="f-email-2">Email address</label><input id="f-email-2" class="field" type="email" name="email" placeholder="Your email address" required>
@@ -893,9 +908,8 @@ html:not(.js) .page:target { display: block; }
       <button class="btn btn--primary" type="submit">Send Inquiry</button>
     </form>
 
-    <p class="note note--nojs">This form needs JavaScript. Please write to <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a> instead.</p>
-
-    <p class="join__ok" id="joinOk">Thank you &mdash; your inquiry is on its way. We&rsquo;ll get back to you shortly.</p>
+    <p class="join__ok" id="joinOk" role="status">Thank you &mdash; your inquiry is on its way. We&rsquo;ll get back to you shortly.</p>
+    <p class="join__ok join__err" id="joinErr" role="alert">That didn&rsquo;t send. Please try again, or write to <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>.</p>
 
     <!-- [PLACEHOLDER: instagram url — derived from the @worldofzuno handle, please confirm] -->
     <a class="ig" href="https://www.instagram.com/worldofzuno/" target="_blank" rel="noopener noreferrer">
@@ -1672,12 +1686,41 @@ html:not(.js) .page:target { display: block; }
   });
   document.getElementById('logoutBtn').addEventListener('click', function () { user = null; renderAccount(); });
 
-  /* ---------- join form ---------- */
+  /* ---------- join form ----------
+     Netlify collects this form from the deployed HTML and stores the
+     submissions itself. Posting it here instead of letting the browser
+     navigate only keeps the page in place — the request goes to the same
+     origin and carries the same fields the native submit would, so the
+     no-JS path is the identical POST without the fetch around it.
+
+     The thank-you now waits for Netlify to accept the request. It used to
+     appear the instant the button was pressed, which was a promise the
+     page could not keep. */
   var joinForm = document.getElementById('joinForm');
+  var joinOk = document.getElementById('joinOk');
+  var joinErr = document.getElementById('joinErr');
+  var joinBtn = joinForm.querySelector('button[type="submit"]');
+  var joinLabel = joinBtn.textContent;
+
   joinForm.addEventListener('submit', function (e) {
     e.preventDefault();
-    joinForm.style.display = 'none';
-    document.getElementById('joinOk').classList.add('is-on');
+    joinErr.classList.remove('is-on');
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Sending…';
+
+    window.fetch('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(new FormData(joinForm)).toString()
+    }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      joinForm.style.display = 'none';
+      joinOk.classList.add('is-on');
+    })['catch'](function () {
+      joinBtn.disabled = false;
+      joinBtn.textContent = joinLabel;
+      joinErr.classList.add('is-on');
+    });
   });
 
   /* ---------- hash router ---------- */
