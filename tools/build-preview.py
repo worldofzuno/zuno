@@ -48,16 +48,9 @@ for tag in re.findall(r'<link rel="(?:icon|apple-touch-icon)"[^>]*href="([^"]+)"
     if not tag.startswith("data:"):
         html = html.replace(f'href="{tag}"', f'href="{data_uri(tag)}"')
 
-# 4. The cells shader. The loader in index.html checks for window.VANTA
-#    first, so inlining it ahead of it is all that is needed.
-libs = "\n".join(
-    f"<script>{(HERE / 'js' / name).read_text()}</script>"
-    for name in ("cells.js",)
-)
-marker = "<script>\n/* ---------------- CELLS background ----------------"
-if marker not in html:
-    sys.exit("could not find the Vanta loader block to inline ahead of")
-html = html.replace(marker, libs + "\n" + marker, 1)
+# There is no step 4. This used to inline js/cells.js, the WebGL cell field
+# that ran behind the whole page; the background is flat black now and the
+# shader is gone, so a standalone page needs nothing but the steps above.
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(html)
