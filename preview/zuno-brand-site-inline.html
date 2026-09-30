@@ -494,7 +494,19 @@ html:not(.js) #registerForm { display: none; }
 
 /* ---------------- Footer ---------------- */
 footer { border-top: 1px solid var(--line); padding: 64px 0 40px; }
-.foot { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 40px; }
+/* Three columns sized to their content and centred as a group, rather than
+   fractions of the rail. The grid was 1.4fr 1fr 1fr 1.2fr for four blocks;
+   with the fourth gone, fractions left the three sitting against the left
+   edge with a quarter of the rail empty beside them. The text inside each
+   column stays left-aligned — it is the cluster that is centred, not the
+   words. Below 900px the columns go back to filling the width, so this
+   only applies to the desktop layout. */
+.foot {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  justify-content: center;
+  gap: 40px clamp(48px, 7vw, 104px);
+}
 .foot h3 { margin: 0 0 14px; font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
 .foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .foot a { font-size: 0.88rem; color: var(--ink-dim); text-decoration: none; transition: color var(--control) var(--ease-premium); }
