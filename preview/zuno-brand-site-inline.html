@@ -511,8 +511,15 @@ footer { border-top: 1px solid var(--line); padding: 64px 0 40px; }
 .foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .foot a { font-size: 0.88rem; color: var(--ink-dim); text-decoration: none; transition: color var(--control) var(--ease-premium); }
 @media (hover: hover) and (pointer: fine) { .foot a:hover { color: var(--gold); } }
+/* The mark is centred over the line beneath it, not over the cell it sits
+   in. Those are the same box on desktop, where the column is sized to its
+   content, but not on a phone, where the cell spans the full width — there
+   a plain auto margin would strand the Z in the middle of the screen with
+   the text still at the left. Hugging the content keeps the two together
+   at every width. */
+.foot > :first-child { width: max-content; max-width: 100%; }
 .foot__z { margin: 0; line-height: 0; }
-.foot__z img { height: 46px; width: auto; display: block; }
+.foot__z img { height: 46px; width: auto; display: block; margin-inline: auto; }
 .foot__line { margin: 14px 0 0; font-size: 0.85rem; color: var(--ink-dim); max-width: 30ch; }
 .foot p.small { font-size: 0.85rem; color: var(--ink-dim); margin: 0; }
 .foot__bottom {
