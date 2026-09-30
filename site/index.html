@@ -1655,19 +1655,86 @@ html:not(.js) .page:target { display: block; }
       window.history.replaceState(null, '', window.location.pathname + window.location.hash);
     } catch (e) { /* not fatal */ }
 
-    if (state === 'success') {
-      cart = [];
-      persistCart();
-      syncCart(false);
-      var ref = (q.get('session_id') || '').slice(-8).toUpperCase();
-      document.getElementById('doneNo').textContent = ref ? 'Reference ' + ref : 'Thank you';
-      document.getElementById('doneMsg').textContent =
-        'Your payment went through and a receipt is on its way by email. ' +
-        'It carries the final amount, including any promotion code you used.';
-      window.setTimeout(function () { showStep('done'); }, 0);
-    } else if (state === 'cancelled') {
+    if (state === 'cancelled') {
       say(checkoutNote, 'Payment cancelled — your cart is exactly as you left it.');
+      return;
     }
+    if (state !== 'success') return;
+
+    /* The redirect is not proof. Anyone can type ?checkout=success, and
+       emptying a basket on the strength of that is a real way to lose an
+       order. So the page asks the server, and the cart stays until the
+       answer says the money arrived. */
+    var id = q.get('session_id') || '';
+    var done = document.getElementById('doneNo');
+    var msg = document.getElementById('doneMsg');
+    var ref = id.slice(-8).toUpperCase();
+
+    function settle(title, text, clear) {
+      if (clear) { cart = []; persistCart(); syncCart(false); }
+      done.textContent = title;
+      msg.textContent = text;
+      showStep('done');
+    }
+
+    done.textContent = 'One moment';
+    msg.textContent = 'Confirming your payment with Stripe…';
+    window.setTimeout(function () { showStep('done'); }, 0);
+
+    if (!id) {
+      settle('Nothing to confirm',
+        'This page was opened without a payment reference, so there is nothing to show. ' +
+        'Your cart has been left as it was.', false);
+      return;
+    }
+
+    /* "We could not ask" and "we asked and there is nothing" are different
+       things to be told. Confusing them is how a customer ends up paying
+       twice, so a server-side failure gets the cautious wording and only a
+       real answer from Stripe gets the definite one. */
+    function unreachable() {
+      settle('We could not check this',
+        'Your payment may well have gone through — we just could not reach Stripe ' +
+        'from here. Please do not pay a second time. Look for a receipt in your ' +
+        'email, or write to info@worldofzuno.com and we will check for you.', false);
+    }
+
+    window.fetch('/.netlify/functions/checkout-status?session_id=' + encodeURIComponent(id))
+      .then(function (r) {
+        return r.json()
+          .catch(function () { return {}; })
+          .then(function (b) { return { status: r.status, ok: r.ok, b: b }; });
+      })
+      .then(function (res) {
+        if (!res.ok) {
+          /* 5xx is our side or Stripe's, and says nothing about the payment.
+             4xx means Stripe was asked and had no such completed session. */
+          if (res.status >= 500) return unreachable();
+          return settle('We could not confirm this',
+            'Stripe has no completed payment for this reference. If money did leave ' +
+            'your account, write to info@worldofzuno.com and we will sort it out. ' +
+            'Your cart has been left as it was.', false);
+        }
+        var s = res.b && res.b.state;
+        if (s === 'paid') {
+          return settle(ref ? 'Reference ' + ref : 'Thank you',
+            'Your payment went through and a receipt is on its way by email. ' +
+            'It carries the final amount, including any promotion code you used.', true);
+        }
+        if (s === 'pending' || s === 'open') {
+          /* Not a failure. Some payment methods take days to clear, and the
+             customer is told to wait rather than to pay again. */
+          return settle('Payment on its way',
+            'Your payment has not cleared yet — some methods take a little longer. ' +
+            'We will email you as soon as it does. Your cart has been kept in case ' +
+            'you need it.', false);
+        }
+        return settle('We could not confirm this',
+          'Stripe has no completed payment for this reference. If money did leave ' +
+          'your account, write to info@worldofzuno.com and we will sort it out. ' +
+          'Your cart has been left as it was.', false);
+      })
+      ['catch'](unreachable);
   })();
 
   /* ---------- account ---------- */
