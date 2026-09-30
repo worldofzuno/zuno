@@ -20,11 +20,17 @@ import Stripe from 'stripe';
 
 /* ------------------------------------------------------------------ config */
 
-/** SKU -> Stripe Price ID. The client may only name a key of this map. */
+/**
+ * SKU -> Stripe Price ID. The client may only name a key of this map.
+ *
+ * The ids come from the environment rather than from here, because test and
+ * live mode have different ones and the same file has to serve both. See
+ * .env.example for the sandbox values and the products behind them; both
+ * prices are CHF with tax_behavior "inclusive", which Stripe will not let
+ * us change later — CHF 14.90 is what the shelf says, tax and all.
+ */
 const CATALOGUE = {
-  // [PLACEHOLDER: Stripe Price ID for Castano 200 g, CHF 14.90 — price_...]
   'castano-200g': process.env.STRIPE_PRICE_CASTANO_200G,
-  // [PLACEHOLDER: Stripe Price ID for Castano 500 g, CHF 29.90 — price_...]
   'castano-500g': process.env.STRIPE_PRICE_CASTANO_500G,
 };
 
