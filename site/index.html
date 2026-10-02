@@ -708,13 +708,15 @@ html:not(.js) .page:target { display: block; }
    Everything in here is for narrow viewports only; the desktop rules above
    are untouched. */
 @media (max-width: 768px) {
-  /* The eyebrow leads, then the bag and its two facts share a row, then
-     the heading and the buying controls run full width beneath. */
+  /* The whole of The First Chapter comes first — eyebrow, heading and the
+     paragraph under it — then the bag shares a row with its two facts,
+     then the buying controls. The copy introduces the bag, so it reads
+     ahead of it rather than after. */
   .product { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr); column-gap: 18px; }
-  .product__eyebrow { grid-column: 1 / -1; grid-row: 1; margin-bottom: 18px; }
-  .product__shot    { grid-column: 1; grid-row: 2; align-self: center; }
-  .product .facts   { grid-column: 2; grid-row: 2; align-self: center; }
-  .product__copy    { grid-column: 1 / -1; grid-row: 3; }
+  .product__eyebrow { grid-column: 1 / -1; grid-row: 1; margin-bottom: 14px; }
+  .product__copy    { grid-column: 1 / -1; grid-row: 2; margin-bottom: 30px; }
+  .product__shot    { grid-column: 1; grid-row: 3; align-self: center; }
+  .product .facts   { grid-column: 2; grid-row: 3; align-self: center; }
   .product .buy     { grid-column: 1 / -1; grid-row: 4; }
 
   .shot { max-width: 100%; margin-inline: auto; }
@@ -744,6 +746,9 @@ html:not(.js) .page:target { display: block; }
   .buy .note    { grid-column: 1 / -1; grid-row: 5; }
   #sizeRow, #grindRow { flex-direction: column; gap: 10px; }
   #sizeRow .option, #grindRow .option { width: 100%; }
+  /* The labels sit over a full-width column of tiles, so they centre on
+     the tiles rather than on the left edge of them. */
+  #sizeLabel, #grindLabel { text-align: center; }
 
   /* The copyright drops to the very bottom, under the legal links. */
   .foot__bottom { flex-direction: column; align-items: stretch; gap: 22px; }
