@@ -328,7 +328,7 @@ section { position: relative; background: transparent; }
    back by the same amount — the line spacing is unchanged. */
 .hero h1 .h-line { display: block; overflow: hidden; padding-bottom: 0.09em; margin-bottom: -0.09em; }
 .hero__sub { margin: 26px auto 0; max-width: 46ch; color: var(--ink-dim); }
-.hero__cta { margin-top: 38px; }
+/* .hero__cta is gone with the Shop button it held. */
 
 /* 28px, not 18. Below roughly 24px the eye registers the fade but not the
    travel, which is why the page read as static despite animating. */
@@ -403,16 +403,38 @@ section { position: relative; background: transparent; }
   padding: 0; border: 0; background: none;
   cursor: pointer; border-radius: 14px;
 }
-.shot__hint {
-  margin: clamp(14px, 2vw, 22px) 0 0;
-  text-align: center;
-  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--ink-faint);
+/* Two dots in place of the line of text that used to say how to flip the
+   bag. The dots say the same thing by being there, and they do it rather
+   than describe it. Each is a real button, so pointer, touch and keyboard
+   all reach the same control. The tap area is 44px; only the 8px core is
+   painted. */
+.shot__dots {
+  margin: clamp(10px, 1.6vw, 18px) 0 0;
+  display: flex; justify-content: center; align-items: center; gap: 4px;
 }
-.shot__hint--pointer { display: none; }
+.shot__dot {
+  appearance: none; -webkit-appearance: none;
+  width: 44px; height: 44px; padding: 0;
+  border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.shot__dot::before {
+  content: ""; display: block;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ink-faint);
+  opacity: 0.45;
+  transition: opacity var(--control) var(--ease-premium),
+              background-color var(--control) var(--ease-premium),
+              transform var(--control) var(--ease-premium);
+}
+.shot__dot.is-on::before { background: var(--gold); opacity: 1; transform: scale(1.25); }
 @media (hover: hover) and (pointer: fine) {
-  .shot__hint--pointer { display: inline; }
-  .shot__hint--touch { display: none; }
+  .shot__dot:hover::before { opacity: 0.8; }
+  .shot__dot.is-on:hover::before { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shot__dot::before { transition-duration: 1ms; }
+  .shot__dot.is-on::before { transform: none; }
 }
 
 
@@ -489,12 +511,12 @@ html:not(.js) #registerForm { display: none; }
 /* The honeypot. display:none keeps it unseen, unfocusable and unread, and
    the browser still submits it — which is the whole point. */
 .honeypot { display: none; }
-.ig {
-  margin-top: 26px; display: inline-flex; align-items: center; gap: 10px;
-  color: var(--ink-dim); text-decoration: none; font-size: 0.9rem;
-  transition: color var(--control) var(--ease-premium);
-}
-@media (hover: hover) and (pointer: fine) { .ig:hover { color: var(--gold); } }
+/* Instagram sits on .btn--outline rather than on a style of its own: the
+   same gold as the Send Inquiry button beside it, outlined instead of
+   filled so the form's own action stays the one that is filled in. No new
+   colour enters the page. */
+.ig-row { margin: 26px 0 0; }
+.ig { display: inline-flex; align-items: center; gap: 10px; }
 
 /* ---------------- Footer ---------------- */
 footer { border-top: 1px solid var(--line); padding: 64px 0 40px; }
@@ -659,13 +681,34 @@ html:not(.js) .page:target { display: block; }
   .member .btn { margin-left: 0; }
 }
 @media (max-width: 560px) {
-  .facts, .grid2 { grid-template-columns: 1fr; }
+  .grid2 { grid-template-columns: 1fr; }
   .line__price { text-align: left; }
-  /* The footer keeps two columns down to the smallest phone rather than
-     collapsing to one: the Z and its line want the full width, but Shop and
-     Company are short lists that read better beside each other than as one
-     long stack the thumb has to scroll past. */
-  .foot { gap: 32px 24px; }
+}
+
+/* ---------------- Phone layout ----------------
+   Everything in here is for narrow viewports only; the desktop rules above
+   are untouched. */
+@media (max-width: 768px) {
+  /* The bag ran the full width of the column and took most of a phone
+     screen before a word of the product copy appeared. Capped and centred,
+     it still leads the section without being the whole of it. */
+  .shot { max-width: min(62vw, 300px); margin-inline: auto; }
+
+  /* Flavour Profile and Origin stay side by side. They are two short
+     fields, and stacking them pushed the price below the fold. The gap
+     tightens because the columns are narrow. */
+  .facts { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .facts dd { font-size: 0.82rem; }
+
+  /* The footer reads: the two link lists first, each on one line, then the
+     Z beneath them. The lists are short enough to sit in a row, which turns
+     a long stack into two lines, and the mark reads as a sign-off rather
+     than a heading. */
+  .foot { grid-template-columns: 1fr; gap: 28px; text-align: left; }
+  .foot > :first-child { order: 2; width: 100%; max-width: 100%; text-align: center; }
+  .foot__line { margin-inline: auto; }
+  .foot ul { flex-direction: row; flex-wrap: wrap; column-gap: 22px; }
+  .foot ul a { min-width: 0; }
 }
 
 /* Replaces the four former style="" attributes, so the CSP needs no
@@ -712,7 +755,10 @@ html:not(.js) .page:target { display: block; }
   /* Visible on coarse-pointer tablets above the 820px burger breakpoint. */
   .nav__links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
 
-  .foot ul { gap: 2px; }
+  /* row-gap, not gap: this tightens the space between stacked links, which
+     are already 44px tall. On a phone the same list runs as a row, and a
+     2px gap there would push the labels into one another. */
+  .foot ul { row-gap: 2px; }
   .foot ul a,
   .foot__bottom a {
     display: inline-flex;
@@ -810,7 +856,6 @@ html:not(.js) .page:target { display: block; }
     <div class="stagger" id="heroStagger">
       <h1><span class="h-line"><span>Starting with Coffee</span></span><span class="h-line"><span><em>Not Stopping There</em></span></span></h1>
       <p class="hero__sub">A modern Swiss lifestyle brand, built on quality, origin, design and community. Today it&rsquo;s coffee. Tomorrow, who knows.</p>
-      <div class="hero__cta"><a class="btn btn--primary" href="#product">Shop</a></div>
     </div>
   </div>
 </section>
@@ -825,7 +870,14 @@ html:not(.js) .page:target { display: block; }
           <span class="visually-hidden" id="shotToggleLabel">Show the back of the bag</span>
         </button>
       </div>
-      <p class="shot__hint" aria-hidden="true"><span class="shot__hint--pointer">Hover to see the back</span><span class="shot__hint--touch">Tap to see the back</span></p>
+      <div class="shot__dots" role="group" aria-label="Which side of the bag to show">
+        <button class="shot__dot is-on" type="button" id="dotFront" aria-pressed="true">
+          <span class="visually-hidden">Show the front of the bag</span>
+        </button>
+        <button class="shot__dot" type="button" id="dotBack" aria-pressed="false">
+          <span class="visually-hidden">Show the back of the bag</span>
+        </button>
+      </div>
     </div>
 
     <div data-reveal>
@@ -935,12 +987,14 @@ html:not(.js) .page:target { display: block; }
     <p class="join__ok join__err" id="joinErr" role="alert">That didn&rsquo;t send. Please try again, or write to <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>.</p>
 
     <!-- [PLACEHOLDER: instagram url — derived from the @worldofzuno handle, please confirm] -->
-    <a class="ig" href="https://www.instagram.com/worldofzuno/" target="_blank" rel="noopener noreferrer">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-        <rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
-      </svg>
-      @worldofzuno
-    </a>
+    <p class="ig-row">
+      <a class="btn btn--outline ig" href="https://www.instagram.com/worldofzuno/" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+        @worldofzuno
+      </a>
+    </p>
   </div>
 </section>
 </main>
@@ -1294,20 +1348,36 @@ html:not(.js) .page:target { display: block; }
     var shotLabel = document.getElementById('shotToggleLabel');
     var latched = false;
 
+    var dotFront = document.getElementById('dotFront');
+    var dotBack = document.getElementById('dotBack');
+
     function showBack(on) {
       shotBack.classList.toggle('is-on', on);
       shotFront.classList.toggle('is-on', !on);
       shotBack.setAttribute('aria-hidden', on ? 'false' : 'true');
       shotFront.setAttribute('aria-hidden', on ? 'true' : 'false');
+      /* The dots report which face is on screen, so they follow a hover
+         preview too — a lit dot that disagrees with the picture would be
+         worse than no dot at all. */
+      if (dotFront && dotBack) {
+        dotFront.classList.toggle('is-on', !on);
+        dotBack.classList.toggle('is-on', on);
+        dotFront.setAttribute('aria-pressed', on ? 'false' : 'true');
+        dotBack.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
     }
 
-    shotToggle.addEventListener('click', function () {
-      latched = !latched;
-      showBack(latched);
-      shotToggle.setAttribute('aria-pressed', latched ? 'true' : 'false');
-      shotLabel.textContent = latched ? 'Show the front of the bag'
-                                      : 'Show the back of the bag';
-    });
+    function latch(on) {
+      latched = on;
+      showBack(on);
+      shotToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+      shotLabel.textContent = on ? 'Show the front of the bag'
+                                 : 'Show the back of the bag';
+    }
+
+    shotToggle.addEventListener('click', function () { latch(!latched); });
+    if (dotFront) dotFront.addEventListener('click', function () { latch(false); });
+    if (dotBack) dotBack.addEventListener('click', function () { latch(true); });
 
     /* pointerType keeps the preview off touch, where the tap has already
        latched and a stray hover event would fight it. */
@@ -1905,6 +1975,12 @@ html:not(.js) .page:target { display: block; }
       minHeight: 200.00,
       minWidth: 200.00,
       scale: 1.00,
+      /* Vanta's default for this is 3, and setSize() lets the mobile branch
+         beat `scale`. The shader reads iResolution as width/scale, so at 3
+         the cell field is drawn three times larger relative to the screen —
+         the same pattern, zoomed in, which is why a phone looked nothing
+         like a desktop. 1 makes both render at the same scale. */
+      scaleMobile: 1.00,
       color1: 0x0,
       color2: 0x1e3932,
       size: 5.00,
