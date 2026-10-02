@@ -372,7 +372,26 @@ section { position: relative; background: transparent; }
 .js [data-reveal].is-in { opacity: 1; transform: translateY(0); }
 
 /* ---------------- Product ---------------- */
-.product { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 90px); align-items: center; }
+/* Five grid items, placed explicitly. row-gap is 0 because the right-hand
+   pieces used to be one block and carry their own margins; a row gap here
+   would open spaces that were never there. */
+.product {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: clamp(40px, 6vw, 90px);
+  row-gap: 0;
+  align-items: center;
+}
+.product__shot    { grid-column: 1; grid-row: 1 / span 4; align-self: center; }
+.product__eyebrow { grid-column: 2; grid-row: 1; margin: 0; }
+.product__copy    { grid-column: 2; grid-row: 2; }
+.product .facts   { grid-column: 2; grid-row: 3; }
+.product .buy     { grid-column: 2; grid-row: 4; }
+/* The observer sets transition-delay inline from the sibling index, which
+   now counts five instead of two. Pinning it keeps the cascade exactly as
+   it was: the bag first, the column beside it one step behind. */
+.js .product > [data-reveal] { transition-delay: 80ms !important; }
+.js .product > .product__shot { transition-delay: 0ms !important; }
 /* The bag is a cut-out with a transparent ground, so the box carries no
    backdrop of its own. Its ratio is taller than the source photograph's,
    which renders the bag about a third larger; the text column beside it is
@@ -689,16 +708,47 @@ html:not(.js) .page:target { display: block; }
    Everything in here is for narrow viewports only; the desktop rules above
    are untouched. */
 @media (max-width: 768px) {
-  /* The bag ran the full width of the column and took most of a phone
-     screen before a word of the product copy appeared. Capped and centred,
-     it still leads the section without being the whole of it. */
-  .shot { max-width: min(62vw, 300px); margin-inline: auto; }
+  /* The eyebrow leads, then the bag and its two facts share a row, then
+     the heading and the buying controls run full width beneath. */
+  .product { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr); column-gap: 18px; }
+  .product__eyebrow { grid-column: 1 / -1; grid-row: 1; margin-bottom: 18px; }
+  .product__shot    { grid-column: 1; grid-row: 2; align-self: center; }
+  .product .facts   { grid-column: 2; grid-row: 2; align-self: center; }
+  .product__copy    { grid-column: 1 / -1; grid-row: 3; }
+  .product .buy     { grid-column: 1 / -1; grid-row: 4; }
 
-  /* Flavour Profile and Origin stay side by side. They are two short
-     fields, and stacking them pushed the price below the fold. The gap
-     tightens because the columns are narrow. */
-  .facts { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .shot { max-width: 100%; margin-inline: auto; }
+
+  /* Beside the bag there is no room for two columns, so the two facts
+     stack. The rule above them goes with the row: it separated them from
+     the copy, and the copy is no longer above. */
+  .facts { grid-template-columns: 1fr; gap: 18px; margin: 0; padding-top: 0; border-top: 0; }
   .facts dd { font-size: 0.82rem; }
+
+  /* Closer dots. The painted core stays 8px; the button narrows from 44 to
+     28, which keeps the 44px height and still clears the 24x24 minimum for
+     a target. Below that the two dots cannot sit near each other without
+     their tap areas overlapping. */
+  .shot__dots { gap: 0; }
+  .shot__dot { width: 28px; }
+
+  /* Size and Coffee Type become two columns, each its label with its two
+     tiles stacked under it. */
+  .buy { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+  .buy .price { grid-column: 1 / -1; grid-row: 1; }
+  #sizeLabel  { grid-column: 1; grid-row: 2; }
+  #sizeRow    { grid-column: 1; grid-row: 3; }
+  #grindLabel { grid-column: 2; grid-row: 2; }
+  #grindRow   { grid-column: 2; grid-row: 3; }
+  .buy .add-row { grid-column: 1 / -1; grid-row: 4; }
+  .buy .note    { grid-column: 1 / -1; grid-row: 5; }
+  #sizeRow, #grindRow { flex-direction: column; gap: 10px; }
+  #sizeRow .option, #grindRow .option { width: 100%; }
+
+  /* The copyright drops to the very bottom, under the legal links. */
+  .foot__bottom { flex-direction: column; align-items: stretch; gap: 22px; }
+  .foot__bottom ul { order: 1; }
+  .foot__copy { order: 2; text-align: center; font-size: 0.72rem; }
 
   /* The footer reads: the two link lists first, each on one line, then the
      Z beneath them. The lists are short enough to sit in a row, which turns
@@ -769,9 +819,49 @@ html:not(.js) .page:target { display: block; }
   .foot__bottom ul { gap: 8px 22px; }
 }
 
+/* ---------------- Intro ----------------
+   A black sheet over the page with the gold mark on it. There is no second
+   WebGL instance: the one cell field the site already runs is lifted above
+   the sheet for the length of the intro and dropped back afterwards, so the
+   ground behind the mark is literally the site's own background.
+
+   The sequence is CSS, not script. If the script never runs the animation
+   still finishes and `forwards` leaves the sheet transparent and hidden, so
+   a broken load cannot leave a black page behind. For the same reason the
+   sheet only exists when scripting is on — without .js it is never shown. */
+.intro { display: none; }
+.js .intro {
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--black);
+  animation: intro-sheet 3150ms var(--ease-premium) forwards;
+}
+.intro__z {
+  height: clamp(64px, 11vh, 96px); width: auto; display: block;
+  opacity: 0;
+  animation: intro-mark 2350ms var(--ease-premium) forwards;
+}
+/* The field sits at -1 the rest of the time; during the intro it has to be
+   above the sheet, where `screen` blending over black shows it unchanged. */
+.intro-on #vanta-bg { z-index: 101; }
+
+@keyframes intro-mark {
+  0%   { opacity: 0; }
+  47%  { opacity: 1; }   /* ~1100ms in */
+  66%  { opacity: 1; }   /* held ~450ms */
+  100% { opacity: 0; }   /* faded out by ~2350ms */
+}
+@keyframes intro-sheet {
+  0%, 74%  { opacity: 1; visibility: visible; }
+  100%     { opacity: 0; visibility: hidden; }
+}
+
 /* ---------------- Reduced motion ---------------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  /* No intro at all. The hero is there from the first frame rather than
+     behind three seconds of fading. */
+  .js .intro { display: none; animation: none; }
   .js .stagger > *, .js [data-reveal] { transform: none !important; }
   .js .stagger.is-in > :nth-child(n) { transition-delay: 0ms !important; }
   /* The sibling offset is set inline by the observer, so it needs the same
@@ -796,6 +886,9 @@ html:not(.js) .page:target { display: block; }
 </style>
 </head>
 <body>
+<div class="intro" id="intro" aria-hidden="true">
+  <img class="intro__z" src="img/z-mark.png" width="179" height="200" alt="" decoding="async" fetchpriority="high">
+</div>
 <!-- Vanta CELLS draws here. Purely decorative: if WebGL is missing, the file
      is blocked, or the device asks us not to, the div stays empty and the
      gradient field below it is the page exactly as it was. -->
@@ -861,8 +954,15 @@ html:not(.js) .page:target { display: block; }
 </section>
 
 <section class="pad" id="product">
+  <!-- The five pieces are siblings rather than two columns of markup. CSS
+       cannot move a child out of its parent, and the phone layout needs the
+       eyebrow above the bag and the facts beside it while the desktop keeps
+       them in the right-hand column. As siblings each one can be placed per
+       breakpoint; the desktop result is unchanged. -->
   <div class="rail product">
-    <div data-reveal>
+    <p class="eyebrow eyebrow--sm product__eyebrow" data-reveal>The First Chapter</p>
+
+    <div class="product__shot" data-reveal>
       <div class="shot">
         <img id="shotFront" class="shot__face is-on" width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag.webp" alt="The ZUNO Castano bag, front: the gold ZUNO wordmark and the Castano label on a matt black pouch">
         <img id="shotBack" class="shot__face" width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag-back.webp" alt="The same bag from the back: a large gold Z and the words nutty, chocolaty and effortlessly good" aria-hidden="true">
@@ -880,12 +980,12 @@ html:not(.js) .page:target { display: block; }
       </div>
     </div>
 
-    <div data-reveal>
-      <p class="eyebrow eyebrow--sm">The First Chapter</p>
+    <div class="product__copy" data-reveal>
       <h2>Meet Castano &mdash; Because Ordinary Coffee is Just So&hellip; Ordinary</h2>
       <p class="lede">Looking for coffee that doesn&rsquo;t just wake you up but makes your taste buds write a thank-you letter? This is coffee with personality, and yes, it knows it&rsquo;s better than the rest.</p>
+    </div>
 
-      <dl class="facts">
+      <dl class="facts" data-reveal>
         <div>
           <dt>Flavour Profile</dt>
           <dd>Smooth elegance, nutty notes, a touch of sweetness.</dd>
@@ -896,7 +996,7 @@ html:not(.js) .page:target { display: block; }
         </div>
       </dl>
 
-      <div class="buy">
+      <div class="buy" data-reveal>
         <p class="price"><span id="price">CHF 14.90</span><small>incl. VAT</small></p>
 
         <span class="field-label" id="sizeLabel">Size</span>
@@ -921,7 +1021,6 @@ html:not(.js) .page:target { display: block; }
         </p>
 
         <p class="note">Free shipping on orders of CHF 45 or more. Delivery within Switzerland &amp; Liechtenstein, 1&ndash;3 business days.</p>
-      </div>
     </div>
   </div>
 </section>
@@ -1305,6 +1404,42 @@ html:not(.js) .page:target { display: block; }
   'use strict';
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  /* ---------- intro ----------
+     The fade itself is CSS, so this only locks the scroll, lifts the cell
+     field above the sheet for the duration, and takes the sheet out of the
+     document when it is done. Everything here is belt and braces: if this
+     block never runs, the CSS animation still ends on a hidden sheet. */
+  (function intro() {
+    var sheet = document.getElementById('intro');
+    if (!sheet) return;
+    var root = document.documentElement;
+
+    if (reduce.matches) { sheet.remove(); return; }
+
+    /* Hiding the scrollbar narrows the page and shifts every centred thing
+       sideways for three seconds. Reserving its width stops that. */
+    var bar = window.innerWidth - root.clientWidth;
+    root.classList.add('intro-on');
+    root.style.overflow = 'hidden';
+    if (bar > 0) root.style.paddingRight = bar + 'px';
+
+    var done = false;
+    function end() {
+      if (done) return;
+      done = true;
+      root.classList.remove('intro-on');
+      root.style.overflow = '';
+      root.style.paddingRight = '';
+      sheet.remove();
+    }
+    sheet.addEventListener('animationend', function (e) {
+      if (e.target === sheet) end();
+    });
+    /* A tab opened in the background does not run animations, so
+       animationend may never arrive. This releases the page regardless. */
+    window.setTimeout(end, 4200);
+  })();
   var D = function (n) { return reduce.matches ? 120 : n; };
 
   /* ---------- nav ---------- */
