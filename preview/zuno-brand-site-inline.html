@@ -2144,7 +2144,13 @@ html:not(.js) .page:target { display: block; }
   };
 
   function showStep(name) {
+    var changed = steps[name] && steps[name].hidden;
     order.forEach(function (s) { steps[s].hidden = s !== name; });
+    /* The confirmation replaces the cart in place, with no navigation. A
+       reader that is not moved there is still reading the basket. */
+    if (changed && name === 'done') {
+      focusPage(document.querySelector('#stepDone .step-title'));
+    }
     var cur = order.indexOf(name);
     document.querySelectorAll('#steps li').forEach(function (li) {
       var i = { cart: 0, pay: 0.5, done: 1 }[li.getAttribute('data-step')];
@@ -2446,9 +2452,16 @@ html:not(.js) .page:target { display: block; }
   }
 
   function adopt(b) {
+    var was = !!user;
     user = b.signedIn ? b.account : null;
     orders = b.signedIn ? (b.orders || []) : [];
     renderAccount();
+    /* Signing in swaps the whole panel without navigating. Only on a real
+       change, so the check on page load does not steal focus from someone
+       who is already reading. */
+    if (was !== !!user) {
+      focusPage(document.querySelector(user ? '.member__name' : '#loginForm h2'));
+    }
   }
 
   /* Asked once, the first time the account page is opened — not on every
@@ -2667,10 +2680,25 @@ html:not(.js) .page:target { display: block; }
       if (h === 'cart') { syncCart(false); showStep('cart'); }
       if (h === 'account') { loadAccount(); renderAccount(); }
       window.scrollTo(0, 0);
+      /* Scrolling moves the page, not the reader. Without this, someone on a
+         keyboard or a screen reader stays wherever they were — usually in the
+         menu they just left — and is never told the page changed. Moving
+         focus to the new heading says it, and puts Tab back at the top. */
+      focusPage(document.querySelector('#page-' + h + ' .page__title'));
     } else if (h) {
       var t = document.getElementById(h);
       if (t) t.scrollIntoView();
     }
+  }
+
+  /* -1 so it takes focus from script but never from Tab, and the outline is
+     suppressed only here: an outline around a heading nobody clicked reads as
+     a bug, while the announcement is the point. */
+  function focusPage(el) {
+    if (!el) return;
+    el.setAttribute('tabindex', '-1');
+    el.style.outline = 'none';
+    try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
   }
   window.addEventListener('hashchange', route);
 
