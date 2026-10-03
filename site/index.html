@@ -1146,14 +1146,13 @@ html:not(.js) .page:target { display: block; }
       <div class="cart-state" id="cartFilled" hidden>
         <div id="lines" class="lines"></div>
 
-        <!-- Family & Friends. The code is checked by the server, which is
-             also the only place the special prices exist; this field sends
-             what was typed and redraws the cart from the answer. A gift card
-             is a different mechanism and will take a different path — the
-             server says which kind a code is, so the two cannot be
-             confused. -->
+        <!-- The code is checked by the server, which is also the only place
+             the reduced prices exist; this field sends what was typed and
+             redraws the cart from the answer. A gift card is a different
+             mechanism and will take a different path — the server says which
+             kind a code is, so the two cannot be confused. -->
         <form class="code" id="codeForm" novalidate>
-          <label class="field-label" for="codeInput">Family &amp; Friends code</label>
+          <label class="field-label" for="codeInput">Voucher code</label>
           <div class="code__row">
             <input class="field" type="text" id="codeInput" name="code" maxlength="64"
                    placeholder="Enter your code" autocomplete="off"
@@ -1178,10 +1177,10 @@ html:not(.js) .page:target { display: block; }
     </div>
 
     <!-- Delivery address and payment are collected by Stripe Checkout, which
-         is also where the public promotion-code field lives. The Family &
-         Friends field above is a different mechanism — it selects a price
-         rather than applying a discount — so it has to be answered before
-         the handover. Nothing on this page asks for a card, and nothing here
+         is also where the public promotion-code field lives. The voucher
+         field above is a different mechanism — it selects a price rather
+         than applying a discount — so it has to be answered before the
+         handover. Nothing on this page asks for a card, and nothing here
          computes what is owed. -->
 
     <div id="stepDone" hidden>
@@ -1664,8 +1663,8 @@ html:not(.js) .page:target { display: block; }
   var cart = [], orders = [], user = null;
   var SKU = { '200g': 'castano-200g', '500g': 'castano-500g' };
 
-  /* Family & Friends. Both the code and the special prices live on the
-     server; this is only what the cart was told, kept so the lines can be
+  /* The applied voucher code. Both the code and the reduced prices live on
+     the server; this is only what the cart was told, kept so the lines can be
      drawn and sent back with the checkout request so the server can check it
      again. It is deliberately not persisted: a code has to be re-entered
      after a reload rather than restored from storage, because storage cannot
@@ -1711,8 +1710,8 @@ html:not(.js) .page:target { display: block; }
 
   function chf(v) { return 'CHF ' + v.toFixed(2); }
   function qty() { return cart.reduce(function (s, i) { return s + i.qty; }, 0); }
-  /* What a bag costs on this cart: the Family & Friends price when a code is
-     in force, the shelf price otherwise. A price out of storage is never used
+  /* What a bag costs on this cart: the reduced price when a code is in
+     force, the shelf price otherwise. A price out of storage is never used
      for anything but display either way — the charge comes from the Stripe
      catalogue. */
   function unit(i) {
@@ -1722,10 +1721,9 @@ html:not(.js) .page:target { display: block; }
   }
   function sub() { return cart.reduce(function (s, i) { return s + i.qty * unit(i); }, 0); }
   function regularSub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
-  /* Measured against the regular prices, so a cart worth CHF 45 at the shelf
-     price ships free whether or not the customer is family. The server
-     decides this the same way. */
-  function ship(s) { return (s >= 45 || s === 0) ? 0 : 7.00; }
+  /* A voucher code carries free postage whatever the cart is worth, so it
+     never reaches the threshold. The server decides this the same way. */
+  function ship(s) { return (fnf || s >= 45 || s === 0) ? 0 : 7.00; }
 
   /* A number is only worth tweening when it actually moved. The product price
      is never animated — a price mid-tween is a wrong price — but the cart
@@ -1775,7 +1773,7 @@ html:not(.js) .page:target { display: block; }
     var s = sub(), reg = regularSub(), sh = ship(reg);
     summaryEl.innerHTML =
       '<div class="row"><span>Subtotal</span><span>' + chf(reg) + '</span></div>' +
-      (fnf ? '<div class="row"><span>Family &amp; Friends</span><span>&minus;' + chf(reg - s) + '</span></div>' : '') +
+      (fnf ? '<div class="row"><span>Voucher</span><span>&minus;' + chf(reg - s) + '</span></div>' : '') +
       '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
       (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '') +
       '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
@@ -1872,7 +1870,7 @@ html:not(.js) .page:target { display: block; }
      price, and it could not be trusted with one if it did: the amounts live
      in the Stripe catalogue and the function reads them back from there.
      The public promotion-code field is Stripe's own, on Stripe's page; the
-     Family & Friends code is sent along as a code, never as a price. */
+     voucher code is sent along as a code, never as a price. */
   var checkoutBtn = document.getElementById('checkoutBtn');
   var checkoutError = document.getElementById('checkoutError');
   var checkoutNote = document.getElementById('checkoutNote');
@@ -1882,16 +1880,16 @@ html:not(.js) .page:target { display: block; }
     el.hidden = !text;
   }
 
-  /* ---------- Family & Friends code ----------
+  /* ---------- voucher code ----------
      The field sends what was typed and redraws the cart from the answer. It
-     decides nothing: the special prices are Stripe Prices the server selects,
+     decides nothing: the reduced prices are Stripe Prices the server selects,
      and the server checks the code again when the session is created. An
      empty field clears an applied code.
 
-     `kind` in the answer is what keeps two unrelated code systems apart. A
-     Family & Friends code is a price; a gift card is stored value redeemed as
-     payment. Only `kind: "fnf"` changes a price here, so a gift card entered
-     in this field is refused cleanly rather than half-applied. */
+     `kind` in the answer is what keeps two unrelated code systems apart. This
+     code selects a price; a gift card is stored value redeemed as payment.
+     Only `kind: "fnf"` changes a price here, so a gift card entered in this
+     field is refused cleanly rather than half-applied. */
   var codeForm = document.getElementById('codeForm');
   var codeInput = document.getElementById('codeInput');
   var codeBtn = document.getElementById('codeBtn');
@@ -1928,7 +1926,7 @@ html:not(.js) .page:target { display: block; }
     }).then(function (b) {
       if (b && b.valid === true && b.kind === 'fnf' && b.prices) {
         setCode({ code: typed, prices: b.prices },
-          'Code applied — Family & Friends prices are shown below.', false);
+          'Code applied — reduced prices and free shipping.', false);
       } else {
         setCode(null, (b && b.message) || 'That code is not valid.', true);
       }

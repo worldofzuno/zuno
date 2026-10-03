@@ -95,10 +95,19 @@ needs. Those three are kept, and a test asserts they are still there.
 
 ## Family & Friends codes
 
+The customer never sees that name. The field in the cart is labelled
+**Voucher code**, and the summary row reads **Voucher**. "Family & Friends"
+survives only in the code, the environment variable and the order metadata,
+where it is a useful name for what the mechanism is.
+
 ### What it does
 
 A valid code charges CHF 11.00 for the 200 g bag and CHF 20.00 for the 500 g
 bag, instead of CHF 14.90 and CHF 29.90. The grind does not affect the price.
+
+**It also waives postage**, whatever the cart is worth. A code cart never
+reaches the CHF 45 free-shipping threshold, because shipping is already free.
+The threshold still governs every cart without a code.
 
 ### Why it is not a coupon
 
@@ -250,23 +259,24 @@ flows on the hosted page.
 With `FNF_CODES` and both F&F price ids set in Netlify:
 
 1. Put one 200 g and one 500 g bag in the cart. The cart reads CHF 44.80 plus
-   CHF 7.00 postage.
-2. Enter the code and press Apply. The lines read CHF 11.00 and CHF 20.00, a
-   `Family & Friends −CHF 13.80` row appears, and the total reads CHF 38.00.
+   CHF 7.00 postage, total CHF 51.80.
+2. Enter the code in **Voucher code** and press Apply. The lines read
+   CHF 11.00 and CHF 20.00, a `Voucher −CHF 13.80` row appears, Shipping
+   reads **Free**, and the total reads **CHF 31.00**.
 3. Press Proceed to Checkout. On Stripe's page the two line items must read
-   **CHF 11.00** and **CHF 20.00**, there must be **no promotion-code field**,
-   and the total must be **CHF 38.00**.
-4. Put two 500 g bags in instead. The regular cart is CHF 59.80, so postage is
-   free; with the code the total is **CHF 40.00** with free shipping.
+   **CHF 11.00** and **CHF 20.00**, shipping must be **CHF 0.00**, there must
+   be **no promotion-code field**, and the total must be **CHF 31.00**.
+4. Put a single 200 g bag in instead — CHF 14.90, far below the threshold.
+   With the code the total is **CHF 11.00**, still with free shipping.
 5. Pay with `4242 4242 4242 4242`. The function log line for the order ends
    with `— F&F FAMILY26`.
 6. Enter a code that does not exist. The field says so, the prices return to
-   CHF 14.90 and CHF 29.90, and nothing is applied.
+   CHF 14.90 and CHF 29.90, and postage comes back.
 
-This was already verified against the live sandbox API: three sessions were
-created from this code's own output, returning `amount_subtotal` of 3100
-(11.00 + 20.00), 4000 (2 × 20.00 with free shipping) and 1490 (the regular
-path, with the promotion-code field on).
+This was already verified against the live sandbox API: sessions created from
+this code's own output returned `amount_total` of 3100 (11.00 + 20.00, free
+shipping), 1100 (one small bag, free shipping) and 2190 (the regular path:
+14.90 plus CHF 7 postage, with the promotion-code field on).
 
 ### Verifying gift cards still work
 

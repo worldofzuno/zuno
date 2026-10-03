@@ -233,18 +233,28 @@ test('a regular cart carries no trace of the Family & Friends mechanism', () => 
   assert.deepEqual(p.line_items, [{ price: 'price_test_200', quantity: 1 }]);
 });
 
-test('shipping is decided by the regular subtotal, so family still ships free', () => {
-  /* Two 500 g bags: CHF 59.80 at the shelf price, CHF 40.00 with the code.
-     The threshold is measured against 5980, so postage stays free. */
-  const lines = parseCart({ items: [{ sku: 'castano-500g', qty: 2 }] });
-  const regular = subtotalRappen(lines, PRICES);
-  const special = subtotalRappen(lines, FNF_PRICES, FNF_CATALOGUE());
-  assert.equal(regular, 5980);
-  assert.equal(special, 4000);
-  const p = sessionParams(lines, regular, 'https://worldofzuno.com', 'FAMILY26');
-  assert.equal(p.shipping_options[0].shipping_rate_data.fixed_amount.amount, 0);
-  // measured the other way it would have cost the customer CHF 7
-  assert.equal(shippingOption(special).shipping_rate_data.fixed_amount.amount, 700);
+test('a voucher code carries free shipping, however small the cart', () => {
+  /* One 200 g bag: CHF 14.90 regular, CHF 11.00 with the code — nowhere near
+     the CHF 45 threshold, and postage is waived anyway. */
+  const lines = parseCart({ items: [{ sku: 'castano-200g', qty: 1 }] });
+  const p = sessionParams(lines, 1490, 'https://worldofzuno.com', 'FAMILY26');
+  const rate = p.shipping_options[0].shipping_rate_data;
+  assert.equal(rate.fixed_amount.amount, 0);
+  assert.equal(rate.display_name, 'Free shipping');
+  // without the code the same cart pays postage
+  assert.equal(
+    sessionParams(lines, 1490, 'https://worldofzuno.com')
+      .shipping_options[0].shipping_rate_data.fixed_amount.amount,
+    700
+  );
+});
+
+test('the threshold still governs a cart with no code', () => {
+  assert.equal(shippingOption(4499).shipping_rate_data.fixed_amount.amount, 700);
+  assert.equal(shippingOption(4500).shipping_rate_data.fixed_amount.amount, 0);
+  // and the override is what a code uses, not a subtotal of its own
+  assert.equal(shippingOption(0, true).shipping_rate_data.fixed_amount.amount, 0);
+  assert.equal(shippingOption(0, true).shipping_rate_data.display_name, 'Free shipping');
 });
 
 test('a Family & Friends session still carries no discount of our own making', () => {

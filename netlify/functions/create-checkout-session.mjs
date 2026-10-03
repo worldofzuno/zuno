@@ -62,9 +62,9 @@ const FREE_SHIPPING_FROM = 4500;    // CHF 45.00
  * shipping has to become a Stripe coupon rule of its own rather than an
  * arithmetic decision in this file.
  *
- * The same rule governs a Family & Friends cart, by decision rather than by
- * constraint: the threshold is measured against the regular prices, so two
- * 500 g bags (CHF 59.80 regular, CHF 40.00 with the code) ship free.
+ * A voucher code does not reach this rule at all: it carries free postage
+ * outright, whatever the cart is worth. The threshold below applies only to
+ * a cart without a code.
  */
 const THRESHOLD = 'before';
 
@@ -120,8 +120,13 @@ export function parseCode(body) {
   return raw;
 }
 
-export function shippingOption(subtotal) {
-  const free = subtotal >= FREE_SHIPPING_FROM;
+/**
+ * @param subtotal   in rappen
+ * @param alwaysFree true when something other than the subtotal has already
+ *                   decided that postage is waived — a voucher code does
+ */
+export function shippingOption(subtotal, alwaysFree = false) {
+  const free = alwaysFree || subtotal >= FREE_SHIPPING_FROM;
   return {
     shipping_rate_data: {
       type: 'fixed_amount',
@@ -157,7 +162,8 @@ export function sessionParams(lines, subtotal, origin, fnfCode = null) {
        reductions that were never meant to meet. */
     allow_promotion_codes: !fnfCode,
     shipping_address_collection: { allowed_countries: ALLOWED_COUNTRIES },
-    shipping_options: [shippingOption(subtotal)],
+    /* A voucher code carries free postage, whatever the cart is worth. */
+    shipping_options: [shippingOption(subtotal, !!fnfCode)],
     billing_address_collection: 'auto',
     phone_number_collection: { enabled: false },
     /* The prices carry tax_behavior "inclusive" — CHF 14.90 is what the shelf
@@ -245,10 +251,10 @@ export default async function handler(req) {
 
   try {
     /* The amounts are read back from Stripe rather than kept in a second copy
-       here. The regular prices are always fetched, because the shipping
-       threshold is measured against them even when a F&F code is in force —
-       so a cart worth CHF 45 at the shelf price ships free whether or not the
-       customer is family. */
+       here, so the shipping threshold is decided against the same numbers the
+       customer is charged. A cart with a voucher code skips the threshold
+       entirely — postage is waived — but the regular prices are still read,
+       because they are what validates the cart. */
     const ids = [...new Set(lines.map((l) => CATALOGUE[l.sku]))];
     const prices = await Promise.all(ids.map((id) => stripe.prices.retrieve(id)));
     const priceById = Object.fromEntries(prices.map((p) => [p.id, p]));
