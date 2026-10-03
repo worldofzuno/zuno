@@ -506,3 +506,48 @@ test('a cart with no gift card touches no balance and mints no coupon', async ()
   assert.equal(s.made.sessions[0].allow_promotion_codes, true);
   assert.equal(gc.available(await gc.load(card.code)), 3000);
 });
+
+/* ------------------------------------------------------------- accounts */
+
+test('an order placed while signed in is tagged with the account', async () => {
+  useMemoryStore();
+  const auth = await import('./auth.mjs');
+  const made = await auth.createAccount({
+    name: 'A Kundin', email: 'kundin@example.ch', password: 'a decent long passphrase',
+  });
+  const token = await auth.startSession(made.account.id);
+
+  const s = fakeStripe();
+  const r = await build(s, { items: [{ sku: 'castano-200g', qty: 1 }] }, ORIGIN, {
+    cookie: `zuno_session=${encodeURIComponent(token)}`,
+  });
+  assert.equal(r.status, 200);
+  assert.equal(s.made.sessions[0].metadata.account, made.account.id);
+});
+
+test('a guest order belongs to nobody', async () => {
+  useMemoryStore();
+  const s = fakeStripe();
+  await build(s, { items: [{ sku: 'castano-200g', qty: 1 }] }, ORIGIN);
+  assert.equal('account' in s.made.sessions[0].metadata, false);
+
+  await build(s, { items: [{ sku: 'castano-200g', qty: 1 }] }, ORIGIN, { cookie: 'zuno_session=made-up' });
+  assert.equal('account' in s.made.sessions[1].metadata, false, 'a forged cookie files nothing');
+});
+
+test('an account cannot be named by the client', async () => {
+  useMemoryStore();
+  const auth = await import('./auth.mjs');
+  const victim = await auth.createAccount({
+    name: 'B', email: 'b@example.ch', password: 'a decent long passphrase',
+  });
+  const s = fakeStripe();
+  /* Both of these are the client asking for someone else's account. */
+  await build(s, {
+    items: [{ sku: 'castano-200g', qty: 1 }],
+    account: victim.account.id,
+    accountId: victim.account.id,
+  }, ORIGIN);
+  assert.equal('account' in s.made.sessions[0].metadata, false,
+    'only a cookie may say who you are');
+});

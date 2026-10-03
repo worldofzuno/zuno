@@ -37,6 +37,7 @@
 import Stripe from 'stripe';
 import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './fnf.mjs';
 import * as gift from './giftcard.mjs';
+import { sessionAccount, readCookie } from './auth.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -311,7 +312,9 @@ export default async function handler(req) {
   }
 
   const stripe = new Stripe(key, { apiVersion: '2024-06-20' });
-  const { status, payload } = await build(stripe, body, new URL(req.url).origin);
+  const { status, payload } = await build(stripe, body, new URL(req.url).origin, {
+    cookie: req.headers.get('cookie'),
+  });
   return json(status, payload);
 }
 
@@ -323,8 +326,21 @@ export default async function handler(req) {
  * local harness without the network, the same way the webhook's handleEvent
  * is. The handler above adds nothing but parsing and a Response.
  */
-export async function build(stripe, body, origin) {
+export async function build(stripe, body, origin, opts = {}) {
   const json = (status, payload) => ({ status, payload });
+
+  /* If the customer is signed in, the order is filed under their account.
+     Taken from the cookie, never from the body: a client that could name an
+     account would be able to file its orders under someone else's. */
+  let accountId = null;
+  try {
+    const account = await sessionAccount(readCookie(opts.cookie));
+    if (account) accountId = account.id;
+  } catch (e) {
+    /* A lookup that fails must not stop someone buying coffee. They lose the
+       history entry, not the order. */
+    console.error('checkout: could not read the session:', e && e.message);
+  }
 
   let lines;
   let code;
@@ -452,6 +468,7 @@ export async function build(stripe, body, origin) {
     }
 
     const params = sessionParams(lines, shippingBasis, origin, { fnfCode: fnf, coupon });
+    if (accountId) params.metadata.account = accountId;
     if (heldCard) {
       /* The webhook settles the hold, and these three are how it finds it. */
       params.metadata.gift_code = heldCard;

@@ -19,6 +19,7 @@ import Stripe from 'stripe';
 import * as gift from './giftcard.mjs';
 import { store } from './store.mjs';
 import { send, shopInbox } from './mailer.mjs';
+import { recordOrder } from './auth.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -263,6 +264,40 @@ async function issueGifts(session, order) {
   return minted;
 }
 
+/* ---------------------------------------------------------------- account */
+
+/**
+ * Files the order under the account that placed it, if there was one.
+ *
+ * The id comes from the Checkout Session metadata, which the checkout put
+ * there from a session cookie — never from anything a browser sent. An order
+ * placed as a guest has no id and belongs to nobody, which is why order
+ * history shows what was bought while signed in and not everything sharing
+ * an address.
+ */
+async function fileUnderAccount(session, order) {
+  const id = (session.metadata || {}).account;
+  if (!id) return false;
+  try {
+    const filed = await recordOrder(id, {
+      session: order.session,
+      date: new Date().toISOString().slice(0, 10),
+      currency: order.currency,
+      total: order.total,
+      items: order.items.map((i) => ({ name: i.name, qty: i.qty, grind: i.grind })),
+      giftCards: (order.giftCards || []).map((c) => c.code),
+    });
+    console.log(`[order:${filed ? 'filed' : 'already-filed'}] ${order.session} under ${id}`);
+    return filed;
+  } catch (e) {
+    /* The order exists and the customer has their confirmation; a history
+       entry that did not land is worth reporting and not worth a redelivery
+       of everything else. */
+    console.error(`[order:file-failed] ${order.session} under ${id}: ${e && e.message}`);
+    return false;
+  }
+}
+
 /* ------------------------------------------------------------------- mail */
 
 const francs = (rappen) => `CHF ${(rappen / 100).toFixed(2)}`;
@@ -415,6 +450,7 @@ export async function handleEvent(event, stripe) {
      only looked like a repeat. Settling debits once; issuing mints once. */
   order.giftSpent = await settleGift(full);
   order.giftCards = await issueGifts(full, order);
+  await fileUnderAccount(full, order);
 
   if (!firstTime(full.id)) return 'duplicate';
   await notify('paid', order);

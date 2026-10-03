@@ -824,6 +824,8 @@ html:not(.js) .page:target { display: block; }
 .auth-card { border: 1px solid var(--line); border-radius: 18px; padding: 30px 28px; display: flex; flex-direction: column; gap: 12px; }
 .auth-card h2 { font-size: 1.2rem; margin-bottom: 6px; }
 .auth-card .btn { margin-top: 8px; align-self: flex-start; }
+.auth-hint { margin-top: 2px; }
+.auth-msg { margin-top: 4px; }
 
 .member {
   display: flex; align-items: center; gap: 22px; margin-top: 36px; flex-wrap: wrap;
@@ -1318,20 +1320,26 @@ html:not(.js) .page:target { display: block; }
 
     <div id="authView">
       <div class="auth">
-        <!-- [PLACEHOLDER: form endpoint — account sign-in] -->
-      <form method="post" action="/form-not-connected" class="auth-card" id="loginForm">
+        <!-- Both forms are handled in JavaScript and post JSON to
+             /.netlify/functions/account. They carry no action, because
+             there is no endpoint that would accept a plain form post and
+             sending a password at one that does not exist is worse than
+             not sending it. Without JavaScript the note below says so. -->
+        <form class="auth-card" id="loginForm">
           <h2>Sign In</h2>
           <label class="visually-hidden" for="f-email-15">Email address</label><input id="f-email-15" class="field field--box" name="email" type="email" placeholder="Email address" autocomplete="email" required>
           <label class="visually-hidden" for="f-password-16">Password</label><input id="f-password-16" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
           <button class="btn btn--primary" type="submit">Sign In</button>
+          <p class="note note--warn auth-msg" id="loginMsg" role="alert" hidden></p>
         </form>
-        <!-- [PLACEHOLDER: form endpoint — account registration] -->
-      <form method="post" action="/form-not-connected" class="auth-card" id="registerForm">
+        <form class="auth-card" id="registerForm">
           <h2>Create Account</h2>
-          <label class="visually-hidden" for="f-name-17">Full name</label><input id="f-name-17" class="field field--box" name="name" placeholder="Full name" autocomplete="name" required>
+          <label class="visually-hidden" for="f-name-17">Full name</label><input id="f-name-17" class="field field--box" name="name" placeholder="Full name" autocomplete="name" maxlength="80" required>
           <label class="visually-hidden" for="f-email-18">Email address</label><input id="f-email-18" class="field field--box" name="email" type="email" placeholder="Email address" autocomplete="email" required>
-          <label class="visually-hidden" for="f-password-19">Password</label><input id="f-password-19" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="new-password" required>
+          <label class="visually-hidden" for="f-password-19">Password</label><input id="f-password-19" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="new-password" minlength="10" required aria-describedby="registerHint">
+          <p class="note auth-hint" id="registerHint">At least 10 characters. A few words you will remember beat a short tangle.</p>
           <button class="btn btn--outline" type="submit">Join ZUNO</button>
+          <p class="note note--warn auth-msg" id="registerMsg" role="alert" hidden></p>
         </form>
         <p class="note note--nojs">Accounts need JavaScript. Please enable it to sign in.</p>
       </div>
@@ -1410,6 +1418,7 @@ html:not(.js) .page:target { display: block; }
     <h2>What Information We Collect</h2>
     <ul>
       <li><strong>Personal information:</strong> when you place an order or subscribe to our newsletter &mdash; e.g. your name, email address, shipping address and payment information.</li>
+      <li><strong>Account information:</strong> if you create an account &mdash; your name, email address and a password. We never store the password itself; what we keep is a one-way cryptographic derivation of it, from which the password cannot be recovered. Your account also holds the orders you placed while signed in.</li>
       <li><strong>Usage data:</strong> information about how you use our website, such as IP address, browser type and device information.</li>
     </ul>
 
@@ -1443,7 +1452,7 @@ html:not(.js) .page:target { display: block; }
     </ul>
 
     <h2>How We Protect Your Information</h2>
-    <p>We use appropriate technical and organisational measures to protect your personal data. Our website is served over an encrypted HTTPS connection, and payment data is handled by our payment provider, not stored by us.</p>
+    <p>We use appropriate technical and organisational measures to protect your personal data. Our website is served over an encrypted HTTPS connection, and payment data is handled by our payment provider, not stored by us. Account passwords are stored only as a salted one-way derivation, and the session that keeps you signed in is a random token that carries no personal data and can be ended at any time by signing out.</p>
 
     <h2>Your Rights</h2>
     <p>Under the revDSG you have the right to access, correct or delete your personal data, to object to certain processing, and to receive your data in a portable format. To exercise these rights, contact us at <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>. You also have the right to lodge a complaint with the Swiss Federal Data Protection and Information Commissioner (FDPIC / ED&Ouml;B).</p>
@@ -2375,6 +2384,16 @@ html:not(.js) .page:target { display: block; }
   })();
 
   /* ---------- account ---------- */
+  /* ---------- account ----------
+     The server decides who you are, every time. This page holds what it was
+     last told and nothing else: there is no local "signed in" flag to get
+     out of step with the cookie, and reloading asks again. */
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
   function renderAccount() {
     var authed = !!user;
     document.getElementById('authView').hidden = authed;
@@ -2382,27 +2401,104 @@ html:not(.js) .page:target { display: block; }
     if (!authed) return;
     document.getElementById('memberName').textContent = user.name;
     document.getElementById('memberMail').textContent = user.email;
+
     var list = document.getElementById('orderList');
     list.innerHTML = orders.length
       ? orders.map(function (o) {
-          return '<div class="order-card"><span>' + o.id + '</span><span>' + o.date + '</span><span>' +
-            o.n + ' item' + (o.n > 1 ? 's' : '') + '</span><span>' + chf(o.total) + '</span><span class="paid">Paid</span></div>';
+          var n = (o.items || []).reduce(function (t, i) { return t + (i.qty || 0); }, 0);
+          var ref = String(o.session || '').slice(-8).toUpperCase();
+          return '<div class="order-card"><span>' + escapeHtml(ref) + '</span><span>' +
+            escapeHtml(o.date || '') + '</span><span>' + n + ' item' + (n === 1 ? '' : 's') +
+            '</span><span>' + escapeHtml((o.currency || 'CHF') + ' ' + o.total) +
+            '</span><span class="paid">Paid</span></div>';
         }).join('')
       : '<p class="lead">No orders yet — your Castano is waiting.</p>';
   }
+
+  var accountReady = false;
+  function account(body) {
+    return window.fetch('/.netlify/functions/account', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        return { status: r.status, body: b };
+      });
+    });
+  }
+
+  function adopt(b) {
+    user = b.signedIn ? b.account : null;
+    orders = b.signedIn ? (b.orders || []) : [];
+    renderAccount();
+  }
+
+  /* Asked once, the first time the account page is opened — not on every
+     page load, so a visitor who never goes near it costs nothing. */
+  function loadAccount() {
+    if (accountReady) return;
+    accountReady = true;
+    account({ action: 'me' }).then(function (r) { adopt(r.body); })['catch'](function () { /* stay signed out */ });
+  }
+
+  function authSubmit(form, msgEl, body, working) {
+    var btn = form.querySelector('button[type="submit"]');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = working;
+    say(msgEl, '');
+    return account(body).then(function (r) {
+      if (r.body && r.body.signedIn) {
+        adopt(r.body);
+        form.reset();
+        return;
+      }
+      if (r.body && r.body.checkInbox) {
+        /* The address is already registered. The server does not say so —
+           it answers exactly as it would for a new one and writes to the
+           inbox instead — so this message must not say so either. */
+        say(msgEl, 'Check your inbox to finish setting up your account.');
+        msgEl.classList.remove('note--warn');
+        return;
+      }
+      msgEl.classList.add('note--warn');
+      say(msgEl, (r.body && r.body.error) || 'That did not work. Please try again.');
+    })['catch'](function () {
+      msgEl.classList.add('note--warn');
+      say(msgEl, 'We could not reach the server just now. Please try again in a moment.');
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+  }
+
+  var loginMsg = document.getElementById('loginMsg');
+  var registerMsg = document.getElementById('registerMsg');
+
   document.getElementById('loginForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    var mail = this.elements.email.value.trim();
-    var name = mail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
-    user = { name: name, email: mail };
-    renderAccount();
+    authSubmit(this, loginMsg, {
+      action: 'login',
+      email: this.elements.email.value.trim(),
+      password: this.elements.password.value
+    }, 'Signing in…');
   });
+
   document.getElementById('registerForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    user = { name: this.elements.name.value.trim(), email: this.elements.email.value.trim() };
-    renderAccount();
+    authSubmit(this, registerMsg, {
+      action: 'register',
+      name: this.elements.name.value.trim(),
+      email: this.elements.email.value.trim(),
+      password: this.elements.password.value
+    }, 'Creating…');
   });
-  document.getElementById('logoutBtn').addEventListener('click', function () { user = null; renderAccount(); });
+
+  document.getElementById('logoutBtn').addEventListener('click', function () {
+    account({ action: 'logout' })['catch'](function () { /* the cookie goes either way */ })
+      .then(function () { adopt({ signedIn: false }); });
+  });
 
   /* ---------- join form ----------
      Netlify collects this form from the deployed HTML and stores the
@@ -2479,7 +2575,7 @@ html:not(.js) .page:target { display: block; }
 
     if (isPage) {
       if (h === 'cart') { syncCart(false); showStep('cart'); }
-      if (h === 'account') renderAccount();
+      if (h === 'account') { loadAccount(); renderAccount(); }
       window.scrollTo(0, 0);
     } else if (h) {
       var t = document.getElementById(h);
