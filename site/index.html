@@ -1672,7 +1672,7 @@ html:not(.js) .page:target { display: block; }
   function chf(v) { return 'CHF ' + v.toFixed(2); }
   function qty() { return cart.reduce(function (s, i) { return s + i.qty; }, 0); }
   function sub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
-  function ship(s) { return (s >= 45 || s === 0) ? 0 : 4.90; }
+  function ship(s) { return (s >= 45 || s === 0) ? 0 : 7.00; }
 
   /* A number is only worth tweening when it actually moved. The product price
      is never animated — a price mid-tween is a wrong price — but the cart

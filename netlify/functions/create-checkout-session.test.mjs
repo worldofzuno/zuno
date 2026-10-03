@@ -92,7 +92,7 @@ test('an unrecognised grind falls back rather than reaching Stripe', () => {
 });
 
 test('free shipping turns on exactly at CHF 45.00', () => {
-  assert.equal(shippingOption(4499).shipping_rate_data.fixed_amount.amount, 490);
+  assert.equal(shippingOption(4499).shipping_rate_data.fixed_amount.amount, 700);
   assert.equal(shippingOption(4500).shipping_rate_data.fixed_amount.amount, 0);
   assert.equal(shippingOption(4500).shipping_rate_data.display_name, 'Free shipping');
 });

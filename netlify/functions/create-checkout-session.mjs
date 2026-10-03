@@ -36,7 +36,7 @@ const CATALOGUE = {
 
 const GRINDS = ['Whole Beans', 'Pre-Ground'];
 const MAX_QTY = 20;                 // per line; a shop this size has no reason for more
-const SHIPPING_RAPPEN = 490;        // CHF 4.90 flat
+const SHIPPING_RAPPEN = 700;        // CHF 7.00 flat
 const FREE_SHIPPING_FROM = 4500;    // CHF 45.00
 
 /**

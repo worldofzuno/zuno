@@ -31,8 +31,8 @@ const SESSION = {
   payment_status: 'paid',
   currency: 'chf',
   amount_subtotal: 4480,
-  amount_total: 4298,
-  total_details: { amount_discount: 672, amount_shipping: 490, amount_tax: 0 },
+  amount_total: 4508,   // 4480 - 672 discount + 700 shipping
+  total_details: { amount_discount: 672, amount_shipping: 700, amount_tax: 0 },
   metadata: {
     lines: '[["castano-200g",1,"Whole Beans"],["castano-500g",1,"Pre-Ground"]]',
     shipping_threshold: 'before',
@@ -91,7 +91,7 @@ test('a forged signature is refused', async () => {
 test('a body altered after signing is refused', async () => {
   const body = eventBody('checkout.session.completed');
   const header = signed(body);
-  const tampered = body.replace('4298', '1');
+  const tampered = body.replace('4508', '1');
   assert.notEqual(tampered, body);
   const res = await post(tampered, header);
   assert.equal(res.status, 400);
@@ -115,10 +115,10 @@ test('the order carries what is needed to pack the parcel', () => {
   const o = orderFrom(SESSION);
   assert.equal(o.paid, true);
   assert.equal(o.currency, 'CHF');
-  assert.equal(o.total, '42.98');
+  assert.equal(o.total, '45.08');
   assert.equal(o.subtotal, '44.80');
   assert.equal(o.discount, '6.72');
-  assert.equal(o.shipping, '4.90');
+  assert.equal(o.shipping, '7.00');
   assert.equal(o.email, 'kundin@example.ch');
   assert.equal(o.address.postal_code, '3000');
   assert.deepEqual(o.items.map((i) => [i.sku, i.qty, i.grind]), [
@@ -135,7 +135,7 @@ test('the grind survives, because it is not in the price', () => {
 
 test('malformed metadata loses the grind, never the order', () => {
   const o = orderFrom({ ...SESSION, metadata: { lines: 'not json' } });
-  assert.equal(o.total, '42.98');
+  assert.equal(o.total, '45.08');
   assert.equal(o.items.length, 2);
   assert.equal(o.items[0].grind, null);
 });
@@ -200,7 +200,7 @@ test('a paid session is read back in full and recorded', async () => {
   assert.deepEqual(s.calls[0].opts, { expand: ['line_items.data.price.product'] });
   const rec = lines.find((l) => l.startsWith('[order:paid]'));
   assert.ok(rec, 'the order must reach the log even with no endpoint configured');
-  assert.ok(rec.includes('CHF 42.98'));
+  assert.ok(rec.includes('CHF 45.08'));
   assert.ok(rec.includes('Pre-Ground'));
   assert.ok(rec.includes('3000'));
 });
@@ -259,7 +259,7 @@ test('a configured endpoint receives the order as JSON', async () => {
   assert.equal(sent[0].url, 'https://example.test/orders');
   const body = JSON.parse(sent[0].init.body);
   assert.equal(body.kind, 'paid');
-  assert.equal(body.order.total, '42.98');
+  assert.equal(body.order.total, '45.08');
   assert.equal(body.order.items[1].grind, 'Pre-Ground');
 });
 
