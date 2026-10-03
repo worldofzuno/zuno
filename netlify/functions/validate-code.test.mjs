@@ -193,3 +193,67 @@ test('a client guessing repeatedly is slowed down', async () => {
   const other = await post({ code: 'ANOTHER-GUESS' }, '8.8.8.8');
   assert.equal(other.status, 200);
 });
+
+/* --------------------------------------------------------- gift cards */
+
+const { useMemoryStore } = await import('./store.mjs');
+const gc = await import('./giftcard.mjs');
+
+test('a gift card answers with its balance, and says it is a gift card', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_1' });
+  const body = await check(fakeStripe(), card.code);
+  assert.equal(body.valid, true);
+  assert.equal(body.kind, 'gift');
+  assert.equal(body.balance, 5000);
+  assert.equal(body.code, card.code);
+});
+
+test('a partly spent card reports what is left, not what it was', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_1' });
+  await gc.hold(card.code, 'cs_x', 2000);
+  await gc.settle(card.code, 'cs_x');
+  assert.equal((await check(fakeStripe(), card.code)).balance, 3000);
+});
+
+test('a card held by another checkout is not offered twice', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_1' });
+  await gc.hold(card.code, 'cs_elsewhere', 5000);
+  const body = await check(fakeStripe(), card.code);
+  assert.equal(body.valid, false);
+  assert.equal(body.reason, 'empty');
+});
+
+test('a gift card is recognised however it was typed', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_1' });
+  for (const typed of [card.code.toLowerCase(), card.code.replace(/-/g, ''), ' ' + card.code + ' ']) {
+    assert.equal((await check(fakeStripe(), typed)).valid, true, typed);
+  }
+});
+
+test('a gift card that does not exist is answered as a gift card, not as a voucher', async () => {
+  useMemoryStore();
+  const body = await check(fakeStripe(), 'ZG-2345-6789-ABCD');
+  assert.equal(body.valid, false);
+  assert.equal(body.kind, 'gift', 'the message must be about the thing the customer typed');
+});
+
+test('a voucher code is still a voucher code', async () => {
+  useMemoryStore();
+  const body = await check(fakeStripe(), 'FAMILY26');
+  assert.equal(body.kind, 'fnf');
+  assert.equal(body.valid, true);
+});
+
+test('no reply carries the ledger behind a card', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_secret', buyer: 'someone@example.ch' });
+  await gc.hold(card.code, 'cs_other', 1000);
+  const blob = JSON.stringify(await check(fakeStripe(), card.code));
+  for (const leak of ['cs_secret', 'someone@example.ch', 'holds', 'spends', 'issuedFor']) {
+    assert.ok(!blob.includes(leak), `a reply must not carry ${leak}`);
+  }
+});

@@ -22,6 +22,7 @@
 
 import Stripe from 'stripe';
 import { codes, matchCode, exhausted, allow, FNF_CATALOGUE, fnfConfigured } from './fnf.mjs';
+import * as gift from './giftcard.mjs';
 
 const json = (status, obj) =>
   new Response(JSON.stringify(obj), {
@@ -47,6 +48,19 @@ const no = (reason) => ({ valid: false, kind: null, reason, message: REFUSED[rea
  * Throws only when Stripe is unusable; the caller turns that into a 502.
  */
 export async function check(stripe, code) {
+  /* A gift card first, and by shape rather than by trying it: the two code
+     formats cannot be confused, so a mistyped gift card is answered as a
+     broken gift card instead of being reported as an unknown voucher. */
+  if (gift.looksLikeCode(code)) {
+    const card = await gift.load(code);
+    if (!card) return { valid: false, kind: 'gift', reason: 'unknown', message: REFUSED.unknown };
+    const balance = gift.available(card);
+    if (balance <= 0) {
+      return { valid: false, kind: 'gift', reason: 'empty', message: 'That gift card is empty.' };
+    }
+    return { valid: true, kind: 'gift', currency: 'chf', code: card.code, balance };
+  }
+
   const match = matchCode(code, codes());
   if (!match.ok) return no(match.reason);
 

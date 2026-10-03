@@ -16,6 +16,9 @@
  */
 
 import Stripe from 'stripe';
+import * as gift from './giftcard.mjs';
+import { store } from './store.mjs';
+import { send, shopInbox } from './mailer.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -152,6 +155,182 @@ async function notify(kind, order) {
   }
 }
 
+/* -------------------------------------------------------------- gift cards */
+
+const giftMeta = (session) => {
+  const m = session.metadata || {};
+  return m.gift_code && m.gift_ref
+    ? { code: m.gift_code, ref: m.gift_ref, hold: Number(m.gift_hold) || 0 }
+    : null;
+};
+
+/** The payment went through, so the hold becomes a spend. */
+async function settleGift(session) {
+  const g = giftMeta(session);
+  if (!g) return null;
+  try {
+    const r = await gift.settle(g.code, g.ref, g.hold);
+    console.log(`[gift:${r.outcome}] ${g.code} ${r.amount} rappen for ${session.id}`);
+    return { code: g.code, amount: r.amount, outcome: r.outcome };
+  } catch (e) {
+    /* Thrown means the balance may not have been debited. Stripe retries a
+       non-2xx, and settle is idempotent, so letting this escape is the right
+       way to get a second attempt. */
+    console.error(`[gift:settle-failed] ${g.code} for ${session.id}: ${e && e.message}`);
+    throw e;
+  }
+}
+
+/** The session died, so whatever it reserved is spendable again. */
+async function releaseGift(session) {
+  const g = giftMeta(session);
+  if (!g) return null;
+  try {
+    const outcome = await gift.release(g.code, g.ref);
+    console.log(`[gift:${outcome}] ${g.code} for ${session.id}`);
+    return outcome;
+  } catch (e) {
+    /* A hold that is not released here expires by itself within the day, so
+       this is worth reporting and not worth a redelivery. */
+    console.error(`[gift:release-failed] ${g.code} for ${session.id}: ${e && e.message}`);
+    return null;
+  }
+}
+
+/** Was this line a gift card rather than coffee? */
+const isGiftLine = (li) => (li.price?.product?.metadata?.kind) === 'giftcard';
+
+/**
+ * Splits what was paid for one line across the cards it bought, to the
+ * rappen. The remainder goes to the first card rather than being dropped —
+ * three cards out of CHF 21.25 are 7.09, 7.08 and 7.08, and the customer
+ * paid for all of it.
+ */
+export function splitAmount(total, count) {
+  const each = Math.trunc(total / count);
+  const rest = total - each * count;
+  return Array.from({ length: count }, (_, i) => each + (i === 0 ? rest : 0));
+}
+
+/**
+ * Mints the cards this order bought.
+ *
+ * The amount is what was actually paid for the line, not the sticker price.
+ * If a promotion code ever reduces a gift card, the credit is reduced with
+ * it — otherwise a discount on money would be a way to buy francs cheaply.
+ *
+ * Minting twice would be making money, so a marker in the store is claimed
+ * first: whoever creates it does the work, everyone else reads the result.
+ */
+async function issueGifts(session, order) {
+  const lines = (session.line_items?.data || []).filter(isGiftLine);
+  if (!lines.length) return [];
+
+  const key = `issued/${session.id}`;
+  const s = await store();
+  const claimed = await s.create(key, { at: new Date().toISOString(), codes: [], done: false });
+  if (!claimed) {
+    const { value } = await s.read(key);
+    const codes = (value && value.codes) || [];
+    if (!value || value.done !== true) {
+      console.error(`[gift:issue-incomplete] ${session.id} was claimed but never finished`);
+    }
+    return codes;
+  }
+
+  const minted = [];
+  try {
+    for (const li of lines) {
+      for (const amount of splitAmount(li.amount_total, li.quantity || 1)) {
+        if (amount <= 0) continue;
+        const card = await gift.issue({
+          amount,
+          issuedFor: session.id,
+          livemode: session.livemode === true,
+          buyer: order.email || null,
+        });
+        minted.push({ code: card.code, amount });
+      }
+    }
+    await s.update(key, { at: new Date().toISOString(), codes: minted, done: true },
+      (await s.read(key)).etag);
+    console.log(`[gift:issued] ${session.id} ${minted.map((m) => m.code).join(', ')}`);
+  } catch (e) {
+    /* Loud, because the customer has paid for a card that may not exist. The
+       codes already minted are in the log above and in the store. */
+    console.error(`[gift:issue-failed] ${session.id}: ${e && e.message}`);
+  }
+  return minted;
+}
+
+/* ------------------------------------------------------------------- mail */
+
+const francs = (rappen) => `CHF ${(rappen / 100).toFixed(2)}`;
+
+export function orderMailText(order) {
+  const lines = order.items.map((i) =>
+    `  ${i.qty} x ${i.name}${i.grind ? ` (${i.grind})` : ''}   ${order.currency} ${i.amount}`);
+
+  const where = order.address
+    ? [order.name, order.address.line1, order.address.line2,
+       `${order.address.postal_code || ''} ${order.address.city || ''}`.trim(),
+       order.address.country].filter(Boolean).join('\n')
+    : null;
+
+  const cards = (order.giftCards || []).map((c) => `  ${c.code}   ${francs(c.amount)}`);
+
+  return [
+    'Thank you for your order.',
+    '',
+    `Order ${order.session.slice(-8).toUpperCase()}`,
+    ...lines,
+    order.discount !== '0.00' ? `  Discount   -${order.currency} ${order.discount}` : null,
+    order.giftSpent ? `  Gift card ${order.giftSpent.code}   -${francs(order.giftSpent.amount)}` : null,
+    `  Shipping   ${order.shipping === '0.00' ? 'Free' : order.currency + ' ' + order.shipping}`,
+    `  Total      ${order.currency} ${order.total}`,
+    '',
+    cards.length ? 'Your gift card' + (cards.length > 1 ? 's' : '') + ':' : null,
+    ...cards,
+    cards.length ? '\nRedeem it in the Voucher code field at checkout. It never expires, and\nwhatever is left stays on the card.' : null,
+    '',
+    where ? 'Shipping to:\n' + where : 'Nothing to ship — delivered by email.',
+    '',
+    'ZUNO — Worldofzuno, Bahngässli 16, 3172 Niederwangen bei Bern',
+    'info@worldofzuno.com',
+  ].filter((l) => l !== null).join('\n');
+}
+
+/**
+ * One message to the customer, one to the shop. Neither may fail the webhook:
+ * the order exists whether or not anyone could be told about it, and asking
+ * Stripe to redeliver would re-run everything else too.
+ */
+async function mailOrder(order) {
+  const text = orderMailText(order);
+  const ref = order.session.slice(-8).toUpperCase();
+
+  if (order.email) {
+    const r = await send({
+      to: order.email,
+      subject: `Your ZUNO order ${ref}`,
+      text,
+      replyTo: 'info@worldofzuno.com',
+    });
+    if (!r.sent) console.error(`[order:customer-mail-unsent] ${order.session}: ${r.error}`);
+  }
+
+  const inbox = shopInbox();
+  if (inbox) {
+    const r = await send({
+      to: inbox,
+      subject: `New order ${ref} — ${order.currency} ${order.total}`,
+      text: `${summarise(order)}\n\n${text}`,
+      replyTo: order.email || undefined,
+    });
+    if (!r.sent) console.error(`[order:shop-mail-unsent] ${order.session}: ${r.error}`);
+  }
+}
+
 /* ----------------------------------------------------------------- handler */
 
 export default async function handler(req) {
@@ -212,10 +391,14 @@ export async function handleEvent(event, stripe) {
   const order = orderFrom(full);
 
   if (event.type === 'checkout.session.expired') {
+    /* Whatever this session was holding against a gift card goes back now,
+       rather than waiting out the hold's own lifetime. */
+    await releaseGift(full);
     console.log(`[order:expired] ${full.id}`);
     return 'expired';
   }
   if (event.type === 'checkout.session.async_payment_failed') {
+    await releaseGift(full);
     await notify('failed', order);
     return 'failed';
   }
@@ -227,7 +410,14 @@ export async function handleEvent(event, stripe) {
     console.log(`[order:pending] ${full.id} payment_status=${full.payment_status}`);
     return 'pending';
   }
+  /* These two run before the duplicate check, because both are idempotent in
+     their own right and both are too important to skip on a redelivery that
+     only looked like a repeat. Settling debits once; issuing mints once. */
+  order.giftSpent = await settleGift(full);
+  order.giftCards = await issueGifts(full, order);
+
   if (!firstTime(full.id)) return 'duplicate';
   await notify('paid', order);
+  await mailOrder(order);
   return 'paid';
 }

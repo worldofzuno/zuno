@@ -308,6 +308,203 @@ test('an endpoint that is down does not lose the order or retry the payment', as
   assert.ok(lines.some((l) => l.includes('notify-failed')));
 });
 
+/* ---------------------------------------------------------- gift cards */
+
+const { useMemoryStore } = await import('./store.mjs');
+const gc = await import('./giftcard.mjs');
+
+const GIFT_LINE = (amount, qty = 1) => ({
+  description: 'ZUNO Gift Card',
+  quantity: qty,
+  amount_total: amount,
+  price: { product: { name: 'ZUNO Gift Card', metadata: { kind: 'giftcard', sku: 'gift' } } },
+});
+
+const withGift = (over = {}) => ({
+  ...SESSION,
+  id: 'cs_gift_' + Math.random().toString(36).slice(2, 8),
+  line_items: { data: [GIFT_LINE(5000)] },
+  ...over,
+});
+
+test('the amount paid is split across the cards it bought, to the rappen', () => {
+  assert.deepEqual(mod.splitAmount(5000, 1), [5000]);
+  assert.deepEqual(mod.splitAmount(5000, 2), [2500, 2500]);
+  // the remainder goes somewhere rather than being dropped
+  assert.deepEqual(mod.splitAmount(2125, 3), [709, 708, 708]);
+  assert.equal(mod.splitAmount(2125, 3).reduce((a, b) => a + b, 0), 2125);
+});
+
+test('buying a gift card mints one worth what was paid', async () => {
+  useMemoryStore();
+  const session = withGift();
+  const s = stub(session);
+  await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.completed', data: { object: { id: session.id } } }, s));
+
+  const codes = await (await (await import('./store.mjs')).store()).list('gift/');
+  assert.equal(codes.length, 1);
+  const card = await gc.load(codes[0].replace('gift/', ''));
+  assert.equal(card.issued, 5000);
+  assert.equal(gc.available(card), 5000);
+  assert.equal(card.buyer, 'kundin@example.ch');
+});
+
+test('a discounted gift card is worth what was paid, not what it says', async () => {
+  useMemoryStore();
+  /* Otherwise a 15% code on a CHF 50 card is a way to buy francs at 85. */
+  const session = withGift({ line_items: { data: [GIFT_LINE(4250)] } });
+  await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.completed', data: { object: { id: session.id } } }, stub(session)));
+
+  const st = await (await import('./store.mjs')).store();
+  const card = await gc.load((await st.list('gift/'))[0].replace('gift/', ''));
+  assert.equal(card.issued, 4250);
+});
+
+test('three cards on one line become three cards', async () => {
+  useMemoryStore();
+  const session = withGift({ line_items: { data: [GIFT_LINE(7500, 3)] } });
+  await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.completed', data: { object: { id: session.id } } }, stub(session)));
+
+  const st = await (await import('./store.mjs')).store();
+  const keys = await st.list('gift/');
+  assert.equal(keys.length, 3);
+  for (const k of keys) assert.equal((await st.read(k)).value.issued, 2500);
+});
+
+test('a replayed event does not mint a second card', async () => {
+  useMemoryStore();
+  const session = withGift();
+  const s = stub(session);
+  const ev = { type: 'checkout.session.completed', data: { object: { id: session.id } } };
+  await captureLog(() => mod.handleEvent(ev, s));
+  await captureLog(() => mod.handleEvent(ev, s));
+
+  const st = await (await import('./store.mjs')).store();
+  assert.equal((await st.list('gift/')).length, 1, 'a redelivery must not make money');
+});
+
+test('an order with no gift card mints nothing', async () => {
+  useMemoryStore();
+  const s = stub({ ...SESSION, id: 'cs_coffee_only' });
+  await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.completed', data: { object: { id: 'cs_coffee_only' } } }, s));
+  const st = await (await import('./store.mjs')).store();
+  assert.deepEqual(await st.list('gift/'), []);
+});
+
+test('paying with a gift card debits it once', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_bought' });
+  await gc.hold(card.code, 'pre_abc', 2000);
+
+  const session = {
+    ...SESSION,
+    id: 'cs_spend',
+    metadata: { ...SESSION.metadata, gift_code: card.code, gift_ref: 'pre_abc', gift_hold: '2000' },
+  };
+  const ev = { type: 'checkout.session.completed', data: { object: { id: 'cs_spend' } } };
+  await captureLog(() => mod.handleEvent(ev, stub(session)));
+  assert.equal(gc.spent(await gc.load(card.code)), 2000);
+
+  await captureLog(() => mod.handleEvent(ev, stub(session)));
+  assert.equal(gc.spent(await gc.load(card.code)), 2000, 'a redelivery must not debit twice');
+  assert.equal(gc.available(await gc.load(card.code)), 3000);
+});
+
+test('an expired session gives the held balance back', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_bought' });
+  await gc.hold(card.code, 'pre_xyz', 5000);
+  assert.equal(gc.available(await gc.load(card.code)), 0);
+
+  const session = {
+    ...SESSION,
+    id: 'cs_gone',
+    payment_status: 'unpaid',
+    metadata: { ...SESSION.metadata, gift_code: card.code, gift_ref: 'pre_xyz', gift_hold: '5000' },
+  };
+  await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.expired', data: { object: { id: 'cs_gone' } } }, stub(session)));
+  assert.equal(gc.available(await gc.load(card.code)), 5000);
+});
+
+test('a failed delayed payment gives the balance back too', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_bought' });
+  await gc.hold(card.code, 'pre_f', 3000);
+  const session = {
+    ...SESSION,
+    id: 'cs_failed',
+    payment_status: 'unpaid',
+    metadata: { ...SESSION.metadata, gift_code: card.code, gift_ref: 'pre_f', gift_hold: '3000' },
+  };
+  await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.async_payment_failed', data: { object: { id: 'cs_failed' } } },
+    stub(session)));
+  assert.equal(gc.available(await gc.load(card.code)), 5000);
+});
+
+test('an unpaid session neither mints nor debits', async () => {
+  useMemoryStore();
+  const session = withGift({ payment_status: 'unpaid' });
+  const r = await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.completed', data: { object: { id: session.id } } }, stub(session)));
+  assert.equal(r[0], 'pending');
+  const st = await (await import('./store.mjs')).store();
+  assert.deepEqual(await st.list('gift/'), []);
+});
+
+/* ------------------------------------------------------------------ mail */
+
+test('the order mail says what was bought and what it cost', () => {
+  const o = orderFrom(SESSION);
+  const text = mod.orderMailText(o);
+  assert.ok(text.includes('ZUNO Castano — 200 g'));
+  assert.ok(text.includes('Pre-Ground'));
+  assert.ok(text.includes('CHF 45.08'));
+  assert.ok(text.includes('Musterweg 1'));
+  assert.ok(text.includes('3000 Bern'));
+});
+
+test('the mail carries the gift card codes and how to use them', () => {
+  const o = { ...orderFrom(SESSION), giftCards: [{ code: 'ZG-2345-6789-ABCD', amount: 5000 }] };
+  const text = mod.orderMailText(o);
+  assert.ok(text.includes('ZG-2345-6789-ABCD'));
+  assert.ok(text.includes('CHF 50.00'));
+  assert.ok(text.includes('Voucher code'));
+});
+
+test('an order with nothing to ship says so instead of leaving a blank', () => {
+  const o = { ...orderFrom({ ...SESSION, collected_information: undefined }), giftCards: [] };
+  const text = mod.orderMailText(o);
+  assert.ok(text.includes('Nothing to ship'));
+  assert.ok(!text.includes('undefined'));
+  assert.ok(!text.includes('null'));
+});
+
+test('a gift card used as payment appears on the bill', () => {
+  const o = { ...orderFrom(SESSION), giftSpent: { code: 'ZG-2345-6789-ABCD', amount: 2000 } };
+  assert.ok(mod.orderMailText(o).includes('Gift card ZG-2345-6789-ABCD   -CHF 20.00'));
+});
+
+test('the mail is not sent anywhere when no provider is configured', async () => {
+  useMemoryStore();
+  const realFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => { called = true; return new Response('', { status: 200 }); };
+  try {
+    const s = stub({ ...SESSION, id: 'cs_nomail' });
+    await captureLog(() => mod.handleEvent(
+      { type: 'checkout.session.completed', data: { object: { id: 'cs_nomail' } } }, s));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(called, false, 'with no key there is nobody to send through');
+});
+
 test('a validly signed request is accepted end to end', async () => {
   /* The real handler builds its own Stripe client, so this asserts the
      signature path rather than the fulfilment path: a good signature must

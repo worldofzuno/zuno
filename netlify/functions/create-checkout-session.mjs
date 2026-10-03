@@ -6,41 +6,78 @@
  * below; nothing a browser sends is trusted with money.
  *
  *   POST /.netlify/functions/create-checkout-session
- *   { "items": [ { "sku": "castano-500g", "qty": 2, "grind": "Whole Beans" } ] }
+ *   { "items": [ { "sku": "castano-500g", "qty": 2, "grind": "Whole Beans" } ],
+ *     "code": "FAMILY26", "gift": "ZG-ABCD-EFGH-JKLM" }
  *   -> { "url": "https://checkout.stripe.com/..." }
  *
- * The promotion-code field is Stripe's own. `allow_promotion_codes: true` is
- * the whole of it: Stripe renders the field, validates the code against the
- * coupons defined in the Dashboard, and computes the final amount. There is
- * deliberately no discount logic here — a discount this function could
- * calculate is a discount a customer could forge.
+ * There are three separate money mechanisms here and they are deliberately
+ * not the same thing:
  *
- * A Family & Friends code is a different mechanism and is handled here rather
- * than by Stripe: it does not discount the cart, it selects a different
- * Stripe Price per size. See fnf.mjs for why a coupon cannot do that. When
- * one is in force the public promotion-code field is switched off, because
- * the special price is already the reduction and stacking the two would
- * compound them.
+ *   promotion code  Stripe's own. `allow_promotion_codes: true` is the whole
+ *                   of it — Stripe renders the field, validates the code and
+ *                   computes the amount. There is no discount logic here,
+ *                   because a discount this function could calculate is a
+ *                   discount a customer could forge.
+ *
+ *   voucher code    A different Stripe Price per size. See fnf.mjs for why a
+ *                   coupon cannot express two different reductions under one
+ *                   code. It also carries free postage.
+ *
+ *   gift card       Money already paid, held against a balance and applied as
+ *                   a single-use coupon for exactly the amount held. It pays
+ *                   for coffee only — never for another gift card, and never
+ *                   for postage, which is a limit of Stripe coupons rather
+ *                   than a decision.
+ *
+ * A Checkout Session takes at most one discount, so a gift card and a public
+ * promotion code cannot both be used on one order. A voucher code and a gift
+ * card can, because the voucher is a price rather than a discount.
  */
 
 import Stripe from 'stripe';
 import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './fnf.mjs';
+import * as gift from './giftcard.mjs';
 
 /* ------------------------------------------------------------------ config */
 
 /**
- * SKU -> Stripe Price ID. The client may only name a key of this map.
+ * SKU -> Stripe Price ID. The client may only name a key of this map, or the
+ * one custom SKU below.
  *
  * The ids come from the environment rather than from here, because test and
  * live mode have different ones and the same file has to serve both. See
- * .env.example for the sandbox values and the products behind them; both
- * prices are CHF with tax_behavior "inclusive", which Stripe will not let
- * us change later — CHF 14.90 is what the shelf says, tax and all.
+ * .env.example for the sandbox values. Every price is CHF with tax_behavior
+ * "inclusive", which Stripe will not let us change later — CHF 14.90 is what
+ * the shelf says, tax and all.
  */
-const CATALOGUE = {
+const CATALOGUE = () => ({
   'castano-200g': process.env.STRIPE_PRICE_CASTANO_200G,
   'castano-500g': process.env.STRIPE_PRICE_CASTANO_500G,
-};
+  'gift-25': process.env.STRIPE_PRICE_GIFT_25,
+  'gift-50': process.env.STRIPE_PRICE_GIFT_50,
+  'gift-100': process.env.STRIPE_PRICE_GIFT_100,
+});
+
+/** What gets packed into a parcel. Everything else is delivered by email. */
+export const PHYSICAL = new Set(['castano-200g', 'castano-500g']);
+
+/**
+ * The gift card for an amount the buyer chooses.
+ *
+ * This one line is not in the catalogue, because its amount comes from the
+ * client — the only amount on this page that does. That is safe where a
+ * product price would not be: the customer pays exactly the figure they
+ * typed and receives exactly that much credit, so there is nothing to gain by
+ * lying about it. The server still clamps it, and the card is issued from
+ * what Stripe says was *paid*, never from what was requested.
+ *
+ * An upper bound is not optional. Without one the shop is a way to move any
+ * sum of money through a coffee brand.
+ */
+const CUSTOM_GIFT = 'gift-custom';
+const GIFT_MIN = 1500;    // CHF 15.00 — below the smallest bag is a card that buys nothing
+const GIFT_MAX = 20000;   // CHF 200.00
+const GIFT_PRODUCT = () => process.env.STRIPE_PRODUCT_GIFT;
 
 const GRINDS = ['Whole Beans', 'Pre-Ground'];
 const MAX_QTY = 20;                 // per line; a shop this size has no reason for more
@@ -63,8 +100,8 @@ const FREE_SHIPPING_FROM = 4500;    // CHF 45.00
  * arithmetic decision in this file.
  *
  * A voucher code does not reach this rule at all: it carries free postage
- * outright, whatever the cart is worth. The threshold below applies only to
- * a cart without a code.
+ * outright, whatever the cart is worth. Nor does a gift card, which is a
+ * payment rather than a price and leaves the threshold where it was.
  */
 const THRESHOLD = 'before';
 
@@ -78,15 +115,32 @@ export function parseCart(body) {
   if (!Array.isArray(items) || items.length === 0) throw new Error('items must be a non-empty array');
   if (items.length > 10) throw new Error('too many lines');
 
+  const catalogue = CATALOGUE();
   const seen = new Set();
   return items.map((raw, i) => {
     if (!raw || typeof raw !== 'object') throw new Error(`items[${i}] must be an object`);
     const sku = String(raw.sku || '');
-    if (!Object.prototype.hasOwnProperty.call(CATALOGUE, sku)) {
-      throw new Error(`items[${i}].sku is not a product`);
+    const known = Object.prototype.hasOwnProperty.call(catalogue, sku) || sku === CUSTOM_GIFT;
+    if (!known) throw new Error(`items[${i}].sku is not a product`);
+
+    /* A grind is a property of coffee. On a gift card it is noise, and
+       carrying it into the order would tell whoever packs the parcel to grind
+       something that does not exist. */
+    const grind = PHYSICAL.has(sku)
+      ? (GRINDS.includes(raw.grind) ? raw.grind : GRINDS[0])
+      : null;
+
+    let amount = null;
+    if (sku === CUSTOM_GIFT) {
+      amount = Number(raw.amount);
+      if (!Number.isInteger(amount) || amount < GIFT_MIN || amount > GIFT_MAX) {
+        throw new Error(
+          `items[${i}].amount must be a whole number of rappen from ${GIFT_MIN} to ${GIFT_MAX}`
+        );
+      }
     }
-    const grind = GRINDS.includes(raw.grind) ? raw.grind : GRINDS[0];
-    const key = sku + '|' + grind;
+
+    const key = `${sku}|${grind}|${amount}`;
     if (seen.has(key)) throw new Error('duplicate line; merge the quantities');
     seen.add(key);
 
@@ -94,31 +148,44 @@ export function parseCart(body) {
     if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
       throw new Error(`items[${i}].qty must be a whole number from 1 to ${MAX_QTY}`);
     }
-    return { sku, qty, grind };
+    return { sku, qty, grind, amount };
   });
-}
-
-/** Subtotal in rappen, from the catalogue's own amounts — never the client's. */
-export function subtotalRappen(lines, priceById, catalogue = CATALOGUE) {
-  return lines.reduce((sum, l) => {
-    const price = priceById[catalogue[l.sku]];
-    if (!price || typeof price.unit_amount !== 'number') {
-      throw new Error(`price for ${l.sku} has no unit_amount; is it a recurring price?`);
-    }
-    if (price.currency !== 'chf') throw new Error(`price for ${l.sku} is not in CHF`);
-    return sum + price.unit_amount * l.qty;
-  }, 0);
 }
 
 /** The code, if the client sent one at all. An absent field is the normal
     case and must not look like a failed code. */
-export function parseCode(body) {
-  const raw = body && body.code;
+function oneCode(raw, what) {
   if (raw === undefined || raw === null || raw === '') return null;
-  if (typeof raw !== 'string') throw new Error('code must be a string');
-  if (raw.length > 64) throw new Error('that code is not valid');
+  if (typeof raw !== 'string') throw new Error(`${what} must be a string`);
+  if (raw.length > 64) throw new Error(`that ${what} is not valid`);
   return raw;
 }
+
+export const parseCode = (body) => oneCode(body && body.code, 'code');
+export const parseGift = (body) => oneCode(body && body.gift, 'gift card');
+
+/** What one line costs, in rappen, from the catalogue's own amounts. */
+function unitAmount(line, priceById, catalogue) {
+  if (line.sku === CUSTOM_GIFT) return line.amount;
+  const price = priceById[catalogue[line.sku]];
+  if (!price || typeof price.unit_amount !== 'number') {
+    throw new Error(`price for ${line.sku} has no unit_amount; is it a recurring price?`);
+  }
+  if (price.currency !== 'chf') throw new Error(`price for ${line.sku} is not in CHF`);
+  return price.unit_amount;
+}
+
+/** Subtotal in rappen, never the client's arithmetic. */
+export function subtotalRappen(lines, priceById, catalogue = CATALOGUE()) {
+  return lines.reduce((sum, l) => sum + unitAmount(l, priceById, catalogue) * l.qty, 0);
+}
+
+/** The same, over the lines that go in a parcel. */
+export function physicalSubtotal(lines, priceById, catalogue = CATALOGUE()) {
+  return subtotalRappen(lines.filter((l) => PHYSICAL.has(l.sku)), priceById, catalogue);
+}
+
+export const hasPhysical = (lines) => lines.some((l) => PHYSICAL.has(l.sku));
 
 /**
  * @param subtotal   in rappen
@@ -140,30 +207,41 @@ export function shippingOption(subtotal, alwaysFree = false) {
   };
 }
 
+/** Which Price a line points at. A voucher price exists for coffee only, so a
+    gift card keeps its own price whatever code is in force. */
+function priceIdFor(line, fnfCode) {
+  const special = fnfCode ? FNF_CATALOGUE()[line.sku] : null;
+  return special || CATALOGUE()[line.sku];
+}
+
 /**
  * @param lines    what the customer chose
- * @param subtotal in rappen, at the REGULAR prices — this decides shipping
+ * @param subtotal in rappen, at the REGULAR prices of the physical lines —
+ *                 this decides shipping
  * @param origin   this site, for the return pages
- * @param fnfCode  a validated Family & Friends code, or null
+ * @param opts     { fnfCode, coupon } — a validated voucher code, and the id
+ *                 of a single-use coupon standing for a gift card balance
  */
-export function sessionParams(lines, subtotal, origin, fnfCode = null) {
-  /* The only thing a F&F code changes about the session is which Price each
-     line points at. The amounts still come from Stripe, and the client still
-     never sends one. */
-  const catalogue = fnfCode ? FNF_CATALOGUE() : CATALOGUE;
+export function sessionParams(lines, subtotal, origin, opts = {}) {
+  const { fnfCode = null, coupon = null } = typeof opts === 'string' ? { fnfCode: opts } : opts;
+  const ships = hasPhysical(lines);
 
   const params = {
     mode: 'payment',
     ui_mode: 'hosted_page',
-    line_items: lines.map((l) => ({ price: catalogue[l.sku], quantity: l.qty })),
-    /* Stripe's own field, and nothing here validates or applies a code for
-       it. Off while a F&F price is in force: that reduction is already in the
-       line item, and letting a public code land on top would compound two
-       reductions that were never meant to meet. */
-    allow_promotion_codes: !fnfCode,
-    shipping_address_collection: { allowed_countries: ALLOWED_COUNTRIES },
-    /* A voucher code carries free postage, whatever the cart is worth. */
-    shipping_options: [shippingOption(subtotal, !!fnfCode)],
+    line_items: lines.map((l) => (l.sku === CUSTOM_GIFT
+      ? {
+        /* The only inline amount on this page, and the only one the customer
+           chose. It was clamped in parseCart and is paid in full. */
+        price_data: {
+          currency: 'chf',
+          product: GIFT_PRODUCT(),
+          unit_amount: l.amount,
+          tax_behavior: 'inclusive',
+        },
+        quantity: l.qty,
+      }
+      : { price: priceIdFor(l, fnfCode), quantity: l.qty })),
     billing_address_collection: 'auto',
     phone_number_collection: { enabled: false },
     /* The prices carry tax_behavior "inclusive" — CHF 14.90 is what the shelf
@@ -181,6 +259,25 @@ export function sessionParams(lines, subtotal, origin, fnfCode = null) {
     success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}#cart`,
     cancel_url: `${origin}/?checkout=cancelled#cart`,
   };
+
+  /* Nothing to deliver means nothing to ask an address for. A gift card goes
+     to an inbox, and a shipping form in front of it is a question with no
+     answer. */
+  if (ships) {
+    params.shipping_address_collection = { allowed_countries: ALLOWED_COUNTRIES };
+    params.shipping_options = [shippingOption(subtotal, !!fnfCode)];
+  }
+
+  /* Stripe allows `discounts` or `allow_promotion_codes`, never both, and at
+     most one discount either way. A gift card occupies that slot. */
+  if (coupon) {
+    params.discounts = [{ coupon }];
+  } else {
+    /* Off while a voucher price is in force: that reduction is already in the
+       line item, and letting a public code land on top would compound two
+       reductions that were never meant to meet. */
+    params.allow_promotion_codes = !fnfCode;
+  }
 
   if (fnfCode) {
     params.metadata.fnf_code = fnfCode;
@@ -205,28 +302,50 @@ export default async function handler(req) {
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return json(500, { error: 'checkout is not configured' });
-  const missing = Object.entries(CATALOGUE).filter(([, v]) => !v).map(([k]) => k);
-  if (missing.length) return json(500, { error: 'checkout is not configured' });
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return json(400, { error: 'body must be JSON' });
+  }
+
+  const stripe = new Stripe(key, { apiVersion: '2024-06-20' });
+  const { status, payload } = await build(stripe, body, new URL(req.url).origin);
+  return json(status, payload);
+}
+
+/**
+ * Everything the handler does once it has a Stripe client and a body.
+ *
+ * Separate so the branches that matter — a voucher code, a gift card hold, a
+ * coupon of exactly the held amount — are reachable in a test and in the
+ * local harness without the network, the same way the webhook's handleEvent
+ * is. The handler above adds nothing but parsing and a Response.
+ */
+export async function build(stripe, body, origin) {
+  const json = (status, payload) => ({ status, payload });
 
   let lines;
   let code;
+  let giftCode;
   try {
-    const body = await req.json();
     lines = parseCart(body);
     code = parseCode(body);
+    giftCode = parseGift(body);
   } catch (e) {
     return json(400, { error: e.message });
   }
 
-  /* The success and cancel pages are this site's own, never a URL the caller
-     supplied — otherwise the endpoint is an open redirect with Stripe's name
-     on it. URL is only used for its origin. */
-  const origin = new URL(req.url).origin;
+  const catalogue = CATALOGUE();
+  const needed = [...new Set(lines.map((l) => l.sku))].filter((s) => s !== CUSTOM_GIFT);
+  if (needed.some((s) => !catalogue[s])) return json(500, { error: 'checkout is not configured' });
+  if (lines.some((l) => l.sku === CUSTOM_GIFT) && !GIFT_PRODUCT()) {
+    return json(500, { error: 'checkout is not configured' });
+  }
 
-  const stripe = new Stripe(key, { apiVersion: '2024-06-20' });
-
-  /* The code is checked here as well as in validate-code, because that
-     endpoint is a courtesy to the cart display and this one settles the
+  /* The voucher code is checked here as well as in validate-code, because
+     that endpoint is a courtesy to the cart display and this one settles the
      money. A bad code refuses the session outright rather than falling back
      to the regular price: the customer last saw a reduced total, and quietly
      charging the full one is worse than an error. */
@@ -249,33 +368,109 @@ export default async function handler(req) {
     fnf = match.entry.code;
   }
 
+  let coupon = null;
+  let held = 0;
+  let holdRef = null;
+  let heldCard = null;
   try {
-    /* The amounts are read back from Stripe rather than kept in a second copy
-       here, so the shipping threshold is decided against the same numbers the
-       customer is charged. A cart with a voucher code skips the threshold
-       entirely — postage is waived — but the regular prices are still read,
-       because they are what validates the cart. */
-    const ids = [...new Set(lines.map((l) => CATALOGUE[l.sku]))];
+    const ids = [...new Set(needed.map((s) => catalogue[s]))];
     const prices = await Promise.all(ids.map((id) => stripe.prices.retrieve(id)));
     const priceById = Object.fromEntries(prices.map((p) => [p.id, p]));
-    const regularSubtotal = subtotalRappen(lines, priceById);
 
-    /* The F&F prices are not needed to charge — the Price id is what the line
-       item carries — but they are checked, so a price left in the wrong
-       currency or made recurring fails here rather than halfway through a
-       customer's checkout. */
+    /* The regular prices decide shipping; the voucher prices decide what is
+       charged. Both are read from Stripe rather than kept in a second copy
+       here. */
+    const shippingBasis = physicalSubtotal(lines, priceById);
+
+    let fnfPriceById = priceById;
+    let fnfCatalogue = catalogue;
     if (fnf) {
-      const fnfCatalogue = FNF_CATALOGUE();
-      const fnfIds = [...new Set(lines.map((l) => fnfCatalogue[l.sku]))];
-      const fnfPrices = await Promise.all(fnfIds.map((id) => stripe.prices.retrieve(id)));
-      subtotalRappen(lines, Object.fromEntries(fnfPrices.map((p) => [p.id, p])), fnfCatalogue);
+      /* Only the keys the voucher actually has a price for. Spreading the map
+         whole would overwrite a gift card's price with undefined. */
+      const special = Object.fromEntries(
+        Object.entries(FNF_CATALOGUE()).filter(([, id]) => Boolean(id))
+      );
+      fnfCatalogue = { ...catalogue, ...special };
+      const fnfIds = [...new Set(needed.map((s) => fnfCatalogue[s]))].filter((id) => !priceById[id]);
+      const extra = await Promise.all(fnfIds.map((id) => stripe.prices.retrieve(id)));
+      fnfPriceById = { ...priceById, ...Object.fromEntries(extra.map((p) => [p.id, p])) };
+      /* Checked, not merely used: a voucher price left in the wrong currency
+         or made recurring fails here rather than halfway through a checkout. */
+      subtotalRappen(lines, fnfPriceById, fnfCatalogue);
     }
 
-    const session = await stripe.checkout.sessions.create(
-      sessionParams(lines, regularSubtotal, origin, fnf)
-    );
+    /* A gift card pays for coffee. Not for another gift card — that would
+       only churn credit from one code into a new one — and not for postage,
+       which Stripe coupons cannot reach. */
+    if (giftCode !== null) {
+      const payable = physicalSubtotal(lines, fnfPriceById, fnfCatalogue);
+      const card = await gift.load(giftCode);
+      if (!card) return json(400, { error: 'That gift card is not valid.', reason: 'unknown' });
+      if (gift.available(card) <= 0) {
+        return json(400, { error: 'That gift card is empty.', reason: 'empty' });
+      }
+      if (payable <= 0) {
+        return json(400, {
+          error: 'A gift card cannot pay for a gift card. Add some coffee to use it.',
+          reason: 'nothing-payable',
+        });
+      }
+
+      /* The session id has to exist before the hold can name it, and the
+         coupon has to exist before the session can carry it. So: reserve
+         against a reference of our own, then let the webhook settle it. */
+      holdRef = `pre_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+      const res = await gift.hold(card.code, holdRef, payable);
+      if (!res.ok) return json(400, { error: 'That gift card is empty.', reason: res.reason });
+      held = res.amount;
+      heldCard = card.code;
+
+      /* Restricted to the coffee products on this order, which is what stops
+         the credit being spent on a new card. The two sizes keep the same
+         Product whether the voucher price applies or not, so this holds
+         either way. */
+      const coffeeProducts = [...new Set(
+        lines
+          .filter((l) => PHYSICAL.has(l.sku))
+          .map((l) => fnfPriceById[fnfCatalogue[l.sku]])
+          .map((p) => (p && (typeof p.product === 'string' ? p.product : p.product && p.product.id)))
+          .filter(Boolean)
+      )];
+      if (!coffeeProducts.length) throw new Error('no coffee product to apply the gift card to');
+
+      const made = await stripe.coupons.create({
+        amount_off: held,
+        currency: 'chf',
+        duration: 'once',
+        max_redemptions: 1,
+        redeem_by: Math.floor((Date.now() + gift.HOLD_TTL_MS) / 1000),
+        name: `Gift card ${card.code}`,
+        applies_to: { products: coffeeProducts },
+        metadata: { gift_code: card.code, gift_hold: String(held), hold_ref: holdRef },
+      });
+      coupon = made.id;
+    }
+
+    const params = sessionParams(lines, shippingBasis, origin, { fnfCode: fnf, coupon });
+    if (heldCard) {
+      /* The webhook settles the hold, and these three are how it finds it. */
+      params.metadata.gift_code = heldCard;
+      params.metadata.gift_hold = String(held);
+      params.metadata.gift_ref = holdRef;
+    }
+
+    const session = await stripe.checkout.sessions.create(params);
     return json(200, { url: session.url });
   } catch (e) {
+    /* A hold taken for a session that never came into being must go back, or
+       the balance stays frozen for a day for nothing. */
+    if (held > 0 && heldCard && holdRef) {
+      try {
+        await gift.release(heldCard, holdRef);
+      } catch (inner) {
+        console.error('checkout: could not release the gift card hold:', inner && inner.message);
+      }
+    }
     console.error('checkout session failed:', e && e.message);
     return json(502, { error: 'could not start checkout' });
   }

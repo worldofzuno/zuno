@@ -685,6 +685,11 @@ html:not(.js) .page:target { display: block; }
 .summary .row.hint span:last-child { font-size: 0.78rem; color: var(--ink-faint); }
 .summary .row.total { color: var(--ink); font-weight: 600; font-size: 1.05rem; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; font-variant-numeric: tabular-nums; }
 
+.gift__lede { margin-top: 20px; max-width: 52ch; }
+.gift-own { margin-top: 18px; max-width: 260px; }
+.gift-own .field { text-align: left; }
+.gift-own .field-label { margin-top: 0; }
+.gift__price { margin-top: 30px; }
 .code { margin-top: 4px; }
 .code .field-label { margin-bottom: 10px; }
 .code__row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -935,6 +940,7 @@ html:not(.js) .page:target { display: block; }
     <nav class="nav__links" aria-label="Primary">
       <ul>
         <li><a href="#product" data-home>Shop</a></li>
+        <li><a href="#gift">Gift Card</a></li>
         <li><a href="#about" data-home>About Us</a></li>
         <li><a href="#join" data-home>Contact</a></li>
       </ul>
@@ -966,6 +972,7 @@ html:not(.js) .page:target { display: block; }
     <div class="rail">
       <ul>
         <li><a href="#product" data-home>Shop</a></li>
+        <li><a href="#gift">Gift Card</a></li>
         <li><a href="#about" data-home>About Us</a></li>
         <li><a href="#faces" data-home>Our Story</a></li>
         <li><a href="#join" data-home>Contact</a></li>
@@ -1246,6 +1253,36 @@ html:not(.js) .page:target { display: block; }
       <li>Invitations to ZUNO tastings and events</li>
       <li>Order history and faster checkout</li>
     </ul>
+  </div>
+</section>
+
+<section class="page" id="page-gift">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Gift</p>
+    <h2 class="page__title">Gift Card</h2>
+    <p class="lede gift__lede">Coffee, chosen by the person who drinks it. The code arrives by email, works in the shop straight away and never expires &mdash; and whatever is left over stays on the card.</p>
+
+    <span class="field-label" id="giftAmountLabel">Amount</span>
+    <div class="option-row" id="giftRow" role="group" aria-labelledby="giftAmountLabel">
+      <button class="option" type="button" aria-pressed="true" data-gift="2500">CHF 25</button>
+      <button class="option" type="button" aria-pressed="false" data-gift="5000">CHF 50</button>
+      <button class="option" type="button" aria-pressed="false" data-gift="10000">CHF 100</button>
+      <button class="option" type="button" aria-pressed="false" data-gift="custom">Other</button>
+    </div>
+
+    <div class="gift-own" id="giftOwn" hidden>
+      <label class="field-label" for="giftAmount">Your amount, in francs</label>
+      <input class="field" type="number" id="giftAmount" value="35" min="15" max="200" step="1"
+             inputmode="numeric" autocomplete="off" aria-describedby="giftHint">
+      <p class="note" id="giftHint">Anything from CHF 15 to CHF 200.</p>
+    </div>
+
+    <p class="price gift__price"><span id="giftPrice">CHF 25.00</span></p>
+
+    <div class="actions">
+      <button class="btn btn--primary" type="button" id="giftAdd" aria-live="polite">Add to Cart</button>
+      <button class="btn btn--outline" type="button" data-home-btn>Continue Shopping</button>
+    </div>
   </div>
 </section>
 
@@ -1672,6 +1709,25 @@ html:not(.js) .page:target { display: block; }
      typing six characters again. */
   var fnf = null;   // { code: 'FAMILY26', prices: { 'castano-200g': 1100, … } }
 
+  /* An applied gift card, in the same spirit: what the server said the
+     balance was, kept for display and sent back as a code. Not persisted for
+     the same reason. */
+  var giftCard = null;   // { code: 'ZG-…', balance: 5000 }
+
+  /* The fixed gift amounts, in rappen. The server holds the same figures and
+     is the one that charges them; these are here so the cart can draw a
+     line before anyone has talked to Stripe. */
+  var GIFT_AMOUNTS = { 'gift-25': 2500, 'gift-50': 5000, 'gift-100': 10000 };
+  var GIFT_MIN = 1500, GIFT_MAX = 20000;
+
+  function isCoffee(i) { return i.kind !== 'gift'; }
+  function skuOf(i) { return i.kind === 'gift' ? i.sku : SKU[i.size]; }
+  function nameOf(i) {
+    return i.kind === 'gift'
+      ? 'Gift Card — ' + chf(i.price)
+      : 'Castano — ' + i.size + ' · ' + i.grind;
+  }
+
   /* The cart used to live only in memory, which was fine while the whole shop
      was one page that never navigated. Handing off to a hosted checkout means
      leaving the site and coming back, so it has to survive the round trip —
@@ -1693,13 +1749,27 @@ html:not(.js) .page:target { display: block; }
          price out of it is never used for anything but display — the charge
          comes from the Stripe catalogue. */
       cart = saved.slice(0, 10).map(function (i) {
+        var qty = Math.min(20, Math.max(1, parseInt(i && i.qty, 10) || 1));
+        if (i && i.kind === 'gift') {
+          var sku = i.sku;
+          var amount;
+          if (Object.prototype.hasOwnProperty.call(GIFT_AMOUNTS, sku)) {
+            amount = GIFT_AMOUNTS[sku];
+          } else if (sku === 'gift-custom') {
+            amount = Math.round(parseInt(i.amount, 10) || 0);
+            if (amount < GIFT_MIN || amount > GIFT_MAX) return null;
+          } else {
+            return null;
+          }
+          return { kind: 'gift', sku: sku, amount: amount, price: amount / 100, qty: qty };
+        }
         return {
           size: i && i.size === '500g' ? '500g' : '200g',
           grind: i && i.grind === 'Pre-Ground' ? 'Pre-Ground' : 'Whole Beans',
           price: i && i.size === '500g' ? 29.90 : 14.90,
-          qty: Math.min(20, Math.max(1, parseInt(i && i.qty, 10) || 1))
+          qty: qty
         };
-      });
+      }).filter(Boolean);
     } catch (e) { cart = []; }
   }
   var badge = document.getElementById('badge');
@@ -1715,15 +1785,31 @@ html:not(.js) .page:target { display: block; }
      for anything but display either way — the charge comes from the Stripe
      catalogue. */
   function unit(i) {
-    if (!fnf) return i.price;
+    /* A voucher reduces coffee. A gift card is money at face value and is
+       never discounted — selling credit below par would be selling francs. */
+    if (!fnf || i.kind === 'gift') return i.price;
     var p = fnf.prices[SKU[i.size]];
     return typeof p === 'number' ? p / 100 : i.price;
   }
   function sub() { return cart.reduce(function (s, i) { return s + i.qty * unit(i); }, 0); }
   function regularSub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
+  function hasCoffee() { return cart.some(isCoffee); }
+  /** The part of the cart a gift card is allowed to pay for. */
+  function coffeeDue() {
+    return cart.filter(isCoffee).reduce(function (s, i) { return s + i.qty * unit(i); }, 0);
+  }
+  /** What the applied gift card actually covers on this cart. */
+  function giftApplied() {
+    if (!giftCard) return 0;
+    return Math.min(giftCard.balance / 100, coffeeDue());
+  }
   /* A voucher code carries free postage whatever the cart is worth, so it
-     never reaches the threshold. The server decides this the same way. */
-  function ship(s) { return (fnf || s >= 45 || s === 0) ? 0 : 7.00; }
+     never reaches the threshold, and a cart with nothing to post has no
+     postage to charge. The server decides this the same way. */
+  function ship(s) {
+    if (!hasCoffee()) return 0;
+    return (fnf || s >= 45 || s === 0) ? 0 : 7.00;
+  }
 
   /* A number is only worth tweening when it actually moved. The product price
      is never animated — a price mid-tween is a wrong price — but the cart
@@ -1757,7 +1843,7 @@ html:not(.js) .page:target { display: block; }
   function renderLines() {
     linesEl.innerHTML = cart.map(function (i, idx) {
       return '<div class="line" data-idx="' + idx + '"><div class="line__in">' +
-        '<div class="line__info"><p class="line__name">Castano — ' + i.size + ' · ' + i.grind + '</p>' +
+        '<div class="line__info"><p class="line__name">' + nameOf(i) + '</p>' +
         '<p class="line__meta">' + chf(unit(i)) + ' each</p>' +
         '<button class="remove" type="button" data-remove="' + idx + '">Remove</button></div>' +
         '<span class="qty"><button type="button" data-dec="' + idx + '" aria-label="Decrease quantity">&minus;</button>' +
@@ -1767,19 +1853,35 @@ html:not(.js) .page:target { display: block; }
       '</div></div>';
     }).join('');
 
-    /* Subtotal is always the shelf price, so the reduction is a line of its
+    /* Subtotal is always the shelf price, so each reduction is a line of its
        own rather than a number that silently changed. Total is what will be
-       charged. */
-    var s = sub(), reg = regularSub(), sh = ship(reg);
+       charged. Postage is decided by the coffee alone — a gift card has
+       nothing to put in a parcel and must not drag the cart over the
+       threshold either. */
+    var s = sub(), reg = regularSub();
+    var coffeeReg = cart.filter(isCoffee).reduce(function (t, i) { return t + i.qty * i.price; }, 0);
+    var sh = ship(coffeeReg);
+    var paid = giftApplied();
+
     summaryEl.innerHTML =
       '<div class="row"><span>Subtotal</span><span>' + chf(reg) + '</span></div>' +
       (fnf ? '<div class="row"><span>Voucher</span><span>&minus;' + chf(reg - s) + '</span></div>' : '') +
-      '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
-      (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '') +
-      '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
+      (hasCoffee()
+        ? '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
+          (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '')
+        : '<div class="row"><span>Delivery</span><span>By email</span></div>') +
+      (paid > 0 ? '<div class="row"><span>Gift card</span><span>&minus;' + chf(paid) + '</span></div>' : '') +
+      /* A gift card buys coffee, never another gift card — so say that here
+         rather than letting the server refuse it at the last step. */
+      (giftCard && coffeeDue() === 0
+        ? '<div class="row hint"><span></span><span>Add coffee to use the gift card</span></div>'
+        : (giftCard && paid < giftCard.balance / 100
+          ? '<div class="row hint"><span></span><span>' + chf(giftCard.balance / 100 - paid) + ' stays on the card</span></div>'
+          : '')) +
+      '<div class="row total"><span>Total</span><span>' + chf(s + sh - paid) + '</span></div>';
 
     var totalEl = summaryEl.querySelector('.row.total span:last-child');
-    if (totalEl) countTotal(totalEl, s + sh);
+    if (totalEl) countTotal(totalEl, s + sh - paid);
   }
 
   /* Filled and empty crossfade so removing the last line is one movement. */
@@ -1817,6 +1919,61 @@ html:not(.js) .page:target { display: block; }
     addSwap.classList.add('is-done');
     window.clearTimeout(addTimer);
     addTimer = window.setTimeout(function () { addSwap.classList.remove('is-done'); }, 1800);
+  });
+
+  /* ---------- gift card ----------
+     The amount is the one figure on this page the customer chooses, and it
+     is the one amount the server accepts from the client — safe, because
+     they pay exactly what they type and get exactly that much credit. The
+     server still clamps it, and the card is issued from what Stripe says was
+     paid rather than from what was asked for. */
+  var giftRow = document.getElementById('giftRow');
+  var giftOwn = document.getElementById('giftOwn');
+  var giftAmountEl = document.getElementById('giftAmount');
+  var giftPriceEl = document.getElementById('giftPrice');
+  var giftAddBtn = document.getElementById('giftAdd');
+  var giftPick = 'gift-25';
+
+  function giftRappen() {
+    if (giftPick !== 'gift-custom') return GIFT_AMOUNTS[giftPick];
+    var francs = parseInt(giftAmountEl.value, 10);
+    if (!isFinite(francs)) return NaN;
+    return Math.round(francs) * 100;
+  }
+
+  function paintGift() {
+    var r = giftRappen();
+    var good = isFinite(r) && r >= GIFT_MIN && r <= GIFT_MAX;
+    giftPriceEl.textContent = good ? chf(r / 100) : '—';
+    giftAddBtn.disabled = !good;
+  }
+
+  group(giftRow, function (b) {
+    giftPick = b.dataset.gift === 'custom' ? 'gift-custom' : 'gift-' + (b.dataset.gift / 100);
+    giftOwn.hidden = giftPick !== 'gift-custom';
+    paintGift();
+    if (giftPick === 'gift-custom') giftAmountEl.focus();
+  });
+  giftAmountEl.addEventListener('input', paintGift);
+  paintGift();
+
+  var giftTimer;
+  giftAddBtn.addEventListener('click', function () {
+    var r = giftRappen();
+    if (!isFinite(r) || r < GIFT_MIN || r > GIFT_MAX) return;
+
+    var found = null;
+    cart.forEach(function (i) {
+      if (i.kind === 'gift' && i.sku === giftPick && i.amount === r) found = i;
+    });
+    if (found) { found.qty += 1; }
+    else { cart.push({ kind: 'gift', sku: giftPick, amount: r, price: r / 100, qty: 1 }); }
+    syncCart(false);
+
+    var label = 'Add to Cart';
+    giftAddBtn.textContent = 'Added';
+    window.clearTimeout(giftTimer);
+    giftTimer = window.setTimeout(function () { giftAddBtn.textContent = label; }, 1800);
   });
 
   linesEl.addEventListener('click', function (e) {
@@ -1895,12 +2052,23 @@ html:not(.js) .page:target { display: block; }
   var codeBtn = document.getElementById('codeBtn');
   var codeMsg = document.getElementById('codeMsg');
 
-  function setCode(applied, message, warn) {
-    fnf = applied;
-    codeForm.classList.toggle('is-on', !!applied);
+  function paintCode(message, warn) {
+    codeForm.classList.toggle('is-on', !!(fnf || giftCard));
     codeMsg.classList.toggle('note--warn', !!warn);
     say(codeMsg, message);
     syncCart(false);
+  }
+
+  /* The two mechanisms are held apart, not in one slot: a voucher changes
+     prices, a gift card pays part of the bill, and a customer may hold both.
+     Clearing one leaves the other where it was. */
+  function setVoucher(applied, message, warn) {
+    fnf = applied;
+    paintCode(message, warn);
+  }
+  function setGift(applied, message, warn) {
+    giftCard = applied;
+    paintCode(message, warn);
   }
 
   codeForm.addEventListener('submit', function (e) {
@@ -1909,7 +2077,9 @@ html:not(.js) .page:target { display: block; }
 
     var typed = codeInput.value.trim();
     if (!typed) {
-      setCode(null, '', false);
+      fnf = null;
+      giftCard = null;
+      paintCode('', false);
       return;
     }
 
@@ -1925,15 +2095,22 @@ html:not(.js) .page:target { display: block; }
       return r.json().catch(function () { return {}; });
     }).then(function (b) {
       if (b && b.valid === true && b.kind === 'fnf' && b.prices) {
-        setCode({ code: typed, prices: b.prices },
+        setVoucher({ code: typed, prices: b.prices },
           'Code applied — reduced prices and free shipping.', false);
+      } else if (b && b.valid === true && b.kind === 'gift' && typeof b.balance === 'number') {
+        setGift({ code: b.code, balance: b.balance },
+          'Gift card applied — ' + chf(b.balance / 100) + ' available.', false);
+      } else if (b && b.kind === 'gift') {
+        /* A broken gift card is answered as one, so the message says what
+           went wrong with the thing the customer actually typed. */
+        setGift(null, b.message || 'That gift card is not valid.', true);
       } else {
-        setCode(null, (b && b.message) || 'That code is not valid.', true);
+        setVoucher(null, (b && b.message) || 'That code is not valid.', true);
       }
     }).catch(function () {
       /* A code that cannot be checked is not applied. Showing a reduced price
          we are unable to stand behind is the one outcome worth avoiding. */
-      setCode(null, 'We could not check that code just now. Please try again in a moment.', true);
+      paintCode('We could not check that code just now. Please try again in a moment.', true);
     }).then(function () {
       codeBtn.disabled = false;
       codeBtn.textContent = label;
@@ -1953,12 +2130,17 @@ html:not(.js) .page:target { display: block; }
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         items: cart.map(function (i) {
-          return { sku: SKU[i.size], qty: i.qty, grind: i.grind };
+          return i.kind === 'gift'
+            ? { sku: i.sku, qty: i.qty, amount: i.amount }
+            : { sku: SKU[i.size], qty: i.qty, grind: i.grind };
         }),
-        /* The code, not a price. The server validates it again and chooses
-           the Prices itself; this cart could not be trusted with an amount
-           and does not send one. */
-        code: fnf ? fnf.code : undefined
+        /* Codes, not prices. The server validates both again, chooses the
+           Prices itself and works out what the card covers; this cart could
+           not be trusted with an amount and sends none — except the gift
+           card's own face value, which is the customer's own choice and is
+           clamped and charged in full. */
+        code: fnf ? fnf.code : undefined,
+        gift: giftCard ? giftCard.code : undefined
       })
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (b) {
@@ -1978,9 +2160,12 @@ html:not(.js) .page:target { display: block; }
       checkoutBtn.disabled = false;
       checkoutBtn.textContent = label;
       if (e && e.reason) {
-        /* The code went stale between applying it and paying. Drop it so the
-           cart shows the prices that will actually be charged. */
-        setCode(null, e.shown || 'That code is not valid.', true);
+        /* A code went stale between applying it and paying. Drop both so the
+           cart shows what will actually be charged, rather than leaving the
+           customer to guess which of the two the server meant. */
+        fnf = null;
+        giftCard = null;
+        paintCode(e.shown || 'That code is not valid.', true);
         say(checkoutError, 'Please check the code and try again.');
         return;
       }
@@ -2151,7 +2336,7 @@ html:not(.js) .page:target { display: block; }
   });
 
   /* ---------- hash router ---------- */
-  var PAGES = ['cart', 'account', 'privacy', 'shipping', 'legal'];
+  var PAGES = ['cart', 'account', 'gift', 'privacy', 'shipping', 'legal'];
   /* Pages that were once their own and have since been folded into another.
      The old hashes stay alive, so anything already linked or bookmarked
      still lands somewhere sensible. */
