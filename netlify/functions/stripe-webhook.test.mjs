@@ -147,6 +147,29 @@ test('a session with no shipping details still produces an order', () => {
   assert.ok(summarise(o).includes('no address'));
 });
 
+test('a Family & Friends order says so, because the discount field cannot', () => {
+  /* The reduction is a different Price, not a coupon, so total_details shows
+     no discount at all. Without the code the books would show a low total
+     with nothing to explain it. */
+  const fnf = {
+    ...SESSION,
+    amount_subtotal: 3100,
+    amount_total: 3800,
+    total_details: { amount_discount: 0, amount_shipping: 700, amount_tax: 0 },
+    metadata: { ...SESSION.metadata, fnf_code: 'FAMILY26' },
+  };
+  const o = orderFrom(fnf);
+  assert.equal(o.fnfCode, 'FAMILY26');
+  assert.equal(o.discount, '0.00');
+  assert.ok(summarise(o).includes('F&F FAMILY26'));
+});
+
+test('a regular order carries no code and is not tagged', () => {
+  const o = orderFrom(SESSION);
+  assert.equal(o.fnfCode, null);
+  assert.ok(!summarise(o).includes('F&F'));
+});
+
 test('an unpaid session is not an order', () => {
   assert.equal(orderFrom({ ...SESSION, payment_status: 'unpaid' }).paid, false);
 });

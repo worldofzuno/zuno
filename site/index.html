@@ -685,6 +685,13 @@ html:not(.js) .page:target { display: block; }
 .summary .row.hint span:last-child { font-size: 0.78rem; color: var(--ink-faint); }
 .summary .row.total { color: var(--ink); font-weight: 600; font-size: 1.05rem; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; font-variant-numeric: tabular-nums; }
 
+.code { margin-top: 4px; }
+.code .field-label { margin-bottom: 10px; }
+.code__row { display: flex; gap: 12px; flex-wrap: wrap; }
+.code__row .field { flex: 1 1 200px; width: auto; letter-spacing: 0.08em; text-transform: uppercase; }
+.code__row .btn { flex: 0 0 auto; }
+.code__msg { margin-top: 12px; }
+.code.is-on .field { border-color: var(--gold); }
 .actions { display: flex; gap: 14px; margin-top: 30px; flex-wrap: wrap; align-items: center; }
 .cart-state { transition: opacity var(--control) var(--ease-premium); }
 .cart-state[hidden] { display: none; }
@@ -1138,6 +1145,24 @@ html:not(.js) .page:target { display: block; }
     <div id="stepCart">
       <div class="cart-state" id="cartFilled" hidden>
         <div id="lines" class="lines"></div>
+
+        <!-- Family & Friends. The code is checked by the server, which is
+             also the only place the special prices exist; this field sends
+             what was typed and redraws the cart from the answer. A gift card
+             is a different mechanism and will take a different path — the
+             server says which kind a code is, so the two cannot be
+             confused. -->
+        <form class="code" id="codeForm" novalidate>
+          <label class="field-label" for="codeInput">Family &amp; Friends code</label>
+          <div class="code__row">
+            <input class="field" type="text" id="codeInput" name="code" maxlength="64"
+                   placeholder="Enter your code" autocomplete="off"
+                   autocapitalize="characters" spellcheck="false" aria-describedby="codeMsg">
+            <button class="btn btn--outline" type="submit" id="codeBtn">Apply</button>
+          </div>
+          <p class="note code__msg" id="codeMsg" role="status" hidden></p>
+        </form>
+
         <div class="summary" id="summary"></div>
         <div class="actions">
           <button class="btn btn--outline" type="button" data-home-btn>Continue Shopping</button>
@@ -1153,8 +1178,11 @@ html:not(.js) .page:target { display: block; }
     </div>
 
     <!-- Delivery address and payment are collected by Stripe Checkout, which
-         is also where the promotion-code field lives. Nothing on this page
-         asks for a card, and nothing here computes what is owed. -->
+         is also where the public promotion-code field lives. The Family &
+         Friends field above is a different mechanism — it selects a price
+         rather than applying a discount — so it has to be answered before
+         the handover. Nothing on this page asks for a card, and nothing here
+         computes what is owed. -->
 
     <div id="stepDone" hidden>
       <h2 class="step-title">Thank You</h2>
@@ -1634,6 +1662,16 @@ html:not(.js) .page:target { display: block; }
 
   /* ---------- cart model ---------- */
   var cart = [], orders = [], user = null;
+  var SKU = { '200g': 'castano-200g', '500g': 'castano-500g' };
+
+  /* Family & Friends. Both the code and the special prices live on the
+     server; this is only what the cart was told, kept so the lines can be
+     drawn and sent back with the checkout request so the server can check it
+     again. It is deliberately not persisted: a code has to be re-entered
+     after a reload rather than restored from storage, because storage cannot
+     say whether it is still valid and a stale reduced price is worse than
+     typing six characters again. */
+  var fnf = null;   // { code: 'FAMILY26', prices: { 'castano-200g': 1100, … } }
 
   /* The cart used to live only in memory, which was fine while the whole shop
      was one page that never navigated. Handing off to a hosted checkout means
@@ -1673,7 +1711,20 @@ html:not(.js) .page:target { display: block; }
 
   function chf(v) { return 'CHF ' + v.toFixed(2); }
   function qty() { return cart.reduce(function (s, i) { return s + i.qty; }, 0); }
-  function sub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
+  /* What a bag costs on this cart: the Family & Friends price when a code is
+     in force, the shelf price otherwise. A price out of storage is never used
+     for anything but display either way — the charge comes from the Stripe
+     catalogue. */
+  function unit(i) {
+    if (!fnf) return i.price;
+    var p = fnf.prices[SKU[i.size]];
+    return typeof p === 'number' ? p / 100 : i.price;
+  }
+  function sub() { return cart.reduce(function (s, i) { return s + i.qty * unit(i); }, 0); }
+  function regularSub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
+  /* Measured against the regular prices, so a cart worth CHF 45 at the shelf
+     price ships free whether or not the customer is family. The server
+     decides this the same way. */
   function ship(s) { return (s >= 45 || s === 0) ? 0 : 7.00; }
 
   /* A number is only worth tweening when it actually moved. The product price
@@ -1709,18 +1760,22 @@ html:not(.js) .page:target { display: block; }
     linesEl.innerHTML = cart.map(function (i, idx) {
       return '<div class="line" data-idx="' + idx + '"><div class="line__in">' +
         '<div class="line__info"><p class="line__name">Castano — ' + i.size + ' · ' + i.grind + '</p>' +
-        '<p class="line__meta">' + chf(i.price) + ' each</p>' +
+        '<p class="line__meta">' + chf(unit(i)) + ' each</p>' +
         '<button class="remove" type="button" data-remove="' + idx + '">Remove</button></div>' +
         '<span class="qty"><button type="button" data-dec="' + idx + '" aria-label="Decrease quantity">&minus;</button>' +
         '<span>' + i.qty + '</span>' +
         '<button type="button" data-inc="' + idx + '" aria-label="Increase quantity">+</button></span>' +
-        '<span class="line__price">' + chf(i.qty * i.price) + '</span>' +
+        '<span class="line__price">' + chf(i.qty * unit(i)) + '</span>' +
       '</div></div>';
     }).join('');
 
-    var s = sub(), sh = ship(s);
+    /* Subtotal is always the shelf price, so the reduction is a line of its
+       own rather than a number that silently changed. Total is what will be
+       charged. */
+    var s = sub(), reg = regularSub(), sh = ship(reg);
     summaryEl.innerHTML =
-      '<div class="row"><span>Subtotal</span><span>' + chf(s) + '</span></div>' +
+      '<div class="row"><span>Subtotal</span><span>' + chf(reg) + '</span></div>' +
+      (fnf ? '<div class="row"><span>Family &amp; Friends</span><span>&minus;' + chf(reg - s) + '</span></div>' : '') +
       '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
       (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '') +
       '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
@@ -1816,16 +1871,76 @@ html:not(.js) .page:target { display: block; }
      The cart hands Stripe a list of what was chosen. It does not send a
      price, and it could not be trusted with one if it did: the amounts live
      in the Stripe catalogue and the function reads them back from there.
-     The promotion-code field is Stripe's own, on Stripe's page. */
+     The public promotion-code field is Stripe's own, on Stripe's page; the
+     Family & Friends code is sent along as a code, never as a price. */
   var checkoutBtn = document.getElementById('checkoutBtn');
   var checkoutError = document.getElementById('checkoutError');
   var checkoutNote = document.getElementById('checkoutNote');
-  var SKU = { '200g': 'castano-200g', '500g': 'castano-500g' };
 
   function say(el, text) {
     el.textContent = text;
     el.hidden = !text;
   }
+
+  /* ---------- Family & Friends code ----------
+     The field sends what was typed and redraws the cart from the answer. It
+     decides nothing: the special prices are Stripe Prices the server selects,
+     and the server checks the code again when the session is created. An
+     empty field clears an applied code.
+
+     `kind` in the answer is what keeps two unrelated code systems apart. A
+     Family & Friends code is a price; a gift card is stored value redeemed as
+     payment. Only `kind: "fnf"` changes a price here, so a gift card entered
+     in this field is refused cleanly rather than half-applied. */
+  var codeForm = document.getElementById('codeForm');
+  var codeInput = document.getElementById('codeInput');
+  var codeBtn = document.getElementById('codeBtn');
+  var codeMsg = document.getElementById('codeMsg');
+
+  function setCode(applied, message, warn) {
+    fnf = applied;
+    codeForm.classList.toggle('is-on', !!applied);
+    codeMsg.classList.toggle('note--warn', !!warn);
+    say(codeMsg, message);
+    syncCart(false);
+  }
+
+  codeForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (codeBtn.disabled) return;
+
+    var typed = codeInput.value.trim();
+    if (!typed) {
+      setCode(null, '', false);
+      return;
+    }
+
+    var label = codeBtn.textContent;
+    codeBtn.disabled = true;
+    codeBtn.textContent = 'Checking…';
+
+    window.fetch('/.netlify/functions/validate-code', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: typed })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; });
+    }).then(function (b) {
+      if (b && b.valid === true && b.kind === 'fnf' && b.prices) {
+        setCode({ code: typed, prices: b.prices },
+          'Code applied — Family & Friends prices are shown below.', false);
+      } else {
+        setCode(null, (b && b.message) || 'That code is not valid.', true);
+      }
+    }).catch(function () {
+      /* A code that cannot be checked is not applied. Showing a reduced price
+         we are unable to stand behind is the one outcome worth avoiding. */
+      setCode(null, 'We could not check that code just now. Please try again in a moment.', true);
+    }).then(function () {
+      codeBtn.disabled = false;
+      codeBtn.textContent = label;
+    });
+  });
 
   checkoutBtn.addEventListener('click', function () {
     if (!cart.length || checkoutBtn.disabled) return;
@@ -1841,18 +1956,36 @@ html:not(.js) .page:target { display: block; }
       body: JSON.stringify({
         items: cart.map(function (i) {
           return { sku: SKU[i.size], qty: i.qty, grind: i.grind };
-        })
+        }),
+        /* The code, not a price. The server validates it again and chooses
+           the Prices itself; this cart could not be trusted with an amount
+           and does not send one. */
+        code: fnf ? fnf.code : undefined
       })
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (b) {
-        if (!r.ok || !b.url) throw new Error('no session');
+        if (!r.ok || !b.url) {
+          var err = new Error('no session');
+          /* A code the server rejected is worth repeating verbatim; anything
+             else stays a generic failure, because the customer can act on the
+             first and not on the second. */
+          if (r.status === 400 && b.reason) { err.reason = b.reason; err.shown = b.error; }
+          throw err;
+        }
         return b.url;
       });
     }).then(function (url) {
       window.location.assign(url);
-    }).catch(function () {
+    }).catch(function (e) {
       checkoutBtn.disabled = false;
       checkoutBtn.textContent = label;
+      if (e && e.reason) {
+        /* The code went stale between applying it and paying. Drop it so the
+           cart shows the prices that will actually be charged. */
+        setCode(null, e.shown || 'That code is not valid.', true);
+        say(checkoutError, 'Please check the code and try again.');
+        return;
+      }
       say(checkoutError,
         'We could not reach the checkout just now. Your cart is saved — please try again in a moment.');
     });

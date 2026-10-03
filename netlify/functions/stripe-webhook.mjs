@@ -91,6 +91,10 @@ export function orderFrom(session) {
     email: d.email || null,
     name: ship.name || d.name || null,
     address: ship.address || d.address || null,
+    /* A Family & Friends order is charged from different Prices rather than
+       discounted, so `discount` reads 0.00 and nothing else would say why the
+       total is low. The code is what explains it to whoever reads the books. */
+    fnfCode: meta.fnf_code || null,
     items,
   };
 }
@@ -103,7 +107,8 @@ export function summarise(order) {
   const where = order.address
     ? `${order.name || ''} ${order.address.postal_code || ''} ${order.address.city || ''}`.trim()
     : 'no address';
-  return `${order.currency} ${order.total} — ${what} — ${where} — ${order.email || 'no email'}`;
+  const tag = order.fnfCode ? ` — F&F ${order.fnfCode}` : '';
+  return `${order.currency} ${order.total} — ${what} — ${where} — ${order.email || 'no email'}${tag}`;
 }
 
 /* ------------------------------------------------------------ side effects */

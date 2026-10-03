@@ -13,14 +13,23 @@ import test from 'node:test';
 
 process.env.STRIPE_PRICE_CASTANO_200G = 'price_test_200';
 process.env.STRIPE_PRICE_CASTANO_500G = 'price_test_500';
+process.env.STRIPE_PRICE_FNF_CASTANO_200G = 'price_fnf_200';
+process.env.STRIPE_PRICE_FNF_CASTANO_500G = 'price_fnf_500';
 process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
 
-const { parseCart, subtotalRappen, shippingOption, sessionParams } =
+const { parseCart, parseCode, subtotalRappen, shippingOption, sessionParams } =
   await import('./create-checkout-session.mjs');
+const { FNF_CATALOGUE } = await import('./fnf.mjs');
 
 const PRICES = {
   price_test_200: { id: 'price_test_200', unit_amount: 1490, currency: 'chf' },
   price_test_500: { id: 'price_test_500', unit_amount: 2990, currency: 'chf' },
+};
+
+/* The Family & Friends amounts, as they exist in Stripe. */
+const FNF_PRICES = {
+  price_fnf_200: { id: 'price_fnf_200', unit_amount: 1100, currency: 'chf' },
+  price_fnf_500: { id: 'price_fnf_500', unit_amount: 2000, currency: 'chf' },
 };
 
 test('the promotion code field is Stripe\'s own', () => {
@@ -126,4 +135,124 @@ test('the grind reaches the person packing the order', () => {
   const p = sessionParams(lines, 5980, 'https://worldofzuno.com');
   assert.ok(p.metadata.lines.includes('Pre-Ground'));
   assert.ok(p.metadata.lines.length <= 500);
+});
+
+test('the parameters Checkout Studio fixed are the ones sent', () => {
+  const lines = parseCart({ items: [{ sku: 'castano-200g', qty: 1 }] });
+  const p = sessionParams(lines, 1490, 'https://worldofzuno.com');
+  assert.equal(p.ui_mode, 'hosted_page');          // stripe@22, so not the pre-21 'hosted'
+  assert.equal(p.mode, 'payment');
+  assert.equal(p.billing_address_collection, 'auto');
+  assert.deepEqual(p.phone_number_collection, { enabled: false });
+  assert.deepEqual(p.automatic_tax, { enabled: false });
+  assert.equal(p.submit_type, 'auto');
+  assert.equal(p.origin_context, 'web');
+  assert.equal(p.integration_identifier, 'hosted_web_0001');
+
+  /* Two Studio values are deliberately absent. payment_method_collection can
+     only be set in subscription mode — sending it here fails the call. And
+     saved_payment_method_options needs a Customer and consent language for
+     storing card details, neither of which this shop has. */
+  assert.equal('payment_method_collection' in p, false);
+  assert.equal('saved_payment_method_options' in p, false);
+
+  /* Shipping and the grind are not Studio parameters, and removing them
+     would take the CHF 7 postage and the grind off the order. */
+  assert.ok(p.shipping_options.length);
+  assert.ok(p.shipping_address_collection);
+  assert.ok(p.metadata.lines);
+});
+
+/* --------------------------------------------------- Family & Friends code */
+
+test('a cart with no code is the normal case, not a failed code', () => {
+  assert.equal(parseCode({ items: [] }), null);
+  assert.equal(parseCode({ code: '' }), null);
+  assert.equal(parseCode({ code: null }), null);
+  assert.equal(parseCode({}), null);
+  assert.equal(parseCode({ code: 'FAMILY26' }), 'FAMILY26');
+});
+
+test('a code that is not a string, or absurdly long, is refused', () => {
+  assert.throws(() => parseCode({ code: 42 }), /must be a string/);
+  assert.throws(() => parseCode({ code: {} }), /must be a string/);
+  assert.throws(() => parseCode({ code: 'x'.repeat(65) }), /not valid/);
+});
+
+test('a Family & Friends line points at the special price, not the regular one', () => {
+  const lines = parseCart({
+    items: [{ sku: 'castano-200g', qty: 1 }, { sku: 'castano-500g', qty: 1 }],
+  });
+  const p = sessionParams(lines, 4480, 'https://worldofzuno.com', 'FAMILY26');
+  assert.deepEqual(p.line_items, [
+    { price: 'price_fnf_200', quantity: 1 },
+    { price: 'price_fnf_500', quantity: 1 },
+  ]);
+});
+
+test('both sizes reach exactly CHF 11.00 and CHF 20.00', () => {
+  const cat = FNF_CATALOGUE();
+  const one = parseCart({ items: [{ sku: 'castano-200g', qty: 1 }] });
+  const two = parseCart({ items: [{ sku: 'castano-500g', qty: 1 }] });
+  assert.equal(subtotalRappen(one, FNF_PRICES, cat), 1100);
+  assert.equal(subtotalRappen(two, FNF_PRICES, cat), 2000);
+  // and the two reductions really are different, which is why one coupon
+  // could never have produced both
+  assert.equal(1490 - 1100, 390);
+  assert.equal(2990 - 2000, 990);
+});
+
+test('quantities multiply the special price, not the regular one', () => {
+  const lines = parseCart({ items: [{ sku: 'castano-500g', qty: 3 }] });
+  assert.equal(subtotalRappen(lines, FNF_PRICES, FNF_CATALOGUE()), 6000);
+  assert.equal(subtotalRappen(lines, PRICES), 8970);
+});
+
+test('a public promotion code cannot land on top of a Family & Friends price', () => {
+  const lines = parseCart({ items: [{ sku: 'castano-200g', qty: 1 }] });
+  assert.equal(sessionParams(lines, 1490, 'https://worldofzuno.com').allow_promotion_codes, true);
+  assert.equal(
+    sessionParams(lines, 1490, 'https://worldofzuno.com', 'FAMILY26').allow_promotion_codes,
+    false
+  );
+});
+
+test('the code is recorded where the redemption count can find it', () => {
+  const lines = parseCart({ items: [{ sku: 'castano-200g', qty: 1 }] });
+  const p = sessionParams(lines, 1490, 'https://worldofzuno.com', 'FAMILY26');
+  assert.equal(p.metadata.fnf_code, 'FAMILY26');
+  // Checkout Sessions cannot be searched by metadata; PaymentIntents can
+  assert.equal(p.payment_intent_data.metadata.fnf_code, 'FAMILY26');
+});
+
+test('a regular cart carries no trace of the Family & Friends mechanism', () => {
+  const lines = parseCart({ items: [{ sku: 'castano-200g', qty: 1 }] });
+  const p = sessionParams(lines, 1490, 'https://worldofzuno.com');
+  assert.equal('fnf_code' in p.metadata, false);
+  assert.equal('payment_intent_data' in p, false);
+  assert.deepEqual(p.line_items, [{ price: 'price_test_200', quantity: 1 }]);
+});
+
+test('shipping is decided by the regular subtotal, so family still ships free', () => {
+  /* Two 500 g bags: CHF 59.80 at the shelf price, CHF 40.00 with the code.
+     The threshold is measured against 5980, so postage stays free. */
+  const lines = parseCart({ items: [{ sku: 'castano-500g', qty: 2 }] });
+  const regular = subtotalRappen(lines, PRICES);
+  const special = subtotalRappen(lines, FNF_PRICES, FNF_CATALOGUE());
+  assert.equal(regular, 5980);
+  assert.equal(special, 4000);
+  const p = sessionParams(lines, regular, 'https://worldofzuno.com', 'FAMILY26');
+  assert.equal(p.shipping_options[0].shipping_rate_data.fixed_amount.amount, 0);
+  // measured the other way it would have cost the customer CHF 7
+  assert.equal(shippingOption(special).shipping_rate_data.fixed_amount.amount, 700);
+});
+
+test('a Family & Friends session still carries no discount of our own making', () => {
+  const lines = parseCart({ items: [{ sku: 'castano-200g', qty: 2 }] });
+  const blob = JSON.stringify(sessionParams(lines, 2980, 'https://worldofzuno.com', 'FAMILY26'));
+  for (const word of ['coupon', 'percent_off', 'amount_off', 'discounts']) {
+    assert.ok(!blob.includes(word), `session must not carry ${word}`);
+  }
+  // the reduction is a price id, and the amount behind it is Stripe's
+  assert.ok(!blob.includes('11.00') && !blob.includes('1100'));
 });

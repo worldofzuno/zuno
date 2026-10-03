@@ -14,9 +14,17 @@
  * coupons defined in the Dashboard, and computes the final amount. There is
  * deliberately no discount logic here — a discount this function could
  * calculate is a discount a customer could forge.
+ *
+ * A Family & Friends code is a different mechanism and is handled here rather
+ * than by Stripe: it does not discount the cart, it selects a different
+ * Stripe Price per size. See fnf.mjs for why a coupon cannot do that. When
+ * one is in force the public promotion-code field is switched off, because
+ * the special price is already the reduction and stacking the two would
+ * compound them.
  */
 
 import Stripe from 'stripe';
+import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './fnf.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -53,6 +61,10 @@ const FREE_SHIPPING_FROM = 4500;    // CHF 45.00
  * re-evaluate. To charge for shipping under 45 post-discount, the free
  * shipping has to become a Stripe coupon rule of its own rather than an
  * arithmetic decision in this file.
+ *
+ * The same rule governs a Family & Friends cart, by decision rather than by
+ * constraint: the threshold is measured against the regular prices, so two
+ * 500 g bags (CHF 59.80 regular, CHF 40.00 with the code) ship free.
  */
 const THRESHOLD = 'before';
 
@@ -87,15 +99,25 @@ export function parseCart(body) {
 }
 
 /** Subtotal in rappen, from the catalogue's own amounts — never the client's. */
-export function subtotalRappen(lines, priceById) {
+export function subtotalRappen(lines, priceById, catalogue = CATALOGUE) {
   return lines.reduce((sum, l) => {
-    const price = priceById[CATALOGUE[l.sku]];
+    const price = priceById[catalogue[l.sku]];
     if (!price || typeof price.unit_amount !== 'number') {
       throw new Error(`price for ${l.sku} has no unit_amount; is it a recurring price?`);
     }
     if (price.currency !== 'chf') throw new Error(`price for ${l.sku} is not in CHF`);
     return sum + price.unit_amount * l.qty;
   }, 0);
+}
+
+/** The code, if the client sent one at all. An absent field is the normal
+    case and must not look like a failed code. */
+export function parseCode(body) {
+  const raw = body && body.code;
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (typeof raw !== 'string') throw new Error('code must be a string');
+  if (raw.length > 64) throw new Error('that code is not valid');
+  return raw;
 }
 
 export function shippingOption(subtotal) {
@@ -113,15 +135,37 @@ export function shippingOption(subtotal) {
   };
 }
 
-export function sessionParams(lines, subtotal, origin) {
-  return {
+/**
+ * @param lines    what the customer chose
+ * @param subtotal in rappen, at the REGULAR prices — this decides shipping
+ * @param origin   this site, for the return pages
+ * @param fnfCode  a validated Family & Friends code, or null
+ */
+export function sessionParams(lines, subtotal, origin, fnfCode = null) {
+  /* The only thing a F&F code changes about the session is which Price each
+     line points at. The amounts still come from Stripe, and the client still
+     never sends one. */
+  const catalogue = fnfCode ? FNF_CATALOGUE() : CATALOGUE;
+
+  const params = {
     mode: 'payment',
-    line_items: lines.map((l) => ({ price: CATALOGUE[l.sku], quantity: l.qty })),
-    // Stripe's own field. Nothing here validates or applies a code.
-    allow_promotion_codes: true,
+    ui_mode: 'hosted_page',
+    line_items: lines.map((l) => ({ price: catalogue[l.sku], quantity: l.qty })),
+    /* Stripe's own field, and nothing here validates or applies a code for
+       it. Off while a F&F price is in force: that reduction is already in the
+       line item, and letting a public code land on top would compound two
+       reductions that were never meant to meet. */
+    allow_promotion_codes: !fnfCode,
     shipping_address_collection: { allowed_countries: ALLOWED_COUNTRIES },
     shipping_options: [shippingOption(subtotal)],
     billing_address_collection: 'auto',
+    phone_number_collection: { enabled: false },
+    /* The prices carry tax_behavior "inclusive" — CHF 14.90 is what the shelf
+       says, VAT and all — so Stripe must not add tax on top. */
+    automatic_tax: { enabled: false },
+    submit_type: 'auto',
+    origin_context: 'web',
+    integration_identifier: 'hosted_web_0001',
     // The grind does not change the price, so it is not a separate price in
     // the catalogue; it still has to reach whoever packs the order.
     metadata: {
@@ -131,6 +175,15 @@ export function sessionParams(lines, subtotal, origin) {
     success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}#cart`,
     cancel_url: `${origin}/?checkout=cancelled#cart`,
   };
+
+  if (fnfCode) {
+    params.metadata.fnf_code = fnfCode;
+    /* Also on the PaymentIntent, because that is what the redemption count is
+       read from: PaymentIntents can be searched by metadata, Checkout
+       Sessions cannot. */
+    params.payment_intent_data = { metadata: { fnf_code: fnfCode } };
+  }
+  return params;
 }
 
 /* ----------------------------------------------------------------- handler */
@@ -150,8 +203,11 @@ export default async function handler(req) {
   if (missing.length) return json(500, { error: 'checkout is not configured' });
 
   let lines;
+  let code;
   try {
-    lines = parseCart(await req.json());
+    const body = await req.json();
+    lines = parseCart(body);
+    code = parseCode(body);
   } catch (e) {
     return json(400, { error: e.message });
   }
@@ -162,16 +218,56 @@ export default async function handler(req) {
   const origin = new URL(req.url).origin;
 
   const stripe = new Stripe(key, { apiVersion: '2024-06-20' });
+
+  /* The code is checked here as well as in validate-code, because that
+     endpoint is a courtesy to the cart display and this one settles the
+     money. A bad code refuses the session outright rather than falling back
+     to the regular price: the customer last saw a reduced total, and quietly
+     charging the full one is worse than an error. */
+  let fnf = null;
+  if (code !== null) {
+    const match = matchCode(code, codes());
+    if (!match.ok) {
+      return json(400, { error: 'That code is not valid.', reason: match.reason });
+    }
+    if (!fnfConfigured()) {
+      return json(500, { error: 'Codes are not available just now.', reason: 'unconfigured' });
+    }
+    try {
+      if (await exhausted(stripe, match.entry)) {
+        return json(400, { error: 'That code has reached its limit.', reason: 'exhausted' });
+      }
+    } catch (e) {
+      console.error('checkout: redemption check failed:', e && e.message);
+    }
+    fnf = match.entry.code;
+  }
+
   try {
     /* The amounts are read back from Stripe rather than kept in a second copy
-       here, so the shipping threshold is decided against the same numbers the
-       customer is charged. */
+       here. The regular prices are always fetched, because the shipping
+       threshold is measured against them even when a F&F code is in force —
+       so a cart worth CHF 45 at the shelf price ships free whether or not the
+       customer is family. */
     const ids = [...new Set(lines.map((l) => CATALOGUE[l.sku]))];
     const prices = await Promise.all(ids.map((id) => stripe.prices.retrieve(id)));
     const priceById = Object.fromEntries(prices.map((p) => [p.id, p]));
+    const regularSubtotal = subtotalRappen(lines, priceById);
 
-    const subtotal = subtotalRappen(lines, priceById);
-    const session = await stripe.checkout.sessions.create(sessionParams(lines, subtotal, origin));
+    /* The F&F prices are not needed to charge — the Price id is what the line
+       item carries — but they are checked, so a price left in the wrong
+       currency or made recurring fails here rather than halfway through a
+       customer's checkout. */
+    if (fnf) {
+      const fnfCatalogue = FNF_CATALOGUE();
+      const fnfIds = [...new Set(lines.map((l) => fnfCatalogue[l.sku]))];
+      const fnfPrices = await Promise.all(fnfIds.map((id) => stripe.prices.retrieve(id)));
+      subtotalRappen(lines, Object.fromEntries(fnfPrices.map((p) => [p.id, p])), fnfCatalogue);
+    }
+
+    const session = await stripe.checkout.sessions.create(
+      sessionParams(lines, regularSubtotal, origin, fnf)
+    );
     return json(200, { url: session.url });
   } catch (e) {
     console.error('checkout session failed:', e && e.message);
