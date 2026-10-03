@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- One entry, because the site is one document. The sub-pages are fragments
+     of it (#gift, #legal, #shipping, #privacy) rather than separate URLs, so
+     listing them here would promise a crawler something that does not exist.
+     What that costs is written down in STRIPE_INTEGRATION_TODO.md. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://worldofzuno.com/</loc>
-    <lastmod>2026-08-25</lastmod>
+    <lastmod>2026-10-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>

@@ -31,6 +31,112 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 
+<!-- Structured data. Every figure below is taken from a page of this site —
+     the prices from the configurator, the postage and the fourteen days from
+     Shipping & Returns, the address from the Legal Notice. Nothing here may
+     say something the site does not: a rich result built on a number that
+     is not true is worse than no rich result.
+
+     This is a data block, not a script: CSP's script-src does not apply to
+     it, and build-headers.py matches only <script> with no attributes, so it
+     adds no hash for it either. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://worldofzuno.com/#organization",
+      "name": "ZUNO",
+      "legalName": "Worldofzuno",
+      "url": "https://worldofzuno.com/",
+      "email": "info@worldofzuno.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://worldofzuno.com/img/zuno-wordmark.png"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Bahngässli 16",
+        "postalCode": "3172",
+        "addressLocality": "Niederwangen bei Bern",
+        "addressCountry": "CH"
+      },
+      "sameAs": ["https://www.instagram.com/worldofzuno/"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://worldofzuno.com/#website",
+      "url": "https://worldofzuno.com/",
+      "name": "ZUNO",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://worldofzuno.com/#organization" }
+    },
+    {
+      "@type": "OfferShippingDetails",
+      "@id": "https://worldofzuno.com/#shipping-details",
+      "shippingRate": { "@type": "MonetaryAmount", "value": "7.00", "currency": "CHF" },
+      "shippingDestination": [
+        { "@type": "DefinedRegion", "addressCountry": "CH" },
+        { "@type": "DefinedRegion", "addressCountry": "LI" }
+      ],
+      "deliveryTime": {
+        "@type": "ShippingDeliveryTime",
+        "handlingTime": { "@type": "QuantitativeValue", "minValue": 0, "maxValue": 2, "unitCode": "DAY" },
+        "transitTime": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 3, "unitCode": "DAY" }
+      }
+    },
+    {
+      "@type": "MerchantReturnPolicy",
+      "@id": "https://worldofzuno.com/#return-policy",
+      "applicableCountry": ["CH", "LI"],
+      "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+      "merchantReturnDays": 14,
+      "returnMethod": "https://schema.org/ReturnByMail",
+      "returnFees": "https://schema.org/ReturnFeesCustomerResponsibility",
+      "merchantReturnLink": "https://worldofzuno.com/#shipping"
+    },
+    {
+      "@type": "Product",
+      "@id": "https://worldofzuno.com/#castano",
+      "name": "ZUNO Castano",
+      "description": "A nutty, chocolaty blend of 70% Arabica and 30% Robusta, roasted in Bern. Made for cappuccino and espresso, in whole beans or pre-ground.",
+      "image": ["https://worldofzuno.com/img/castano-bag.png"],
+      "brand": { "@type": "Brand", "name": "ZUNO" },
+      "category": "Coffee",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "ZUNO Castano — 200 g",
+          "sku": "castano-200g",
+          "url": "https://worldofzuno.com/#product",
+          "price": "14.90",
+          "priceCurrency": "CHF",
+          "availability": "https://schema.org/InStock",
+          "itemCondition": "https://schema.org/NewCondition",
+          "seller": { "@id": "https://worldofzuno.com/#organization" },
+          "shippingDetails": { "@id": "https://worldofzuno.com/#shipping-details" },
+          "hasMerchantReturnPolicy": { "@id": "https://worldofzuno.com/#return-policy" }
+        },
+        {
+          "@type": "Offer",
+          "name": "ZUNO Castano — 500 g",
+          "sku": "castano-500g",
+          "url": "https://worldofzuno.com/#product",
+          "price": "29.90",
+          "priceCurrency": "CHF",
+          "availability": "https://schema.org/InStock",
+          "itemCondition": "https://schema.org/NewCondition",
+          "seller": { "@id": "https://worldofzuno.com/#organization" },
+          "shippingDetails": { "@id": "https://worldofzuno.com/#shipping-details" },
+          "hasMerchantReturnPolicy": { "@id": "https://worldofzuno.com/#return-policy" }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
 <link rel="preload" href="fonts/felix-titling.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
 
@@ -95,22 +201,16 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
-/* Self-tiling gradient field. The tile is 140vh while every gradient fades
-   to full black well before 100vh, so each repeat begins on pure black and
-   the seams between sections are mathematically invisible. Sections are all
-   transparent — the field runs unbroken behind the whole page. */
+/* Flat black. There used to be a tiling field of four radial gradients
+   here, under the cell canvas. Measured with every element hidden so only
+   the background remained, that layer produced a large-scale brightness
+   swing of 0.01139 on its own and carried almost no structure with it
+   (fine detail was 6% of it) — a smooth haze, which is what made the
+   page look smudged. The cell field gives the same green with actual
+   shape to it, so the gradients were subtracting rather than adding. */
 body {
   margin: 0;
   background-color: var(--black);
-  background-image:
-    radial-gradient(ellipse 70% 55% at 50% 10%, rgba(30, 57, 50, 0.60) 0%, rgba(0, 0, 0, 0) 62%),
-    radial-gradient(ellipse 65% 20% at 50% 22%, rgba(30, 57, 50, 0.55) 0%, rgba(0, 0, 0, 0) 58%),
-    radial-gradient(ellipse 55% 18% at 85% 55%, rgba(248, 217, 155, 0.08) 0%, rgba(0, 0, 0, 0) 58%),
-    radial-gradient(ellipse 60% 20% at 12% 85%, rgba(30, 57, 50, 0.40) 0%, rgba(0, 0, 0, 0) 58%);
-  background-repeat: no-repeat, repeat-y, repeat-y, repeat-y;
-  background-size: 100% 100vh, 100% 140vh, 100% 140vh, 100% 140vh;   /* fallback */
-  background-size: 100% 100svh, 100% 140svh, 100% 140svh, 100% 140svh;
-  background-position: top center;
   color: var(--ink);
   font-family: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
@@ -135,11 +235,12 @@ body {
   transition: opacity 900ms var(--ease-premium);
   contain: layout paint;  /* the canvas can never reflow the page */
 }
-/* 0.8, not 1: at full strength the brand green lifts the brightest cells
-   far enough that --ink-dim, the body colour, drops to 4.22:1 — under AA.
-   Dimming the layer keeps color2 exactly as specified and every text
-   token where it is. */
-#vanta-bg.is-ready { opacity: 0.8; }
+/* Full strength, now that the gradient layer below is gone.
+   0.8 was chosen to keep --ink-dim above AA against the gradients plus
+   the field together; with the field alone there is room for all of it,
+   and dimming turned out to be the wrong lever anyway — it scaled the
+   structure down faster than the haze, leaving a smoother smudge. */
+#vanta-bg.is-ready { opacity: 1; }
 #vanta-bg canvas { display: block; }
 
 h1, h2, h3, h4 {
@@ -333,7 +434,7 @@ section { position: relative; background: transparent; }
    back by the same amount — the line spacing is unchanged. */
 .hero h1 .h-line { display: block; overflow: hidden; padding-bottom: 0.09em; margin-bottom: -0.09em; }
 .hero__sub { margin: 26px auto 0; max-width: 46ch; color: var(--ink-dim); }
-.hero__cta { margin-top: 38px; }
+/* .hero__cta is gone with the Shop button it held. */
 
 /* 28px, not 18. Below roughly 24px the eye registers the fade but not the
    travel, which is why the page read as static despite animating. */
@@ -377,7 +478,26 @@ section { position: relative; background: transparent; }
 .js [data-reveal].is-in { opacity: 1; transform: translateY(0); }
 
 /* ---------------- Product ---------------- */
-.product { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 90px); align-items: center; }
+/* Five grid items, placed explicitly. row-gap is 0 because the right-hand
+   pieces used to be one block and carry their own margins; a row gap here
+   would open spaces that were never there. */
+.product {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: clamp(40px, 6vw, 90px);
+  row-gap: 0;
+  align-items: center;
+}
+.product__shot    { grid-column: 1; grid-row: 1 / span 4; align-self: center; }
+.product__eyebrow { grid-column: 2; grid-row: 1; margin: 0; }
+.product__copy    { grid-column: 2; grid-row: 2; }
+.product .facts   { grid-column: 2; grid-row: 3; }
+.product .buy     { grid-column: 2; grid-row: 4; }
+/* The observer sets transition-delay inline from the sibling index, which
+   now counts five instead of two. Pinning it keeps the cascade exactly as
+   it was: the bag first, the column beside it one step behind. */
+.js .product > [data-reveal] { transition-delay: 80ms !important; }
+.js .product > .product__shot { transition-delay: 0ms !important; }
 /* The bag is a cut-out with a transparent ground, so the box carries no
    backdrop of its own. Its ratio is taller than the source photograph's,
    which renders the bag about a third larger; the text column beside it is
@@ -408,16 +528,38 @@ section { position: relative; background: transparent; }
   padding: 0; border: 0; background: none;
   cursor: pointer; border-radius: 14px;
 }
-.shot__hint {
-  margin: clamp(14px, 2vw, 22px) 0 0;
-  text-align: center;
-  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--ink-faint);
+/* Two dots in place of the line of text that used to say how to flip the
+   bag. The dots say the same thing by being there, and they do it rather
+   than describe it. Each is a real button, so pointer, touch and keyboard
+   all reach the same control. The tap area is 44px; only the 8px core is
+   painted. */
+.shot__dots {
+  margin: clamp(10px, 1.6vw, 18px) 0 0;
+  display: flex; justify-content: center; align-items: center; gap: 4px;
 }
-.shot__hint--pointer { display: none; }
+.shot__dot {
+  appearance: none; -webkit-appearance: none;
+  width: 44px; height: 44px; padding: 0;
+  border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.shot__dot::before {
+  content: ""; display: block;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ink-faint);
+  opacity: 0.45;
+  transition: opacity var(--control) var(--ease-premium),
+              background-color var(--control) var(--ease-premium),
+              transform var(--control) var(--ease-premium);
+}
+.shot__dot.is-on::before { background: var(--gold); opacity: 1; transform: scale(1.25); }
 @media (hover: hover) and (pointer: fine) {
-  .shot__hint--pointer { display: inline; }
-  .shot__hint--touch { display: none; }
+  .shot__dot:hover::before { opacity: 0.8; }
+  .shot__dot.is-on:hover::before { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shot__dot::before { transition-duration: 1ms; }
+  .shot__dot.is-on::before { transform: none; }
 }
 
 
@@ -494,32 +636,104 @@ html:not(.js) #registerForm { display: none; }
 /* The honeypot. display:none keeps it unseen, unfocusable and unread, and
    the browser still submits it — which is the whole point. */
 .honeypot { display: none; }
-.ig {
-  margin-top: 26px; display: inline-flex; align-items: center; gap: 10px;
-  color: var(--ink-dim); text-decoration: none; font-size: 0.9rem;
+/* Instagram sits on .btn--outline rather than on a style of its own: the
+   same gold as the Send Inquiry button beside it, outlined instead of
+   filled so the form's own action stays the one that is filled in. No new
+   colour enters the page. */
+.ig-row { margin: 26px 0 0; }
+.ig { display: inline-flex; align-items: center; gap: 10px; }
+
+/* ---------------- Footer ----------------
+   A last brand moment rather than a directory. The mark, the line as a
+   watermark, a hairline, the three legal links, the copyright — centred,
+   with room around each. */
+/* No rule across the top. The old footer was a block of columns and
+   needed one to be told apart from the page; this one separates itself by
+   the air around it, and a line under the Instagram button was the last
+   hard edge left in the ending. */
+footer {
+  padding: clamp(64px, 11vh, 120px) 0 clamp(32px, 5vh, 54px);
+  text-align: center;
+}
+
+.foot__mark { margin: 0; line-height: 0; }
+.foot__mark img {
+  height: clamp(44px, 6vw, 62px); width: auto;
+  display: block; margin-inline: auto;
+}
+
+/* The line that carries the footer. nowrap with a vw-led clamp, so the
+   size follows the viewport and the line is never measured against a box
+   it could overflow. The bounds come from measuring the rendered width at
+   every step from 320 to 2560: at the top it clears the rail by 57px, at
+   the bottom by 23px. The upper bound stops it growing past the rail on a
+   wide screen, the lower keeps it legible on a small one. */
+.foot__line {
+  margin: clamp(26px, 4vh, 44px) 0 0;
+  font-family: 'Felix Titling', Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(1.4rem, 7vw, 5.4rem);
+  line-height: 1.04;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+  color: var(--ink);
+  opacity: 0.15;
+  /* The glyphs carry the tracking on their right edge too, which pushes
+     the optical centre left; this takes that back. */
+  text-indent: 0.035em;
+}
+
+.foot__rule {
+  width: clamp(40px, 7vw, 76px); height: 1px;
+  margin: clamp(34px, 5.5vh, 60px) auto 0;
+  border: 0;
+  background: var(--gold);
+  opacity: 0.55;
+}
+
+.foot__legal {
+  margin: clamp(26px, 4vh, 40px) 0 0;
+  padding: 0; list-style: none;
+  display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: center;
+  gap: 2px 0;
+  font-size: 0.8rem;
+}
+.foot__legal li { display: inline-flex; align-items: center; }
+/* The dot is decoration between items, so it is drawn rather than typed:
+   a screen reader reads three links, not three links and three dots. */
+.foot__legal li + li::before {
+  content: "\00B7";
+  color: var(--ink-dim);
+  opacity: 0.5;
+  margin: 0 2px;
+}
+/* Below this the three no longer fit on one line, and a separator landing
+   at the start of the second line is a dot with nothing to its left. CSS
+   cannot see where a line breaks, so the dots go and the gap separates. */
+@media (max-width: 479px) {
+  .foot__legal li + li::before { content: none; }
+  .foot__legal { gap: 0 10px; }
+}
+.foot__legal a {
+  display: inline-flex; align-items: center;
+  min-height: 44px; padding: 0 14px;
+  color: var(--ink-dim); text-decoration: none;
   transition: color var(--control) var(--ease-premium);
 }
-@media (hover: hover) and (pointer: fine) { .ig:hover { color: var(--gold); } }
-
-/* ---------------- Footer ---------------- */
-footer { border-top: 1px solid var(--line); padding: 64px 0 40px; }
-.foot { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 40px; }
-.foot h3 { margin: 0 0 14px; font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
-.foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.foot a { font-size: 0.88rem; color: var(--ink-dim); text-decoration: none; transition: color var(--control) var(--ease-premium); }
-@media (hover: hover) and (pointer: fine) { .foot a:hover { color: var(--gold); } }
-.foot__z { margin: 0; line-height: 0; }
-.foot__z img { height: 46px; width: auto; display: block; }
-.foot__line { margin: 14px 0 0; font-size: 0.85rem; color: var(--ink-dim); max-width: 30ch; }
-.foot p.small { font-size: 0.85rem; color: var(--ink-dim); margin: 0; }
-.foot__bottom {
-  margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line);
-  font-size: 0.78rem; color: var(--ink-faint);
-  display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+@media (hover: hover) and (pointer: fine) {
+  .foot__legal a:hover { color: var(--gold); }
 }
-.foot__bottom ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 22px; flex-wrap: wrap; }
-.foot__bottom a { color: var(--ink-faint); text-decoration: none; transition: color var(--control) var(--ease-premium); }
-@media (hover: hover) and (pointer: fine) { .foot__bottom a:hover { color: var(--gold); } }
+
+/* Smallest line on the page, but the step down comes from size and
+   tracking only. An opacity on top of --ink-dim took 11px text to 3.3:1,
+   under what it needs to be read. */
+.foot__copy {
+  margin: clamp(18px, 3vh, 30px) 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
 
 /* ---------------- Sub-pages ---------------- */
 /* Cart, account and the legal pages used to teleport in. A display:none box
@@ -577,6 +791,18 @@ html:not(.js) .page:target { display: block; }
 .summary .row.hint span:last-child { font-size: 0.78rem; color: var(--ink-faint); }
 .summary .row.total { color: var(--ink); font-weight: 600; font-size: 1.05rem; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; font-variant-numeric: tabular-nums; }
 
+.gift__lede { margin-top: 20px; max-width: 52ch; }
+.gift-own { margin-top: 18px; max-width: 260px; }
+.gift-own .field { text-align: left; }
+.gift-own .field-label { margin-top: 0; }
+.gift__price { margin-top: 30px; }
+.code { margin-top: 4px; }
+.code .field-label { margin-bottom: 10px; }
+.code__row { display: flex; gap: 12px; flex-wrap: wrap; }
+.code__row .field { flex: 1 1 200px; width: auto; letter-spacing: 0.08em; text-transform: uppercase; }
+.code__row .btn { flex: 0 0 auto; }
+.code__msg { margin-top: 12px; }
+.code.is-on .field { border-color: var(--gold); }
 .actions { display: flex; gap: 14px; margin-top: 30px; flex-wrap: wrap; align-items: center; }
 .cart-state { transition: opacity var(--control) var(--ease-premium); }
 .cart-state[hidden] { display: none; }
@@ -598,6 +824,8 @@ html:not(.js) .page:target { display: block; }
 .auth-card { border: 1px solid var(--line); border-radius: 18px; padding: 30px 28px; display: flex; flex-direction: column; gap: 12px; }
 .auth-card h2 { font-size: 1.2rem; margin-bottom: 6px; }
 .auth-card .btn { margin-top: 8px; align-self: flex-start; }
+.auth-hint { margin-top: 2px; }
+.auth-msg { margin-top: 4px; }
 
 .member {
   display: flex; align-items: center; gap: 22px; margin-top: 36px; flex-wrap: wrap;
@@ -635,14 +863,60 @@ html:not(.js) .page:target { display: block; }
   .faces .portrait { order: -1; }
   .beliefs { grid-template-columns: 1fr; }
   .belief + .belief { border-left: none; border-top: 1px solid var(--line); }
-  .foot { grid-template-columns: 1fr 1fr; }
   .auth { grid-template-columns: 1fr; }
   .member .btn { margin-left: 0; }
 }
 @media (max-width: 560px) {
-  .facts, .grid2 { grid-template-columns: 1fr; }
-  .foot { grid-template-columns: 1fr; }
+  .grid2 { grid-template-columns: 1fr; }
   .line__price { text-align: left; }
+}
+
+/* ---------------- Phone layout ----------------
+   Everything in here is for narrow viewports only; the desktop rules above
+   are untouched. */
+@media (max-width: 768px) {
+  /* The whole of The First Chapter comes first — eyebrow, heading and the
+     paragraph under it — then the bag shares a row with its two facts,
+     then the buying controls. The copy introduces the bag, so it reads
+     ahead of it rather than after. */
+  .product { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr); column-gap: 18px; }
+  .product__eyebrow { grid-column: 1 / -1; grid-row: 1; margin-bottom: 14px; }
+  .product__copy    { grid-column: 1 / -1; grid-row: 2; margin-bottom: 30px; }
+  .product__shot    { grid-column: 1; grid-row: 3; align-self: center; }
+  .product .facts   { grid-column: 2; grid-row: 3; align-self: center; }
+  .product .buy     { grid-column: 1 / -1; grid-row: 4; }
+
+  .shot { max-width: 100%; margin-inline: auto; }
+
+  /* Beside the bag there is no room for two columns, so the two facts
+     stack. The rule above them goes with the row: it separated them from
+     the copy, and the copy is no longer above. */
+  .facts { grid-template-columns: 1fr; gap: 18px; margin: 0; padding-top: 0; border-top: 0; }
+  .facts dd { font-size: 0.82rem; }
+
+  /* Closer dots. The painted core stays 8px; the button narrows from 44 to
+     28, which keeps the 44px height and still clears the 24x24 minimum for
+     a target. Below that the two dots cannot sit near each other without
+     their tap areas overlapping. */
+  .shot__dots { gap: 0; }
+  .shot__dot { width: 28px; }
+
+  /* Size and Coffee Type become two columns, each its label with its two
+     tiles stacked under it. */
+  .buy { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+  .buy .price { grid-column: 1 / -1; grid-row: 1; }
+  #sizeLabel  { grid-column: 1; grid-row: 2; }
+  #sizeRow    { grid-column: 1; grid-row: 3; }
+  #grindLabel { grid-column: 2; grid-row: 2; }
+  #grindRow   { grid-column: 2; grid-row: 3; }
+  .buy .add-row { grid-column: 1 / -1; grid-row: 4; }
+  .buy .note    { grid-column: 1 / -1; grid-row: 5; }
+  #sizeRow, #grindRow { flex-direction: column; gap: 10px; }
+  #sizeRow .option, #grindRow .option { width: 100%; }
+  /* The labels sit over a full-width column of tiles, so they centre on
+     the tiles rather than on the left edge of them. */
+  #sizeLabel, #grindLabel { text-align: center; }
+
 }
 
 /* Replaces the four former style="" attributes, so the CSP needs no
@@ -650,7 +924,6 @@ html:not(.js) .page:target { display: block; }
 .lines { margin-top: 18px; border-top: 1px solid var(--line); }
 .option-row--pay { margin-top: 22px; }
 .add-row { margin-top: 28px; }
-.foot__copy { margin: 0; }
 
 .visually-hidden {
   position: absolute;
@@ -689,20 +962,53 @@ html:not(.js) .page:target { display: block; }
   /* Visible on coarse-pointer tablets above the 820px burger breakpoint. */
   .nav__links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
 
-  .foot ul { gap: 2px; }
-  .foot ul a,
-  .foot__bottom a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    min-width: 44px;
-  }
-  .foot__bottom ul { gap: 8px 22px; }
+  /* The footer's own links already carry a 44px height of their own, so
+     nothing here needs to reach into them. */
+}
+
+/* ---------------- Intro ----------------
+   A black sheet over the page with the gold mark on it. There is no second
+   WebGL instance: the one cell field the site already runs is lifted above
+   the sheet for the length of the intro and dropped back afterwards, so the
+   ground behind the mark is literally the site's own background.
+
+   The sequence is CSS, not script. If the script never runs the animation
+   still finishes and `forwards` leaves the sheet transparent and hidden, so
+   a broken load cannot leave a black page behind. For the same reason the
+   sheet only exists when scripting is on — without .js it is never shown. */
+.intro { display: none; }
+.js .intro {
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--black);
+  animation: intro-sheet 3150ms var(--ease-premium) forwards;
+}
+.intro__z {
+  height: clamp(64px, 11vh, 96px); width: auto; display: block;
+  opacity: 0;
+  animation: intro-mark 2350ms var(--ease-premium) forwards;
+}
+/* The field sits at -1 the rest of the time; during the intro it has to be
+   above the sheet, where `screen` blending over black shows it unchanged. */
+.intro-on #vanta-bg { z-index: 101; }
+
+@keyframes intro-mark {
+  0%   { opacity: 0; }
+  47%  { opacity: 1; }   /* ~1100ms in */
+  66%  { opacity: 1; }   /* held ~450ms */
+  100% { opacity: 0; }   /* faded out by ~2350ms */
+}
+@keyframes intro-sheet {
+  0%, 74%  { opacity: 1; visibility: visible; }
+  100%     { opacity: 0; visibility: hidden; }
 }
 
 /* ---------------- Reduced motion ---------------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  /* No intro at all. The hero is there from the first frame rather than
+     behind three seconds of fading. */
+  .js .intro { display: none; animation: none; }
   .js .stagger > *, .js [data-reveal] { transform: none !important; }
   .js .stagger.is-in > :nth-child(n) { transition-delay: 0ms !important; }
   /* The sibling offset is set inline by the observer, so it needs the same
@@ -727,6 +1033,9 @@ html:not(.js) .page:target { display: block; }
 </style>
 </head>
 <body>
+<div class="intro" id="intro" aria-hidden="true">
+  <img class="intro__z" src="img/z-mark.png" width="179" height="200" alt="" decoding="async" fetchpriority="high">
+</div>
 <!-- Vanta CELLS draws here. Purely decorative: if WebGL is missing, the file
      is blocked, or the device asks us not to, the div stays empty and the
      gradient field below it is the page exactly as it was. -->
@@ -739,6 +1048,7 @@ html:not(.js) .page:target { display: block; }
     <nav class="nav__links" aria-label="Primary">
       <ul>
         <li><a href="#product" data-home>Shop</a></li>
+        <li><a href="#gift">Gift Card</a></li>
         <li><a href="#about" data-home>About Us</a></li>
         <li><a href="#join" data-home>Contact</a></li>
       </ul>
@@ -770,6 +1080,7 @@ html:not(.js) .page:target { display: block; }
     <div class="rail">
       <ul>
         <li><a href="#product" data-home>Shop</a></li>
+        <li><a href="#gift">Gift Card</a></li>
         <li><a href="#about" data-home>About Us</a></li>
         <li><a href="#faces" data-home>Our Story</a></li>
         <li><a href="#join" data-home>Contact</a></li>
@@ -787,14 +1098,20 @@ html:not(.js) .page:target { display: block; }
     <div class="stagger" id="heroStagger">
       <h1><span class="h-line"><span>Starting with Coffee</span></span><span class="h-line"><span><em>Not Stopping There</em></span></span></h1>
       <p class="hero__sub">A modern Swiss lifestyle brand, built on quality, origin, design and community. Today it&rsquo;s coffee. Tomorrow, who knows.</p>
-      <div class="hero__cta"><a class="btn btn--primary" href="#product">Shop</a></div>
     </div>
   </div>
 </section>
 
 <section class="pad" id="product">
+  <!-- The five pieces are siblings rather than two columns of markup. CSS
+       cannot move a child out of its parent, and the phone layout needs the
+       eyebrow above the bag and the facts beside it while the desktop keeps
+       them in the right-hand column. As siblings each one can be placed per
+       breakpoint; the desktop result is unchanged. -->
   <div class="rail product">
-    <div data-reveal>
+    <p class="eyebrow eyebrow--sm product__eyebrow" data-reveal>The First Chapter</p>
+
+    <div class="product__shot" data-reveal>
       <div class="shot">
         <img id="shotFront" class="shot__face is-on" width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag.webp" alt="The ZUNO Castano bag, front: the gold ZUNO wordmark and the Castano label on a matt black pouch">
         <img id="shotBack" class="shot__face" width="636" height="880" loading="lazy" decoding="async" src="img/castano-bag-back.webp" alt="The same bag from the back: a large gold Z and the words nutty, chocolaty and effortlessly good" aria-hidden="true">
@@ -802,15 +1119,22 @@ html:not(.js) .page:target { display: block; }
           <span class="visually-hidden" id="shotToggleLabel">Show the back of the bag</span>
         </button>
       </div>
-      <p class="shot__hint" aria-hidden="true"><span class="shot__hint--pointer">Hover to see the back</span><span class="shot__hint--touch">Tap to see the back</span></p>
+      <div class="shot__dots" role="group" aria-label="Which side of the bag to show">
+        <button class="shot__dot is-on" type="button" id="dotFront" aria-pressed="true">
+          <span class="visually-hidden">Show the front of the bag</span>
+        </button>
+        <button class="shot__dot" type="button" id="dotBack" aria-pressed="false">
+          <span class="visually-hidden">Show the back of the bag</span>
+        </button>
+      </div>
     </div>
 
-    <div data-reveal>
-      <p class="eyebrow eyebrow--sm">The First Chapter</p>
+    <div class="product__copy" data-reveal>
       <h2>Meet Castano &mdash; Because Ordinary Coffee is Just So&hellip; Ordinary</h2>
       <p class="lede">Looking for coffee that doesn&rsquo;t just wake you up but makes your taste buds write a thank-you letter? This is coffee with personality, and yes, it knows it&rsquo;s better than the rest.</p>
+    </div>
 
-      <dl class="facts">
+      <dl class="facts" data-reveal>
         <div>
           <dt>Flavour Profile</dt>
           <dd>Smooth elegance, nutty notes, a touch of sweetness.</dd>
@@ -821,7 +1145,7 @@ html:not(.js) .page:target { display: block; }
         </div>
       </dl>
 
-      <div class="buy">
+      <div class="buy" data-reveal>
         <p class="price"><span id="price">CHF 14.90</span><small>incl. VAT</small></p>
 
         <span class="field-label" id="sizeLabel">Size</span>
@@ -846,7 +1170,6 @@ html:not(.js) .page:target { display: block; }
         </p>
 
         <p class="note">Free shipping on orders of CHF 45 or more. Delivery within Switzerland &amp; Liechtenstein, 1&ndash;3 business days.</p>
-      </div>
     </div>
   </div>
 </section>
@@ -912,12 +1235,14 @@ html:not(.js) .page:target { display: block; }
     <p class="join__ok join__err" id="joinErr" role="alert">That didn&rsquo;t send. Please try again, or write to <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>.</p>
 
     <!-- [PLACEHOLDER: instagram url — derived from the @worldofzuno handle, please confirm] -->
-    <a class="ig" href="https://www.instagram.com/worldofzuno/" target="_blank" rel="noopener noreferrer">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-        <rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
-      </svg>
-      @worldofzuno
-    </a>
+    <p class="ig-row">
+      <a class="btn btn--outline ig" href="https://www.instagram.com/worldofzuno/" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+        @worldofzuno
+      </a>
+    </p>
   </div>
 </section>
 </main>
@@ -935,6 +1260,23 @@ html:not(.js) .page:target { display: block; }
     <div id="stepCart">
       <div class="cart-state" id="cartFilled" hidden>
         <div id="lines" class="lines"></div>
+
+        <!-- The code is checked by the server, which is also the only place
+             the reduced prices exist; this field sends what was typed and
+             redraws the cart from the answer. A gift card is a different
+             mechanism and will take a different path — the server says which
+             kind a code is, so the two cannot be confused. -->
+        <form class="code" id="codeForm" novalidate>
+          <label class="field-label" for="codeInput">Voucher code</label>
+          <div class="code__row">
+            <input class="field" type="text" id="codeInput" name="code" maxlength="64"
+                   placeholder="Enter your code" autocomplete="off"
+                   autocapitalize="characters" spellcheck="false" aria-describedby="codeMsg">
+            <button class="btn btn--outline" type="submit" id="codeBtn">Apply</button>
+          </div>
+          <p class="note code__msg" id="codeMsg" role="status" hidden></p>
+        </form>
+
         <div class="summary" id="summary"></div>
         <div class="actions">
           <button class="btn btn--outline" type="button" data-home-btn>Continue Shopping</button>
@@ -950,8 +1292,11 @@ html:not(.js) .page:target { display: block; }
     </div>
 
     <!-- Delivery address and payment are collected by Stripe Checkout, which
-         is also where the promotion-code field lives. Nothing on this page
-         asks for a card, and nothing here computes what is owed. -->
+         is also where the public promotion-code field lives. The voucher
+         field above is a different mechanism — it selects a price rather
+         than applying a discount — so it has to be answered before the
+         handover. Nothing on this page asks for a card, and nothing here
+         computes what is owed. -->
 
     <div id="stepDone" hidden>
       <h2 class="step-title">Thank You</h2>
@@ -975,20 +1320,26 @@ html:not(.js) .page:target { display: block; }
 
     <div id="authView">
       <div class="auth">
-        <!-- [PLACEHOLDER: form endpoint — account sign-in] -->
-      <form method="post" action="/form-not-connected" class="auth-card" id="loginForm">
+        <!-- Both forms are handled in JavaScript and post JSON to
+             /.netlify/functions/account. They carry no action, because
+             there is no endpoint that would accept a plain form post and
+             sending a password at one that does not exist is worse than
+             not sending it. Without JavaScript the note below says so. -->
+        <form class="auth-card" id="loginForm">
           <h2>Sign In</h2>
           <label class="visually-hidden" for="f-email-15">Email address</label><input id="f-email-15" class="field field--box" name="email" type="email" placeholder="Email address" autocomplete="email" required>
           <label class="visually-hidden" for="f-password-16">Password</label><input id="f-password-16" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
           <button class="btn btn--primary" type="submit">Sign In</button>
+          <p class="note note--warn auth-msg" id="loginMsg" role="alert" hidden></p>
         </form>
-        <!-- [PLACEHOLDER: form endpoint — account registration] -->
-      <form method="post" action="/form-not-connected" class="auth-card" id="registerForm">
+        <form class="auth-card" id="registerForm">
           <h2>Create Account</h2>
-          <label class="visually-hidden" for="f-name-17">Full name</label><input id="f-name-17" class="field field--box" name="name" placeholder="Full name" autocomplete="name" required>
+          <label class="visually-hidden" for="f-name-17">Full name</label><input id="f-name-17" class="field field--box" name="name" placeholder="Full name" autocomplete="name" maxlength="80" required>
           <label class="visually-hidden" for="f-email-18">Email address</label><input id="f-email-18" class="field field--box" name="email" type="email" placeholder="Email address" autocomplete="email" required>
-          <label class="visually-hidden" for="f-password-19">Password</label><input id="f-password-19" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="new-password" required>
+          <label class="visually-hidden" for="f-password-19">Password</label><input id="f-password-19" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="new-password" minlength="10" required aria-describedby="registerHint">
+          <p class="note auth-hint" id="registerHint">At least 10 characters. A few words you will remember beat a short tangle.</p>
           <button class="btn btn--outline" type="submit">Join ZUNO</button>
+          <p class="note note--warn auth-msg" id="registerMsg" role="alert" hidden></p>
         </form>
         <p class="note note--nojs">Accounts need JavaScript. Please enable it to sign in.</p>
       </div>
@@ -1006,6 +1357,26 @@ html:not(.js) .page:target { display: block; }
       </div>
       <h2 class="step-title">Order History</h2>
       <div id="orderList"></div>
+
+      <h2 class="step-title">Settings</h2>
+      <div class="auth">
+        <form class="auth-card" id="passwordForm">
+          <h2>Change Password</h2>
+          <label class="visually-hidden" for="f-current">Current password</label><input id="f-current" class="field field--box" name="current" type="password" placeholder="Current password" autocomplete="current-password" required>
+          <label class="visually-hidden" for="f-next">New password</label><input id="f-next" class="field field--box" name="next" type="password" placeholder="New password" autocomplete="new-password" minlength="10" required aria-describedby="passwordHint">
+          <p class="note auth-hint" id="passwordHint">At least 10 characters. Every other device will be signed out.</p>
+          <button class="btn btn--outline" type="submit">Change Password</button>
+          <p class="note auth-msg" id="passwordMsg" role="status" hidden></p>
+        </form>
+
+        <form class="auth-card" id="deleteForm">
+          <h2>Delete Account</h2>
+          <p class="note auth-hint">This removes your sign-in, your password and the order list shown here. Your past orders themselves stay with our payment provider: Swiss accounting law requires keeping transaction records for ten years.</p>
+          <label class="visually-hidden" for="f-delpass">Password</label><input id="f-delpass" class="field field--box" name="password" type="password" placeholder="Your password" autocomplete="current-password" required>
+          <button class="btn btn--outline" type="submit" id="deleteBtn">Delete Account</button>
+          <p class="note auth-msg" id="deleteMsg" role="alert" hidden></p>
+        </form>
+      </div>
     </div>
 
     <h2 class="step-title">The ZUNO Circle</h2>
@@ -1014,8 +1385,38 @@ html:not(.js) .page:target { display: block; }
       <li>Early access to new drops and limited roasts</li>
       <li>Exclusive member offers and seasonal surprises</li>
       <li>Invitations to ZUNO tastings and events</li>
-      <li>Order history and faster checkout</li>
+      <li>Your order history, and your email already filled in at checkout</li>
     </ul>
+  </div>
+</section>
+
+<section class="page" id="page-gift">
+  <div class="rail rail--narrow">
+    <p class="eyebrow eyebrow--sm">Gift</p>
+    <h2 class="page__title">Gift Card</h2>
+    <p class="lede gift__lede">Coffee, chosen by the person who drinks it. The code arrives by email, works in the shop straight away and never expires &mdash; and whatever is left over stays on the card.</p>
+
+    <span class="field-label" id="giftAmountLabel">Amount</span>
+    <div class="option-row" id="giftRow" role="group" aria-labelledby="giftAmountLabel">
+      <button class="option" type="button" aria-pressed="true" data-gift="2500">CHF 25</button>
+      <button class="option" type="button" aria-pressed="false" data-gift="5000">CHF 50</button>
+      <button class="option" type="button" aria-pressed="false" data-gift="10000">CHF 100</button>
+      <button class="option" type="button" aria-pressed="false" data-gift="custom">Other</button>
+    </div>
+
+    <div class="gift-own" id="giftOwn" hidden>
+      <label class="field-label" for="giftAmount">Your amount, in francs</label>
+      <input class="field" type="number" id="giftAmount" value="35" min="15" max="200" step="1"
+             inputmode="numeric" autocomplete="off" aria-describedby="giftHint">
+      <p class="note" id="giftHint">Anything from CHF 15 to CHF 200.</p>
+    </div>
+
+    <p class="price gift__price"><span id="giftPrice">CHF 25.00</span></p>
+
+    <div class="actions">
+      <button class="btn btn--primary" type="button" id="giftAdd" aria-live="polite">Add to Cart</button>
+      <button class="btn btn--outline" type="button" data-home-btn>Continue Shopping</button>
+    </div>
   </div>
 </section>
 
@@ -1023,67 +1424,91 @@ html:not(.js) .page:target { display: block; }
   <div class="rail rail--narrow">
     <p class="eyebrow eyebrow--sm">Legal</p>
     <h2 class="page__title">Privacy Policy</h2>
-    <p class="intro">At ZUNO, we take your privacy seriously. This Privacy Policy outlines how we collect, use, and protect your personal data when you visit our website and make purchases from our online store.</p>
+    <p class="intro">At ZUNO, a brand of Worldofzuno, we take your privacy seriously. This Privacy Policy explains how we collect, use, store and protect your personal data when you visit our website and make purchases from our online store. We process personal data in accordance with the Swiss Federal Act on Data Protection (revDSG).</p>
 
-    <h2>What Information Do We Collect?</h2>
+    <h2>Controller</h2>
+    <p>
+      The party responsible for data processing is:<br>
+      Worldofzuno<br>
+      Bahng&auml;ssli 16<br>
+      3172 Niederwangen bei Bern<br>
+      Email: <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>
+    </p>
+
+    <h2>What Information We Collect</h2>
     <ul>
-      <li><strong>Personal Information:</strong> When you place an order or subscribe to our newsletter, we collect personal details such as your name, email address, shipping address, and payment information.</li>
-      <li><strong>Usage Data:</strong> We collect information about how you use our website, including your IP address, browser type, and device information.</li>
+      <li><strong>Personal information:</strong> when you place an order or subscribe to our newsletter &mdash; e.g. your name, email address, shipping address and payment information.</li>
+      <li><strong>Account information:</strong> if you create an account &mdash; your name, email address and a password. We never store the password itself; what we keep is a one-way cryptographic derivation of it, from which the password cannot be recovered. Your account also holds the orders you placed while signed in.</li>
+      <li><strong>Usage data:</strong> information about how you use our website, such as IP address, browser type and device information.</li>
     </ul>
 
-    <h2>How Do We Use Your Information?</h2>
+    <h2>How We Use Your Information</h2>
     <ul>
-      <li>To process and fulfill your orders.</li>
-      <li>To communicate with you about your order, including delivery status and promotions.</li>
-      <li>To improve our website and enhance your shopping experience.</li>
+      <li>To process and fulfil your orders.</li>
+      <li>To communicate with you about your order, including delivery status.</li>
       <li>To send you newsletters and marketing emails, if you have subscribed.</li>
+      <li>To improve our website and your shopping experience.</li>
     </ul>
 
-    <h2>How Do We Protect Your Information?</h2>
-    <p>We implement a variety of security measures to ensure the safety of your personal information when you place an order or enter, submit, or access your personal information.</p>
+    <h2>Third-Party Services</h2>
+    <p>We do not sell or trade your personal data. To operate our shop, we share the minimum necessary data with trusted service providers who process it on our behalf:</p>
+    <ul>
+      <li><strong>Stripe</strong> &mdash; payment processing. Payment data is handled by Stripe; this may involve transfer abroad (e.g. EU/USA) under appropriate safeguards. <!-- [PLACEHOLDER: confirm once Stripe is live] --></li>
+      <li><strong>Netlify</strong> &mdash; website hosting. Server and log data may be processed abroad (USA).</li>
+      <li><strong>Swiss Post</strong> &mdash; delivery. We share the name and address needed to ship your order.</li>
+      <li><strong>Newsletter delivery</strong> &mdash; if you subscribe, we use a third-party email service provider to send our newsletter. The specific provider will be named here once finalised.</li>
+      <li><strong>Analytics</strong> &mdash; none. We do not use any analytics, tracking or advertising service, and no third party receives your browsing data from this website.</li>
+    </ul>
 
-    <h2>Third-Party Disclosures</h2>
-    <p>We do not sell, trade, or otherwise transfer your personal information to outside parties. However, we may share information with trusted third parties to help us operate our website, conduct business, or provide services to you.</p>
+    <h2>Cookies &amp; Analytics</h2>
+    <p>Our website currently uses only the essential cookies required for it to function. We do not use advertising or tracking cookies. We may introduce privacy-friendly analytics in the future to understand how the site is used; if we do, we will update this policy accordingly and, where required by law, ask for your consent before any non-essential cookies are set.</p>
+
+    <h2>How Long We Keep Your Data</h2>
+    <ul>
+      <li>Order and transaction data: 10 years, as required by Swiss accounting law (Art. 958f Code of Obligations).</li>
+      <li>Account data: until you delete your account.</li>
+      <li>Newsletter data: until you unsubscribe.</li>
+      <li>Website usage / log data: up to 12 months, then deleted or anonymised.</li>
+    </ul>
+
+    <h2>How We Protect Your Information</h2>
+    <p>We use appropriate technical and organisational measures to protect your personal data. Our website is served over an encrypted HTTPS connection, and payment data is handled by our payment provider, not stored by us. Account passwords are stored only as a salted one-way derivation, and the session that keeps you signed in is a random token that carries no personal data and can be ended at any time by signing out.</p>
 
     <h2>Your Rights</h2>
-    <p>You have the right to access, correct, or delete your personal information at any time. Please contact us if you would like to exercise these rights.</p>
+    <p>Under the revDSG you have the right to access, correct or delete your personal data, to object to certain processing, and to receive your data in a portable format. If you have an account, you can change your password and delete the account yourself under <a href="#account">My ZUNO</a>; deleting it removes your sign-in, your password and the order list shown on the website. For anything else, contact us at <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>. You also have the right to lodge a complaint with the Swiss Federal Data Protection and Information Commissioner (FDPIC / ED&Ouml;B).</p>
+    <p>Deleting an account does not delete the orders behind it. Transaction records are kept for ten years as Swiss accounting law requires (Art. 958f Code of Obligations), and they are held by our payment provider rather than on this website.</p>
+
+    <h2>Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. The current version is always available on our website.</p>
   </div>
 </section>
 
 <section class="page policy" id="page-shipping">
   <div class="rail rail--narrow">
     <p class="eyebrow eyebrow--sm">Legal</p>
-    <h2 class="page__title">Shipping Policy</h2>
+    <h2 class="page__title">Shipping &amp; Returns</h2>
 
     <h2>Shipping Terms</h2>
-    <p>Our shipping terms apply to deliveries within Switzerland and the Principality of Liechtenstein. Currently, we do not ship internationally.</p>
+    <p>Our shipping terms apply to deliveries within Switzerland and the Principality of Liechtenstein. We do not currently ship internationally.</p>
     <p>Unless otherwise stated, all items are usually available from stock and ready for dispatch within two business days. If this is not the case, we will contact the customer. Orders are shipped via Swiss Post. Once the order is ready for shipment, the customer will be notified by email.</p>
-    <p>Items that are not in stock will be ordered from the manufacturer, provided they are available. As soon as the items arrive at our warehouse, we will inform the customer by email or phone and ship the order immediately.</p>
-    <p>If the customer is not at home at the time of delivery and no specific delivery instructions have been provided, the package may be left in front of the door or with a neighbour living in the same building. For this purpose, the customer&rsquo;s address and telephone number must be provided.</p>
-    <p>Delivery is made at the customer&rsquo;s risk and expense, including in cases of partial deliveries. Customers can view their order history at any time using their personal account login.</p>
+    <p>If the customer is not at home at the time of delivery and no specific delivery instructions have been provided, the package may be left in front of the door or with a neighbour in the same building. For this purpose, the customer&rsquo;s address and telephone number must be provided. Delivery is made at the customer&rsquo;s risk and expense, including in cases of partial deliveries.</p>
 
     <h2>Shipping Costs</h2>
-    <p>We deliver orders directly to your home and charge a flat shipping fee of CHF 4.90 per order within Switzerland and the Principality of Liechtenstein.</p>
-    <p>Shipping is free for orders over CHF 45.</p>
-    <p>The shipping fee includes packaging, postage and handling costs.</p>
-    <p>If not all items in an order are available immediately, any additional shipping costs for subsequent deliveries will be covered by us. However, we aim to ship all items together whenever possible. If this is not feasible, the order may be held until all items are available.</p>
-  </div>
-</section>
+    <p>We charge a flat shipping fee of CHF 7 per order within Switzerland and the Principality of Liechtenstein. Shipping is free for orders of CHF 45 or more. The shipping fee includes packaging, postage and handling.</p>
+    <p>If not all items in an order are available immediately, any additional shipping costs for subsequent deliveries will be covered by us. We aim to ship all items together whenever possible; if this is not feasible, the order may be held until all items are available.</p>
 
-<section class="page policy" id="page-returns">
-  <div class="rail rail--narrow">
-    <p class="eyebrow eyebrow--sm">Legal</p>
-    <h2 class="page__title">Return Policy</h2>
+    <hr class="legal-rule">
 
-    <p class="intro">If a customer receives a damaged or defective item, we will provide a replacement or a full refund once the damaged or defective product has been returned to us.</p>
-    <p>Used items or products damaged by the customer are excluded from the return policy. Ground coffee is excluded from exchange or return and will always be charged.</p>
+    <h2>Returns</h2>
+    <p>Swiss law does not provide a statutory right of withdrawal for online purchases. As a courtesy, ZUNO voluntarily offers the following:</p>
+    <p>If a customer receives a damaged or defective item, we will provide a replacement or a full refund once the item has been returned to us. Please report any damaged or incorrect items within 14 days of receiving your order.</p>
+    <p>Used items, or products damaged by the customer, are excluded from returns. Opened coffee is excluded from exchange or return for hygiene and safety reasons and will always be charged.</p>
     <p>If a customer places an order that was unwanted, incorrect or made by mistake, the return shipping costs (postage and return label) must be fully covered by the customer.</p>
 
     <h2>Return Period</h2>
-    <p>Returns must be made within 10 days of receiving the goods.</p>
+    <p>Returns must be made within 14 days of receiving the goods.</p>
   </div>
 </section>
-
 
 <section class="page policy" id="page-legal">
   <div class="rail rail--narrow">
@@ -1093,142 +1518,94 @@ html:not(.js) .page:target { display: block; }
     <h2>Company</h2>
     <p>
       Worldofzuno<br>
-      Switzerland
-    </p>
-    <p>
+      Bahng&auml;ssli 16<br>
+      3172 Niederwangen bei Bern<br>
+      Switzerland<br>
       Website: <a href="https://www.worldofzuno.com">www.worldofzuno.com</a><br>
       Email: <a href="mailto:info@worldofzuno.com">info@worldofzuno.com</a>
     </p>
 
-    <h2>Authorized Representative</h2>
+    <h2>Contact</h2>
     <p>Worldofzuno</p>
-
-    <h2>Commercial Register</h2>
-    <p>
-      Commercial register entry: <span class="todo">[UID / CHE number to be added]</span><br>
-      VAT number: <span class="todo">[MWST number to be added, if VAT-registered]</span>
-    </p>
 
     <h2>Disclaimer</h2>
     <p>The contents of our website have been created with the greatest possible care. However, we cannot guarantee the accuracy, completeness or timeliness of the information provided.</p>
 
     <h2>Copyright</h2>
     <p>The content and works published on this website are subject to copyright law. Any reproduction, editing, distribution or use beyond the scope of copyright law requires the prior written consent of Worldofzuno.</p>
-    <!-- [PLACEHOLDER: confirm rights holder — the supplied draft named a
-         different company here] -->
 
     <hr class="legal-rule">
 
     <h2 class="legal-part">Terms and Conditions</h2>
 
     <h3>1. Scope</h3>
-    <p>These Terms and Conditions apply to all orders placed through the online shop of ZUNO at <a href="https://www.worldofzuno.com">www.worldofzuno.com</a>.</p>
-    <p>By placing an order through our website, you agree to be bound by these Terms and Conditions.</p>
-    <!-- CHANGED: the source said "worldwide". ZUNO's Shipping Policy states
-         deliveries within Switzerland and Liechtenstein only. -->
-    <p>Our products are offered to customers in Switzerland and the Principality of Liechtenstein.</p>
+    <p>These Terms and Conditions apply to all orders placed through the online shop of ZUNO at <a href="https://www.worldofzuno.com">www.worldofzuno.com</a>. By placing an order through our website, you agree to be bound by these Terms and Conditions. Our products are offered to customers in Switzerland and the Principality of Liechtenstein.</p>
 
     <h3>2. Company Information</h3>
-    <p>The company details set out above apply.</p>
+    <p>The company details set out above apply. ZUNO is a brand of Worldofzuno.</p>
 
     <h3>3. Products</h3>
-    <!-- CHANGED: the source described matcha, tea and matcha accessories. -->
-    <p>ZUNO offers specialty coffee, roasted in Bern.</p>
-    <p>Product images shown on the website are for illustrative purposes only. Actual products may vary slightly in colour, packaging or appearance.</p>
-    <p>All products are offered subject to availability.</p>
+    <p>ZUNO offers specialty coffee, roasted in Bern. Product images shown on the website are for illustrative purposes only. Actual products may vary slightly in colour, packaging or appearance. All products are offered subject to availability.</p>
 
     <h3>4. Prices</h3>
-    <p>All prices displayed on the website are shown in Swiss francs (CHF) and include VAT.</p>
-    <p>Shipping costs are calculated and displayed during checkout. See our <a href="#shipping">Shipping Policy</a>.</p>
-    <!-- REMOVED: the source's customs-duty and import-tax clause applies to
-         international orders, which ZUNO does not accept. -->
+    <p>All prices displayed on the website are shown in Swiss francs (CHF). Shipping costs are calculated and displayed during checkout. See our <a href="#shipping">Shipping &amp; Returns</a> page.</p>
 
     <h3>5. Orders and Contract Formation</h3>
-    <p>The presentation of products on our website does not constitute a legally binding offer.</p>
-    <p>By placing an order, the customer submits a binding offer to purchase the selected products.</p>
-    <p>A contract is formed once ZUNO confirms the order via email.</p>
-    <p>ZUNO reserves the right to refuse or cancel any order if necessary.</p>
+    <p>The presentation of products on our website does not constitute a legally binding offer. By placing an order, the customer submits a binding offer to purchase the selected products. A contract is formed once ZUNO confirms the order via email. ZUNO reserves the right to refuse or cancel any order if necessary.</p>
 
     <h3>6. Payment</h3>
-    <!-- CHANGED: the source listed Shopify Payments. ZUNO's checkout offers
-         card, TWINT and PayPal. -->
     <p>We accept the following payment methods:</p>
     <ul>
-      <li>Credit card</li>
+      <li>Credit and debit cards</li>
+      <li>Apple Pay</li>
+      <li>Link</li>
       <li>TWINT</li>
       <li>PayPal</li>
     </ul>
-    <p>Payment is processed at the time of purchase.</p>
+    <p>Payments are processed by Stripe at the time of purchase. Which of these methods appear at checkout depends on your device, browser and location &mdash; Apple Pay, for example, is shown only on Apple devices, and TWINT only to customers in Switzerland.</p>
 
     <h3>7. Shipping and Delivery</h3>
-    <!-- CHANGED: the source said worldwide shipping and 1–3 business days
-         processing. ZUNO's Shipping Policy states dispatch within two business
-         days via Swiss Post, to Switzerland and Liechtenstein only. -->
-    <p>ZUNO ships within Switzerland and the Principality of Liechtenstein. We do not currently ship internationally.</p>
-    <p>Unless otherwise stated, orders are ready for dispatch within two business days and are shipped via Swiss Post.</p>
-    <p>ZUNO is not responsible for delays caused by shipping carriers or other external circumstances.</p>
-    <p>Full details are set out in our <a href="#shipping">Shipping Policy</a>.</p>
+    <p>ZUNO ships within Switzerland and the Principality of Liechtenstein. We do not currently ship internationally. Unless otherwise stated, orders are ready for dispatch within two business days and are shipped via Swiss Post. ZUNO is not responsible for delays caused by shipping carriers or other external circumstances. Full details are set out in our <a href="#shipping">Shipping &amp; Returns</a> page.</p>
 
-    <h3>8. Returns and Refunds</h3>
-    <!-- CHANGED: the source allowed 30 days and did not exclude ground coffee.
-         ZUNO's Return Policy states 10 days and excludes ground coffee. -->
-    <p>Returns must be made within 10 days of receiving the goods.</p>
-    <p>Ground coffee is excluded from exchange or return for hygiene and safety reasons and will always be charged.</p>
-    <p>Unopened products may be returned within the return period, provided that the product is unused and in its original packaging.</p>
-    <p>Where the return is not due to a damaged or defective item, the customer bears the return shipping costs.</p>
-    <p>If a product arrives damaged or incorrect, please contact us within 5 days of receiving the order. Full details are set out in our <a href="#returns">Return Policy</a>.</p>
+    <h3>8. Voluntary Return Policy</h3>
+    <p>Swiss law does not provide a statutory right of withdrawal for online purchases. As a courtesy, ZUNO voluntarily grants the following return option:</p>
+    <p>Returns may be made within 14 days of receiving the goods. Unopened products may be returned within this period, provided the product is unused and in its original packaging. Opened coffee is excluded from exchange or return for hygiene and safety reasons and will always be charged. Where the return is not due to a damaged or defective item, the customer bears the return shipping costs.</p>
+    <p>If a product arrives damaged or incorrect, please contact us within 14 days of receiving the order. Full details are set out in our <a href="#shipping">Shipping &amp; Returns</a> page.</p>
 
     <h3>9. Liability</h3>
-    <p>ZUNO shall only be liable for damages caused by intentional misconduct or gross negligence.</p>
-    <p>ZUNO is not responsible for damages resulting from improper use of the products.</p>
+    <p>ZUNO shall only be liable for damages caused by intentional misconduct or gross negligence. ZUNO is not responsible for damages resulting from improper use of the products.</p>
 
     <h3>10. Data Protection</h3>
     <p>Personal data is processed in accordance with our <a href="#privacy">Privacy Policy</a>.</p>
 
     <h3>11. Changes to the Terms</h3>
-    <p>ZUNO reserves the right to modify these Terms and Conditions at any time.</p>
-    <p>The version valid at the time of the order shall apply.</p>
+    <p>ZUNO reserves the right to modify these Terms and Conditions at any time. The version valid at the time of the order shall apply.</p>
 
     <h3>12. Governing Law</h3>
-    <p>These Terms and Conditions are governed by Swiss law.</p>
-    <p>The place of jurisdiction shall be the registered location of ZUNO, where legally permitted.</p>
+    <p>These Terms and Conditions are governed by Swiss law. The place of jurisdiction shall be the registered location of Worldofzuno, where legally permitted.</p>
   </div>
 </section>
 
 <footer>
-  <div class="rail foot">
-    <div>
-      <p class="foot__z"><img width="179" height="200" loading="lazy" decoding="async" src="img/z-mark.png" alt="ZUNO"></p>
-      <p class="foot__line">Starting with Coffee. Not Stopping There.</p>
-    </div>
-    <div>
-      <h3>Shop</h3>
-      <ul>
-        <li><a href="#product" data-home>Castano</a></li>
-        <li><a href="#account">Account</a></li>
-        <li><a href="#cart">Cart</a></li>
-      </ul>
-    </div>
-    <div>
-      <h3>Company</h3>
-      <ul>
-        <li><a href="#about" data-home>About Us</a></li>
-        <li><a href="#join" data-home>Contact</a></li>
-      </ul>
-    </div>
-    <div>
-      <h3>Join the World of ZUNO</h3>
-      <p class="small">New products, brand news and future releases.</p>
-    </div>
-  </div>
-  <div class="rail foot__bottom">
-    <p class="foot__copy">&copy; 2026 ZUNO. All rights reserved.</p>
-    <ul>
+  <div class="rail">
+
+    <p class="foot__mark"><img width="179" height="200" loading="lazy" decoding="async" src="img/z-mark.png" alt="ZUNO"></p>
+
+    <!-- A watermark at 15%, which no contrast threshold can be met at, so it
+         is marked decorative rather than offered to a screen reader as text
+         it cannot read. -->
+    <p class="foot__line" aria-hidden="true">Not Stopping There.</p>
+
+    <hr class="foot__rule">
+
+    <ul class="foot__legal">
       <li><a href="#legal">Legal Notice &amp; Terms</a></li>
       <li><a href="#privacy">Privacy Policy</a></li>
-      <li><a href="#shipping">Shipping Policy</a></li>
-      <li><a href="#returns">Return Policy</a></li>
+      <li><a href="#shipping">Shipping &amp; Returns</a></li>
     </ul>
+
+    <p class="foot__copy">&copy; 2026 ZUNO. All rights reserved.</p>
+
   </div>
 </footer>
 
@@ -1237,6 +1614,42 @@ html:not(.js) .page:target { display: block; }
   'use strict';
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  /* ---------- intro ----------
+     The fade itself is CSS, so this only locks the scroll, lifts the cell
+     field above the sheet for the duration, and takes the sheet out of the
+     document when it is done. Everything here is belt and braces: if this
+     block never runs, the CSS animation still ends on a hidden sheet. */
+  (function intro() {
+    var sheet = document.getElementById('intro');
+    if (!sheet) return;
+    var root = document.documentElement;
+
+    if (reduce.matches) { sheet.remove(); return; }
+
+    /* Hiding the scrollbar narrows the page and shifts every centred thing
+       sideways for three seconds. Reserving its width stops that. */
+    var bar = window.innerWidth - root.clientWidth;
+    root.classList.add('intro-on');
+    root.style.overflow = 'hidden';
+    if (bar > 0) root.style.paddingRight = bar + 'px';
+
+    var done = false;
+    function end() {
+      if (done) return;
+      done = true;
+      root.classList.remove('intro-on');
+      root.style.overflow = '';
+      root.style.paddingRight = '';
+      sheet.remove();
+    }
+    sheet.addEventListener('animationend', function (e) {
+      if (e.target === sheet) end();
+    });
+    /* A tab opened in the background does not run animations, so
+       animationend may never arrive. This releases the page regardless. */
+    window.setTimeout(end, 4200);
+  })();
   var D = function (n) { return reduce.matches ? 120 : n; };
 
   /* ---------- nav ---------- */
@@ -1280,20 +1693,36 @@ html:not(.js) .page:target { display: block; }
     var shotLabel = document.getElementById('shotToggleLabel');
     var latched = false;
 
+    var dotFront = document.getElementById('dotFront');
+    var dotBack = document.getElementById('dotBack');
+
     function showBack(on) {
       shotBack.classList.toggle('is-on', on);
       shotFront.classList.toggle('is-on', !on);
       shotBack.setAttribute('aria-hidden', on ? 'false' : 'true');
       shotFront.setAttribute('aria-hidden', on ? 'true' : 'false');
+      /* The dots report which face is on screen, so they follow a hover
+         preview too — a lit dot that disagrees with the picture would be
+         worse than no dot at all. */
+      if (dotFront && dotBack) {
+        dotFront.classList.toggle('is-on', !on);
+        dotBack.classList.toggle('is-on', on);
+        dotFront.setAttribute('aria-pressed', on ? 'false' : 'true');
+        dotBack.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
     }
 
-    shotToggle.addEventListener('click', function () {
-      latched = !latched;
-      showBack(latched);
-      shotToggle.setAttribute('aria-pressed', latched ? 'true' : 'false');
-      shotLabel.textContent = latched ? 'Show the front of the bag'
-                                      : 'Show the back of the bag';
-    });
+    function latch(on) {
+      latched = on;
+      showBack(on);
+      shotToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+      shotLabel.textContent = on ? 'Show the front of the bag'
+                                 : 'Show the back of the bag';
+    }
+
+    shotToggle.addEventListener('click', function () { latch(!latched); });
+    if (dotFront) dotFront.addEventListener('click', function () { latch(false); });
+    if (dotBack) dotBack.addEventListener('click', function () { latch(true); });
 
     /* pointerType keeps the preview off touch, where the tap has already
        latched and a stray hover event would fight it. */
@@ -1405,6 +1834,35 @@ html:not(.js) .page:target { display: block; }
 
   /* ---------- cart model ---------- */
   var cart = [], orders = [], user = null;
+  var SKU = { '200g': 'castano-200g', '500g': 'castano-500g' };
+
+  /* The applied voucher code. Both the code and the reduced prices live on
+     the server; this is only what the cart was told, kept so the lines can be
+     drawn and sent back with the checkout request so the server can check it
+     again. It is deliberately not persisted: a code has to be re-entered
+     after a reload rather than restored from storage, because storage cannot
+     say whether it is still valid and a stale reduced price is worse than
+     typing six characters again. */
+  var fnf = null;   // { code: 'FAMILY26', prices: { 'castano-200g': 1100, … } }
+
+  /* An applied gift card, in the same spirit: what the server said the
+     balance was, kept for display and sent back as a code. Not persisted for
+     the same reason. */
+  var giftCard = null;   // { code: 'ZG-…', balance: 5000 }
+
+  /* The fixed gift amounts, in rappen. The server holds the same figures and
+     is the one that charges them; these are here so the cart can draw a
+     line before anyone has talked to Stripe. */
+  var GIFT_AMOUNTS = { 'gift-25': 2500, 'gift-50': 5000, 'gift-100': 10000 };
+  var GIFT_MIN = 1500, GIFT_MAX = 20000;
+
+  function isCoffee(i) { return i.kind !== 'gift'; }
+  function skuOf(i) { return i.kind === 'gift' ? i.sku : SKU[i.size]; }
+  function nameOf(i) {
+    return i.kind === 'gift'
+      ? 'Gift Card — ' + chf(i.price)
+      : 'Castano — ' + i.size + ' · ' + i.grind;
+  }
 
   /* The cart used to live only in memory, which was fine while the whole shop
      was one page that never navigated. Handing off to a hosted checkout means
@@ -1427,13 +1885,27 @@ html:not(.js) .page:target { display: block; }
          price out of it is never used for anything but display — the charge
          comes from the Stripe catalogue. */
       cart = saved.slice(0, 10).map(function (i) {
+        var qty = Math.min(20, Math.max(1, parseInt(i && i.qty, 10) || 1));
+        if (i && i.kind === 'gift') {
+          var sku = i.sku;
+          var amount;
+          if (Object.prototype.hasOwnProperty.call(GIFT_AMOUNTS, sku)) {
+            amount = GIFT_AMOUNTS[sku];
+          } else if (sku === 'gift-custom') {
+            amount = Math.round(parseInt(i.amount, 10) || 0);
+            if (amount < GIFT_MIN || amount > GIFT_MAX) return null;
+          } else {
+            return null;
+          }
+          return { kind: 'gift', sku: sku, amount: amount, price: amount / 100, qty: qty };
+        }
         return {
           size: i && i.size === '500g' ? '500g' : '200g',
           grind: i && i.grind === 'Pre-Ground' ? 'Pre-Ground' : 'Whole Beans',
           price: i && i.size === '500g' ? 29.90 : 14.90,
-          qty: Math.min(20, Math.max(1, parseInt(i && i.qty, 10) || 1))
+          qty: qty
         };
-      });
+      }).filter(Boolean);
     } catch (e) { cart = []; }
   }
   var badge = document.getElementById('badge');
@@ -1444,8 +1916,36 @@ html:not(.js) .page:target { display: block; }
 
   function chf(v) { return 'CHF ' + v.toFixed(2); }
   function qty() { return cart.reduce(function (s, i) { return s + i.qty; }, 0); }
-  function sub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
-  function ship(s) { return (s >= 45 || s === 0) ? 0 : 4.90; }
+  /* What a bag costs on this cart: the reduced price when a code is in
+     force, the shelf price otherwise. A price out of storage is never used
+     for anything but display either way — the charge comes from the Stripe
+     catalogue. */
+  function unit(i) {
+    /* A voucher reduces coffee. A gift card is money at face value and is
+       never discounted — selling credit below par would be selling francs. */
+    if (!fnf || i.kind === 'gift') return i.price;
+    var p = fnf.prices[SKU[i.size]];
+    return typeof p === 'number' ? p / 100 : i.price;
+  }
+  function sub() { return cart.reduce(function (s, i) { return s + i.qty * unit(i); }, 0); }
+  function regularSub() { return cart.reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
+  function hasCoffee() { return cart.some(isCoffee); }
+  /** The part of the cart a gift card is allowed to pay for. */
+  function coffeeDue() {
+    return cart.filter(isCoffee).reduce(function (s, i) { return s + i.qty * unit(i); }, 0);
+  }
+  /** What the applied gift card actually covers on this cart. */
+  function giftApplied() {
+    if (!giftCard) return 0;
+    return Math.min(giftCard.balance / 100, coffeeDue());
+  }
+  /* A voucher code carries free postage whatever the cart is worth, so it
+     never reaches the threshold, and a cart with nothing to post has no
+     postage to charge. The server decides this the same way. */
+  function ship(s) {
+    if (!hasCoffee()) return 0;
+    return (fnf || s >= 45 || s === 0) ? 0 : 7.00;
+  }
 
   /* A number is only worth tweening when it actually moved. The product price
      is never animated — a price mid-tween is a wrong price — but the cart
@@ -1479,25 +1979,45 @@ html:not(.js) .page:target { display: block; }
   function renderLines() {
     linesEl.innerHTML = cart.map(function (i, idx) {
       return '<div class="line" data-idx="' + idx + '"><div class="line__in">' +
-        '<div class="line__info"><p class="line__name">Castano — ' + i.size + ' · ' + i.grind + '</p>' +
-        '<p class="line__meta">' + chf(i.price) + ' each</p>' +
+        '<div class="line__info"><p class="line__name">' + nameOf(i) + '</p>' +
+        '<p class="line__meta">' + chf(unit(i)) + ' each</p>' +
         '<button class="remove" type="button" data-remove="' + idx + '">Remove</button></div>' +
         '<span class="qty"><button type="button" data-dec="' + idx + '" aria-label="Decrease quantity">&minus;</button>' +
         '<span>' + i.qty + '</span>' +
         '<button type="button" data-inc="' + idx + '" aria-label="Increase quantity">+</button></span>' +
-        '<span class="line__price">' + chf(i.qty * i.price) + '</span>' +
+        '<span class="line__price">' + chf(i.qty * unit(i)) + '</span>' +
       '</div></div>';
     }).join('');
 
-    var s = sub(), sh = ship(s);
+    /* Subtotal is always the shelf price, so each reduction is a line of its
+       own rather than a number that silently changed. Total is what will be
+       charged. Postage is decided by the coffee alone — a gift card has
+       nothing to put in a parcel and must not drag the cart over the
+       threshold either. */
+    var s = sub(), reg = regularSub();
+    var coffeeReg = cart.filter(isCoffee).reduce(function (t, i) { return t + i.qty * i.price; }, 0);
+    var sh = ship(coffeeReg);
+    var paid = giftApplied();
+
     summaryEl.innerHTML =
-      '<div class="row"><span>Subtotal</span><span>' + chf(s) + '</span></div>' +
-      '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
-      (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '') +
-      '<div class="row total"><span>Total</span><span>' + chf(s + sh) + '</span></div>';
+      '<div class="row"><span>Subtotal</span><span>' + chf(reg) + '</span></div>' +
+      (fnf ? '<div class="row"><span>Voucher</span><span>&minus;' + chf(reg - s) + '</span></div>' : '') +
+      (hasCoffee()
+        ? '<div class="row"><span>Shipping</span><span>' + (sh === 0 ? 'Free' : chf(sh)) + '</span></div>' +
+          (sh > 0 ? '<div class="row hint"><span></span><span>Free shipping for orders over CHF 45</span></div>' : '')
+        : '<div class="row"><span>Delivery</span><span>By email</span></div>') +
+      (paid > 0 ? '<div class="row"><span>Gift card</span><span>&minus;' + chf(paid) + '</span></div>' : '') +
+      /* A gift card buys coffee, never another gift card — so say that here
+         rather than letting the server refuse it at the last step. */
+      (giftCard && coffeeDue() === 0
+        ? '<div class="row hint"><span></span><span>Add coffee to use the gift card</span></div>'
+        : (giftCard && paid < giftCard.balance / 100
+          ? '<div class="row hint"><span></span><span>' + chf(giftCard.balance / 100 - paid) + ' stays on the card</span></div>'
+          : '')) +
+      '<div class="row total"><span>Total</span><span>' + chf(s + sh - paid) + '</span></div>';
 
     var totalEl = summaryEl.querySelector('.row.total span:last-child');
-    if (totalEl) countTotal(totalEl, s + sh);
+    if (totalEl) countTotal(totalEl, s + sh - paid);
   }
 
   /* Filled and empty crossfade so removing the last line is one movement. */
@@ -1535,6 +2055,61 @@ html:not(.js) .page:target { display: block; }
     addSwap.classList.add('is-done');
     window.clearTimeout(addTimer);
     addTimer = window.setTimeout(function () { addSwap.classList.remove('is-done'); }, 1800);
+  });
+
+  /* ---------- gift card ----------
+     The amount is the one figure on this page the customer chooses, and it
+     is the one amount the server accepts from the client — safe, because
+     they pay exactly what they type and get exactly that much credit. The
+     server still clamps it, and the card is issued from what Stripe says was
+     paid rather than from what was asked for. */
+  var giftRow = document.getElementById('giftRow');
+  var giftOwn = document.getElementById('giftOwn');
+  var giftAmountEl = document.getElementById('giftAmount');
+  var giftPriceEl = document.getElementById('giftPrice');
+  var giftAddBtn = document.getElementById('giftAdd');
+  var giftPick = 'gift-25';
+
+  function giftRappen() {
+    if (giftPick !== 'gift-custom') return GIFT_AMOUNTS[giftPick];
+    var francs = parseInt(giftAmountEl.value, 10);
+    if (!isFinite(francs)) return NaN;
+    return Math.round(francs) * 100;
+  }
+
+  function paintGift() {
+    var r = giftRappen();
+    var good = isFinite(r) && r >= GIFT_MIN && r <= GIFT_MAX;
+    giftPriceEl.textContent = good ? chf(r / 100) : '—';
+    giftAddBtn.disabled = !good;
+  }
+
+  group(giftRow, function (b) {
+    giftPick = b.dataset.gift === 'custom' ? 'gift-custom' : 'gift-' + (b.dataset.gift / 100);
+    giftOwn.hidden = giftPick !== 'gift-custom';
+    paintGift();
+    if (giftPick === 'gift-custom') giftAmountEl.focus();
+  });
+  giftAmountEl.addEventListener('input', paintGift);
+  paintGift();
+
+  var giftTimer;
+  giftAddBtn.addEventListener('click', function () {
+    var r = giftRappen();
+    if (!isFinite(r) || r < GIFT_MIN || r > GIFT_MAX) return;
+
+    var found = null;
+    cart.forEach(function (i) {
+      if (i.kind === 'gift' && i.sku === giftPick && i.amount === r) found = i;
+    });
+    if (found) { found.qty += 1; }
+    else { cart.push({ kind: 'gift', sku: giftPick, amount: r, price: r / 100, qty: 1 }); }
+    syncCart(false);
+
+    var label = 'Add to Cart';
+    giftAddBtn.textContent = 'Added';
+    window.clearTimeout(giftTimer);
+    giftTimer = window.setTimeout(function () { giftAddBtn.textContent = label; }, 1800);
   });
 
   linesEl.addEventListener('click', function (e) {
@@ -1587,16 +2162,96 @@ html:not(.js) .page:target { display: block; }
      The cart hands Stripe a list of what was chosen. It does not send a
      price, and it could not be trusted with one if it did: the amounts live
      in the Stripe catalogue and the function reads them back from there.
-     The promotion-code field is Stripe's own, on Stripe's page. */
+     The public promotion-code field is Stripe's own, on Stripe's page; the
+     voucher code is sent along as a code, never as a price. */
   var checkoutBtn = document.getElementById('checkoutBtn');
   var checkoutError = document.getElementById('checkoutError');
   var checkoutNote = document.getElementById('checkoutNote');
-  var SKU = { '200g': 'castano-200g', '500g': 'castano-500g' };
 
   function say(el, text) {
     el.textContent = text;
     el.hidden = !text;
   }
+
+  /* ---------- voucher code ----------
+     The field sends what was typed and redraws the cart from the answer. It
+     decides nothing: the reduced prices are Stripe Prices the server selects,
+     and the server checks the code again when the session is created. An
+     empty field clears an applied code.
+
+     `kind` in the answer is what keeps two unrelated code systems apart. This
+     code selects a price; a gift card is stored value redeemed as payment.
+     Only `kind: "fnf"` changes a price here, so a gift card entered in this
+     field is refused cleanly rather than half-applied. */
+  var codeForm = document.getElementById('codeForm');
+  var codeInput = document.getElementById('codeInput');
+  var codeBtn = document.getElementById('codeBtn');
+  var codeMsg = document.getElementById('codeMsg');
+
+  function paintCode(message, warn) {
+    codeForm.classList.toggle('is-on', !!(fnf || giftCard));
+    codeMsg.classList.toggle('note--warn', !!warn);
+    say(codeMsg, message);
+    syncCart(false);
+  }
+
+  /* The two mechanisms are held apart, not in one slot: a voucher changes
+     prices, a gift card pays part of the bill, and a customer may hold both.
+     Clearing one leaves the other where it was. */
+  function setVoucher(applied, message, warn) {
+    fnf = applied;
+    paintCode(message, warn);
+  }
+  function setGift(applied, message, warn) {
+    giftCard = applied;
+    paintCode(message, warn);
+  }
+
+  codeForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (codeBtn.disabled) return;
+
+    var typed = codeInput.value.trim();
+    if (!typed) {
+      fnf = null;
+      giftCard = null;
+      paintCode('', false);
+      return;
+    }
+
+    var label = codeBtn.textContent;
+    codeBtn.disabled = true;
+    codeBtn.textContent = 'Checking…';
+
+    window.fetch('/.netlify/functions/validate-code', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: typed })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; });
+    }).then(function (b) {
+      if (b && b.valid === true && b.kind === 'fnf' && b.prices) {
+        setVoucher({ code: typed, prices: b.prices },
+          'Code applied — reduced prices and free shipping.', false);
+      } else if (b && b.valid === true && b.kind === 'gift' && typeof b.balance === 'number') {
+        setGift({ code: b.code, balance: b.balance },
+          'Gift card applied — ' + chf(b.balance / 100) + ' available.', false);
+      } else if (b && b.kind === 'gift') {
+        /* A broken gift card is answered as one, so the message says what
+           went wrong with the thing the customer actually typed. */
+        setGift(null, b.message || 'That gift card is not valid.', true);
+      } else {
+        setVoucher(null, (b && b.message) || 'That code is not valid.', true);
+      }
+    }).catch(function () {
+      /* A code that cannot be checked is not applied. Showing a reduced price
+         we are unable to stand behind is the one outcome worth avoiding. */
+      paintCode('We could not check that code just now. Please try again in a moment.', true);
+    }).then(function () {
+      codeBtn.disabled = false;
+      codeBtn.textContent = label;
+    });
+  });
 
   checkoutBtn.addEventListener('click', function () {
     if (!cart.length || checkoutBtn.disabled) return;
@@ -1611,19 +2266,45 @@ html:not(.js) .page:target { display: block; }
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         items: cart.map(function (i) {
-          return { sku: SKU[i.size], qty: i.qty, grind: i.grind };
-        })
+          return i.kind === 'gift'
+            ? { sku: i.sku, qty: i.qty, amount: i.amount }
+            : { sku: SKU[i.size], qty: i.qty, grind: i.grind };
+        }),
+        /* Codes, not prices. The server validates both again, chooses the
+           Prices itself and works out what the card covers; this cart could
+           not be trusted with an amount and sends none — except the gift
+           card's own face value, which is the customer's own choice and is
+           clamped and charged in full. */
+        code: fnf ? fnf.code : undefined,
+        gift: giftCard ? giftCard.code : undefined
       })
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (b) {
-        if (!r.ok || !b.url) throw new Error('no session');
+        if (!r.ok || !b.url) {
+          var err = new Error('no session');
+          /* A code the server rejected is worth repeating verbatim; anything
+             else stays a generic failure, because the customer can act on the
+             first and not on the second. */
+          if (r.status === 400 && b.reason) { err.reason = b.reason; err.shown = b.error; }
+          throw err;
+        }
         return b.url;
       });
     }).then(function (url) {
       window.location.assign(url);
-    }).catch(function () {
+    }).catch(function (e) {
       checkoutBtn.disabled = false;
       checkoutBtn.textContent = label;
+      if (e && e.reason) {
+        /* A code went stale between applying it and paying. Drop both so the
+           cart shows what will actually be charged, rather than leaving the
+           customer to guess which of the two the server meant. */
+        fnf = null;
+        giftCard = null;
+        paintCode(e.shown || 'That code is not valid.', true);
+        say(checkoutError, 'Please check the code and try again.');
+        return;
+      }
       say(checkoutError,
         'We could not reach the checkout just now. Your cart is saved — please try again in a moment.');
     });
@@ -1641,22 +2322,99 @@ html:not(.js) .page:target { display: block; }
       window.history.replaceState(null, '', window.location.pathname + window.location.hash);
     } catch (e) { /* not fatal */ }
 
-    if (state === 'success') {
-      cart = [];
-      persistCart();
-      syncCart(false);
-      var ref = (q.get('session_id') || '').slice(-8).toUpperCase();
-      document.getElementById('doneNo').textContent = ref ? 'Reference ' + ref : 'Thank you';
-      document.getElementById('doneMsg').textContent =
-        'Your payment went through and a receipt is on its way by email. ' +
-        'It carries the final amount, including any promotion code you used.';
-      window.setTimeout(function () { showStep('done'); }, 0);
-    } else if (state === 'cancelled') {
+    if (state === 'cancelled') {
       say(checkoutNote, 'Payment cancelled — your cart is exactly as you left it.');
+      return;
     }
+    if (state !== 'success') return;
+
+    /* The redirect is not proof. Anyone can type ?checkout=success, and
+       emptying a basket on the strength of that is a real way to lose an
+       order. So the page asks the server, and the cart stays until the
+       answer says the money arrived. */
+    var id = q.get('session_id') || '';
+    var done = document.getElementById('doneNo');
+    var msg = document.getElementById('doneMsg');
+    var ref = id.slice(-8).toUpperCase();
+
+    function settle(title, text, clear) {
+      if (clear) { cart = []; persistCart(); syncCart(false); }
+      done.textContent = title;
+      msg.textContent = text;
+      showStep('done');
+    }
+
+    done.textContent = 'One moment';
+    msg.textContent = 'Confirming your payment with Stripe…';
+    window.setTimeout(function () { showStep('done'); }, 0);
+
+    if (!id) {
+      settle('Nothing to confirm',
+        'This page was opened without a payment reference, so there is nothing to show. ' +
+        'Your cart has been left as it was.', false);
+      return;
+    }
+
+    /* "We could not ask" and "we asked and there is nothing" are different
+       things to be told. Confusing them is how a customer ends up paying
+       twice, so a server-side failure gets the cautious wording and only a
+       real answer from Stripe gets the definite one. */
+    function unreachable() {
+      settle('We could not check this',
+        'Your payment may well have gone through — we just could not reach Stripe ' +
+        'from here. Please do not pay a second time. Look for a receipt in your ' +
+        'email, or write to info@worldofzuno.com and we will check for you.', false);
+    }
+
+    window.fetch('/.netlify/functions/checkout-status?session_id=' + encodeURIComponent(id))
+      .then(function (r) {
+        return r.json()
+          .catch(function () { return {}; })
+          .then(function (b) { return { status: r.status, ok: r.ok, b: b }; });
+      })
+      .then(function (res) {
+        if (!res.ok) {
+          /* 5xx is our side or Stripe's, and says nothing about the payment.
+             4xx means Stripe was asked and had no such completed session. */
+          if (res.status >= 500) return unreachable();
+          return settle('We could not confirm this',
+            'Stripe has no completed payment for this reference. If money did leave ' +
+            'your account, write to info@worldofzuno.com and we will sort it out. ' +
+            'Your cart has been left as it was.', false);
+        }
+        var s = res.b && res.b.state;
+        if (s === 'paid') {
+          return settle(ref ? 'Reference ' + ref : 'Thank you',
+            'Your payment went through and a receipt is on its way by email. ' +
+            'It carries the final amount, including any promotion code you used.', true);
+        }
+        if (s === 'pending' || s === 'open') {
+          /* Not a failure. Some payment methods take days to clear, and the
+             customer is told to wait rather than to pay again. */
+          return settle('Payment on its way',
+            'Your payment has not cleared yet — some methods take a little longer. ' +
+            'We will email you as soon as it does. Your cart has been kept in case ' +
+            'you need it.', false);
+        }
+        return settle('We could not confirm this',
+          'Stripe has no completed payment for this reference. If money did leave ' +
+          'your account, write to info@worldofzuno.com and we will sort it out. ' +
+          'Your cart has been left as it was.', false);
+      })
+      ['catch'](unreachable);
   })();
 
   /* ---------- account ---------- */
+  /* ---------- account ----------
+     The server decides who you are, every time. This page holds what it was
+     last told and nothing else: there is no local "signed in" flag to get
+     out of step with the cookie, and reloading asks again. */
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
   function renderAccount() {
     var authed = !!user;
     document.getElementById('authView').hidden = authed;
@@ -1664,27 +2422,177 @@ html:not(.js) .page:target { display: block; }
     if (!authed) return;
     document.getElementById('memberName').textContent = user.name;
     document.getElementById('memberMail').textContent = user.email;
+
     var list = document.getElementById('orderList');
     list.innerHTML = orders.length
       ? orders.map(function (o) {
-          return '<div class="order-card"><span>' + o.id + '</span><span>' + o.date + '</span><span>' +
-            o.n + ' item' + (o.n > 1 ? 's' : '') + '</span><span>' + chf(o.total) + '</span><span class="paid">Paid</span></div>';
+          var n = (o.items || []).reduce(function (t, i) { return t + (i.qty || 0); }, 0);
+          var ref = String(o.session || '').slice(-8).toUpperCase();
+          return '<div class="order-card"><span>' + escapeHtml(ref) + '</span><span>' +
+            escapeHtml(o.date || '') + '</span><span>' + n + ' item' + (n === 1 ? '' : 's') +
+            '</span><span>' + escapeHtml((o.currency || 'CHF') + ' ' + o.total) +
+            '</span><span class="paid">Paid</span></div>';
         }).join('')
       : '<p class="lead">No orders yet — your Castano is waiting.</p>';
   }
+
+  var accountReady = false;
+  function account(body) {
+    return window.fetch('/.netlify/functions/account', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        return { status: r.status, body: b };
+      });
+    });
+  }
+
+  function adopt(b) {
+    user = b.signedIn ? b.account : null;
+    orders = b.signedIn ? (b.orders || []) : [];
+    renderAccount();
+  }
+
+  /* Asked once, the first time the account page is opened — not on every
+     page load, so a visitor who never goes near it costs nothing. */
+  function loadAccount() {
+    if (accountReady) return;
+    accountReady = true;
+    account({ action: 'me' }).then(function (r) { adopt(r.body); })['catch'](function () { /* stay signed out */ });
+  }
+
+  function authSubmit(form, msgEl, body, working) {
+    var btn = form.querySelector('button[type="submit"]');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = working;
+    say(msgEl, '');
+    return account(body).then(function (r) {
+      if (r.body && r.body.signedIn) {
+        adopt(r.body);
+        form.reset();
+        return;
+      }
+      if (r.body && r.body.checkInbox) {
+        /* The address is already registered. The server does not say so —
+           it answers exactly as it would for a new one and writes to the
+           inbox instead — so this message must not say so either. */
+        say(msgEl, 'Check your inbox to finish setting up your account.');
+        msgEl.classList.remove('note--warn');
+        return;
+      }
+      msgEl.classList.add('note--warn');
+      say(msgEl, (r.body && r.body.error) || 'That did not work. Please try again.');
+    })['catch'](function () {
+      msgEl.classList.add('note--warn');
+      say(msgEl, 'We could not reach the server just now. Please try again in a moment.');
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+  }
+
+  var loginMsg = document.getElementById('loginMsg');
+  var registerMsg = document.getElementById('registerMsg');
+
   document.getElementById('loginForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    var mail = this.elements.email.value.trim();
-    var name = mail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
-    user = { name: name, email: mail };
-    renderAccount();
+    authSubmit(this, loginMsg, {
+      action: 'login',
+      email: this.elements.email.value.trim(),
+      password: this.elements.password.value
+    }, 'Signing in…');
   });
+
   document.getElementById('registerForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    user = { name: this.elements.name.value.trim(), email: this.elements.email.value.trim() };
-    renderAccount();
+    authSubmit(this, registerMsg, {
+      action: 'register',
+      name: this.elements.name.value.trim(),
+      email: this.elements.email.value.trim(),
+      password: this.elements.password.value
+    }, 'Creating…');
   });
-  document.getElementById('logoutBtn').addEventListener('click', function () { user = null; renderAccount(); });
+
+  document.getElementById('logoutBtn').addEventListener('click', function () {
+    account({ action: 'logout' })['catch'](function () { /* the cookie goes either way */ })
+      .then(function () { adopt({ signedIn: false }); });
+  });
+
+  /* ---------- settings ---------- */
+  var passwordForm = document.getElementById('passwordForm');
+  var passwordMsg = document.getElementById('passwordMsg');
+  var deleteForm = document.getElementById('deleteForm');
+  var deleteMsg = document.getElementById('deleteMsg');
+  var deleteBtn = document.getElementById('deleteBtn');
+
+  function settingsSubmit(form, msgEl, body, working, onDone) {
+    var btn = form.querySelector('button[type="submit"]');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = working;
+    say(msgEl, '');
+    return account(body).then(function (r) {
+      if (r.status === 200) {
+        msgEl.classList.remove('note--warn');
+        onDone(r.body, msgEl);
+        form.reset();
+        return;
+      }
+      msgEl.classList.add('note--warn');
+      say(msgEl, (r.body && r.body.error) || 'That did not work. Please try again.');
+    })['catch'](function () {
+      msgEl.classList.add('note--warn');
+      say(msgEl, 'We could not reach the server just now. Please try again in a moment.');
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+  }
+
+  passwordForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    settingsSubmit(this, passwordMsg, {
+      action: 'password',
+      current: this.elements.current.value,
+      next: this.elements.next.value
+    }, 'Changing…', function (b, msg) {
+      var n = b.otherSessionsEnded || 0;
+      say(msg, 'Password changed.' + (n ? ' ' + n + ' other device' + (n === 1 ? '' : 's') + ' signed out.' : ''));
+    });
+  });
+
+  /* Deleting takes two deliberate actions, not one. The first press asks;
+     the second does it. Nothing is removed on a misplaced click. */
+  var deleteArmed = false;
+  deleteForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!deleteArmed) {
+      deleteArmed = true;
+      deleteBtn.textContent = 'Delete Account — press again';
+      deleteMsg.classList.add('note--warn');
+      say(deleteMsg, 'This cannot be undone. Press again to delete your account.');
+      window.setTimeout(function () {
+        if (!deleteArmed) return;
+        deleteArmed = false;
+        deleteBtn.textContent = 'Delete Account';
+        say(deleteMsg, '');
+      }, 8000);
+      return;
+    }
+    deleteArmed = false;
+    deleteBtn.textContent = 'Delete Account';
+    settingsSubmit(this, deleteMsg, {
+      action: 'delete',
+      password: this.elements.password.value
+    }, 'Deleting…', function () {
+      adopt({ signedIn: false });
+      say(loginMsg, 'Your account has been deleted.');
+      loginMsg.classList.remove('note--warn');
+    });
+  });
 
   /* ---------- join form ----------
      Netlify collects this form from the deployed HTML and stores the
@@ -1724,16 +2632,34 @@ html:not(.js) .page:target { display: block; }
   });
 
   /* ---------- hash router ---------- */
-  var PAGES = ['cart', 'account', 'privacy', 'shipping', 'returns', 'legal'];
-  /* The imprint and the terms used to be separate pages; keep those links alive. */
-  var ALIASES = { imprint: 'legal', terms: 'legal' };
+  var PAGES = ['cart', 'account', 'gift', 'privacy', 'shipping', 'legal'];
+  /* Pages that were once their own and have since been folded into another.
+     The old hashes stay alive, so anything already linked or bookmarked
+     still lands somewhere sensible. */
+  var ALIASES = { imprint: 'legal', terms: 'legal', returns: 'shipping' };
   var main = document.getElementById('main');
   var footer = document.querySelector('footer');
+
+  /* A sub-page is not a separate document — it is this one with a different
+     section shown — so the canonical URL stays put. The title does not: it
+     is what a tab, a bookmark and the back button show, and leaving every
+     one of them reading "Swiss Specialty Coffee" is just unhelpful. */
+  var HOME_TITLE = document.title;
+  var TITLES = {
+    cart: 'Your Cart',
+    account: 'Account',
+    gift: 'Gift Card',
+    privacy: 'Privacy Policy',
+    shipping: 'Shipping & Returns',
+    legal: 'Legal Notice & Terms'
+  };
 
   function route() {
     var h = location.hash.replace('#', '');
     h = ALIASES[h] || h;
     var isPage = PAGES.indexOf(h) !== -1;
+
+    document.title = (isPage && TITLES[h]) ? TITLES[h] + ' — ZUNO' : HOME_TITLE;
 
     PAGES.forEach(function (p) {
       document.getElementById('page-' + p).classList.toggle('is-open', isPage && p === h);
@@ -1743,7 +2669,7 @@ html:not(.js) .page:target { display: block; }
 
     if (isPage) {
       if (h === 'cart') { syncCart(false); showStep('cart'); }
-      if (h === 'account') renderAccount();
+      if (h === 'account') { loadAccount(); renderAccount(); }
       window.scrollTo(0, 0);
     } else if (h) {
       var t = document.getElementById(h);
@@ -1822,6 +2748,12 @@ html:not(.js) .page:target { display: block; }
       minHeight: 200.00,
       minWidth: 200.00,
       scale: 1.00,
+      /* Vanta's default for this is 3, and setSize() lets the mobile branch
+         beat `scale`. The shader reads iResolution as width/scale, so at 3
+         the cell field is drawn three times larger relative to the screen —
+         the same pattern, zoomed in, which is why a phone looked nothing
+         like a desktop. 1 makes both render at the same scale. */
+      scaleMobile: 1.00,
       color1: 0x0,
       color2: 0x1e3932,
       size: 5.00,

@@ -2,7 +2,11 @@ node_modules
 .next
 out
 __pycache__/
-.env*.local
+# Every env file except the committed example. The Stripe secret key lives
+# in one of these; .env*.local alone left a plain .env committable.
+.env
+.env.*
+!.env.example
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
