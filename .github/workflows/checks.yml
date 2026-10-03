@@ -1,0 +1,52 @@
+# Runs on every push and pull request, so a change that breaks the shop is
+# caught here rather than on the live site.
+#
+# Node 20 to match netlify.toml: the functions are tested against the runtime
+# they will actually run on, not whichever version the runner defaults to.
+
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Nothing here writes anything.
+permissions:
+  contents: read
+
+jobs:
+  functions:
+    name: Function tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: node --test netlify/functions
+        run: npm run test:functions
+
+  headers:
+    name: CSP headers are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # site/_headers pins the inline script and style by SHA-256. Edit either
+      # one without regenerating the file and the browser refuses to run them:
+      # the live page loads as unstyled text with a dead cart, while every
+      # local check still passes. Nothing else would catch that, so this does.
+      - name: Regenerate and compare
+        run: |
+          python3 tools/build-headers.py
+          git diff --exit-code --stat site/_headers || {
+            echo ""
+            echo "site/_headers is stale. Run: python3 tools/build-headers.py"
+            exit 1
+          }
