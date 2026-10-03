@@ -537,44 +537,94 @@ html:not(.js) #registerForm { display: none; }
 .ig-row { margin: 26px 0 0; }
 .ig { display: inline-flex; align-items: center; gap: 10px; }
 
-/* ---------------- Footer ---------------- */
-footer { border-top: 1px solid var(--line); padding: 64px 0 40px; }
-/* Three columns sized to their content and centred as a group, rather than
-   fractions of the rail. The grid was 1.4fr 1fr 1fr 1.2fr for four blocks;
-   with the fourth gone, fractions left the three sitting against the left
-   edge with a quarter of the rail empty beside them. The text inside each
-   column stays left-aligned — it is the cluster that is centred, not the
-   words. Below 900px the columns go back to filling the width, so this
-   only applies to the desktop layout. */
-.foot {
-  display: grid;
-  grid-template-columns: repeat(3, max-content);
-  justify-content: center;
-  gap: 40px clamp(48px, 7vw, 104px);
+/* ---------------- Footer ----------------
+   A last brand moment rather than a directory. The mark, the line as a
+   watermark, a hairline, the three legal links, the copyright — centred,
+   with room around each. */
+footer {
+  border-top: 1px solid var(--line);
+  padding: clamp(64px, 11vh, 120px) 0 clamp(32px, 5vh, 54px);
+  text-align: center;
 }
-.foot h3 { margin: 0 0 14px; font-size: 0.72rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
-.foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.foot a { font-size: 0.88rem; color: var(--ink-dim); text-decoration: none; transition: color var(--control) var(--ease-premium); }
-@media (hover: hover) and (pointer: fine) { .foot a:hover { color: var(--gold); } }
-/* The mark is centred over the line beneath it, not over the cell it sits
-   in. Those are the same box on desktop, where the column is sized to its
-   content, but not on a phone, where the cell spans the full width — there
-   a plain auto margin would strand the Z in the middle of the screen with
-   the text still at the left. Hugging the content keeps the two together
-   at every width. */
-.foot > :first-child { width: max-content; max-width: 100%; }
-.foot__z { margin: 0; line-height: 0; }
-.foot__z img { height: 46px; width: auto; display: block; margin-inline: auto; }
-.foot__line { margin: 14px 0 0; font-size: 0.85rem; color: var(--ink-dim); max-width: 30ch; }
-.foot p.small { font-size: 0.85rem; color: var(--ink-dim); margin: 0; }
-.foot__bottom {
-  margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line);
-  font-size: 0.78rem; color: var(--ink-faint);
-  display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+
+.foot__mark { margin: 0; line-height: 0; }
+.foot__mark img {
+  height: clamp(44px, 6vw, 62px); width: auto;
+  display: block; margin-inline: auto;
 }
-.foot__bottom ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 22px; flex-wrap: wrap; }
-.foot__bottom a { color: var(--ink-faint); text-decoration: none; transition: color var(--control) var(--ease-premium); }
-@media (hover: hover) and (pointer: fine) { .foot__bottom a:hover { color: var(--gold); } }
+
+/* The line that carries the footer. nowrap with a vw-led clamp, so the
+   size follows the viewport and the line is never measured against a box
+   it could overflow. The bounds come from measuring the rendered width at
+   every step from 320 to 2560: at the top it clears the rail by 57px, at
+   the bottom by 23px. The upper bound stops it growing past the rail on a
+   wide screen, the lower keeps it legible on a small one. */
+.foot__line {
+  margin: clamp(26px, 4vh, 44px) 0 0;
+  font-family: 'Felix Titling', Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(1.4rem, 7vw, 5.4rem);
+  line-height: 1.04;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+  color: var(--ink);
+  opacity: 0.15;
+  /* The glyphs carry the tracking on their right edge too, which pushes
+     the optical centre left; this takes that back. */
+  text-indent: 0.035em;
+}
+
+.foot__rule {
+  width: clamp(40px, 7vw, 76px); height: 1px;
+  margin: clamp(34px, 5.5vh, 60px) auto 0;
+  border: 0;
+  background: var(--gold);
+  opacity: 0.55;
+}
+
+.foot__legal {
+  margin: clamp(26px, 4vh, 40px) 0 0;
+  padding: 0; list-style: none;
+  display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: center;
+  gap: 2px 0;
+  font-size: 0.8rem;
+}
+.foot__legal li { display: inline-flex; align-items: center; }
+/* The dot is decoration between items, so it is drawn rather than typed:
+   a screen reader reads three links, not three links and three dots. */
+.foot__legal li + li::before {
+  content: "\00B7";
+  color: var(--ink-dim);
+  opacity: 0.5;
+  margin: 0 2px;
+}
+/* Below this the three no longer fit on one line, and a separator landing
+   at the start of the second line is a dot with nothing to its left. CSS
+   cannot see where a line breaks, so the dots go and the gap separates. */
+@media (max-width: 479px) {
+  .foot__legal li + li::before { content: none; }
+  .foot__legal { gap: 0 10px; }
+}
+.foot__legal a {
+  display: inline-flex; align-items: center;
+  min-height: 44px; padding: 0 14px;
+  color: var(--ink-dim); text-decoration: none;
+  transition: color var(--control) var(--ease-premium);
+}
+@media (hover: hover) and (pointer: fine) {
+  .foot__legal a:hover { color: var(--gold); }
+}
+
+/* Smallest line on the page, but the step down comes from size and
+   tracking only. An opacity on top of --ink-dim took 11px text to 3.3:1,
+   under what it needs to be read. */
+.foot__copy {
+  margin: clamp(18px, 3vh, 30px) 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
 
 /* ---------------- Sub-pages ---------------- */
 /* Cart, account and the legal pages used to teleport in. A display:none box
@@ -690,12 +740,6 @@ html:not(.js) .page:target { display: block; }
   .faces .portrait { order: -1; }
   .beliefs { grid-template-columns: 1fr; }
   .belief + .belief { border-left: none; border-top: 1px solid var(--line); }
-  /* Two columns with the Z block across the top. It used to be a plain 2x2
-     with a fourth block filling the last cell; that block is gone, so
-     without the span the Company list would sit alone on the second row
-     beside a hole. */
-  .foot { grid-template-columns: 1fr 1fr; }
-  .foot > :first-child { grid-column: 1 / -1; }
   .auth { grid-template-columns: 1fr; }
   .member .btn { margin-left: 0; }
 }
@@ -750,20 +794,6 @@ html:not(.js) .page:target { display: block; }
      the tiles rather than on the left edge of them. */
   #sizeLabel, #grindLabel { text-align: center; }
 
-  /* The copyright drops to the very bottom, under the legal links. */
-  .foot__bottom { flex-direction: column; align-items: stretch; gap: 22px; }
-  .foot__bottom ul { order: 1; }
-  .foot__copy { order: 2; text-align: center; font-size: 0.72rem; }
-
-  /* The footer reads: the two link lists first, each on one line, then the
-     Z beneath them. The lists are short enough to sit in a row, which turns
-     a long stack into two lines, and the mark reads as a sign-off rather
-     than a heading. */
-  .foot { grid-template-columns: 1fr; gap: 28px; text-align: left; }
-  .foot > :first-child { order: 2; width: 100%; max-width: 100%; text-align: center; }
-  .foot__line { margin-inline: auto; }
-  .foot ul { flex-direction: row; flex-wrap: wrap; column-gap: 22px; }
-  .foot ul a { min-width: 0; }
 }
 
 /* Replaces the four former style="" attributes, so the CSP needs no
@@ -771,7 +801,6 @@ html:not(.js) .page:target { display: block; }
 .lines { margin-top: 18px; border-top: 1px solid var(--line); }
 .option-row--pay { margin-top: 22px; }
 .add-row { margin-top: 28px; }
-.foot__copy { margin: 0; }
 
 .visually-hidden {
   position: absolute;
@@ -810,18 +839,8 @@ html:not(.js) .page:target { display: block; }
   /* Visible on coarse-pointer tablets above the 820px burger breakpoint. */
   .nav__links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
 
-  /* row-gap, not gap: this tightens the space between stacked links, which
-     are already 44px tall. On a phone the same list runs as a row, and a
-     2px gap there would push the labels into one another. */
-  .foot ul { row-gap: 2px; }
-  .foot ul a,
-  .foot__bottom a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    min-width: 44px;
-  }
-  .foot__bottom ul { gap: 8px 22px; }
+  /* The footer's own links already carry a 44px height of their own, so
+     nothing here needs to reach into them. */
 }
 
 /* ---------------- Intro ----------------
@@ -1373,34 +1392,25 @@ html:not(.js) .page:target { display: block; }
 </section>
 
 <footer>
-  <div class="rail foot">
-    <div>
-      <p class="foot__z"><img width="179" height="200" loading="lazy" decoding="async" src="img/z-mark.png" alt="ZUNO"></p>
-      <p class="foot__line">Starting with Coffee.<br>Not Stopping There.</p>
-    </div>
-    <div>
-      <h3>Shop</h3>
-      <ul>
-        <li><a href="#product" data-home>Castano</a></li>
-        <li><a href="#account">Account</a></li>
-        <li><a href="#cart">Cart</a></li>
-      </ul>
-    </div>
-    <div>
-      <h3>Company</h3>
-      <ul>
-        <li><a href="#about" data-home>About Us</a></li>
-        <li><a href="#join" data-home>Contact</a></li>
-      </ul>
-    </div>
-  </div>
-  <div class="rail foot__bottom">
-    <p class="foot__copy">&copy; 2026 ZUNO. All rights reserved.</p>
-    <ul>
+  <div class="rail">
+
+    <p class="foot__mark"><img width="179" height="200" loading="lazy" decoding="async" src="img/z-mark.png" alt="ZUNO"></p>
+
+    <!-- A watermark at 15%, which no contrast threshold can be met at, so it
+         is marked decorative rather than offered to a screen reader as text
+         it cannot read. -->
+    <p class="foot__line" aria-hidden="true">Not Stopping There.</p>
+
+    <hr class="foot__rule">
+
+    <ul class="foot__legal">
       <li><a href="#legal">Legal Notice &amp; Terms</a></li>
       <li><a href="#privacy">Privacy Policy</a></li>
       <li><a href="#shipping">Shipping &amp; Returns</a></li>
     </ul>
+
+    <p class="foot__copy">&copy; 2026 ZUNO. All rights reserved.</p>
+
   </div>
 </footer>
 
