@@ -299,3 +299,114 @@ test('one account cannot see another account orders', async () => {
   assert.equal(seen.id, mine.id);
   assert.deepEqual(seen.orders, [], 'a shared address would not be enough either');
 });
+
+/* -------------------------------------------------- changing a password */
+
+test('the right current password changes it, and the old one stops working', async () => {
+  const a = await freshAccount();
+  const r = await auth.changePassword(a.email, PW, 'a brand new passphrase');
+  assert.equal(r.ok, true);
+
+  const after = await auth.findAccount(a.email);
+  assert.equal(await auth.passwordMatches('a brand new passphrase', after.password), true);
+  assert.equal(await auth.passwordMatches(PW, after.password), false);
+});
+
+test('a wrong current password changes nothing', async () => {
+  const a = await freshAccount();
+  const r = await auth.changePassword(a.email, 'not my password', 'a brand new passphrase');
+  assert.deepEqual(r, { ok: false, reason: 'wrong' });
+  assert.equal(await auth.passwordMatches(PW, (await auth.findAccount(a.email)).password), true,
+    'a cookie alone must not be enough to lock the owner out');
+});
+
+test('the new password has to clear the same bar as the first one', async () => {
+  const a = await freshAccount();
+  assert.equal((await auth.changePassword(a.email, PW, 'short')).reason, 'password');
+  assert.equal((await auth.changePassword(a.email, PW, 'kundin1234567')).reason, 'password');
+  assert.equal(await auth.passwordMatches(PW, (await auth.findAccount(a.email)).password), true);
+});
+
+test('changing to the password you already have is refused, not silently done', async () => {
+  const a = await freshAccount();
+  const r = await auth.changePassword(a.email, PW, PW);
+  assert.equal(r.reason, 'same');
+  assert.match(r.message, /already have/);
+});
+
+test('changing a password signs out the other devices but not this one', async () => {
+  const a = await freshAccount();
+  const laptop = await auth.startSession(a.id);
+  const phone = await auth.startSession(a.id);
+  const stolen = await auth.startSession(a.id);
+
+  const r = await auth.changePassword(a.email, PW, 'a brand new passphrase', laptop);
+  assert.equal(r.ok, true);
+  assert.equal(r.otherSessionsEnded, 2);
+  assert.equal((await auth.sessionAccount(laptop)).id, a.id, 'the device doing it stays in');
+  assert.equal(await auth.sessionAccount(phone), null);
+  assert.equal(await auth.sessionAccount(stolen), null,
+    'otherwise the change protects nothing — whoever held the old session keeps it');
+});
+
+test('a change unlocks an account that had been locked out', async () => {
+  const a = await freshAccount();
+  const now = Date.now();
+  for (let i = 0; i < 8; i++) await auth.noteFailure(a.email, now);
+  assert.equal(auth.lockedOut(await auth.findAccount(a.email), now), true);
+  await auth.changePassword(a.email, PW, 'a brand new passphrase');
+  assert.equal(auth.lockedOut(await auth.findAccount(a.email), now), false);
+});
+
+test('changing the password of an account that is not there', async () => {
+  await freshAccount();
+  assert.equal((await auth.changePassword('nobody@example.ch', PW, 'another long one')).reason, 'unknown');
+});
+
+/* ------------------------------------------------------ deleting it all */
+
+test('deleting takes the account, the index and every session', async () => {
+  const a = await freshAccount();
+  const one = await auth.startSession(a.id);
+  const two = await auth.startSession(a.id);
+
+  assert.deepEqual(await auth.deleteAccount(a.email, PW), { ok: true });
+  assert.equal(await auth.findAccount(a.email), null);
+  assert.equal(await auth.accountById(a.id), null);
+  assert.equal(await auth.sessionAccount(one), null);
+  assert.equal(await auth.sessionAccount(two), null);
+
+  const left = await (await store()).list('');
+  assert.deepEqual(left, [], 'nothing of the account may be left behind');
+});
+
+test('a wrong password deletes nothing', async () => {
+  const a = await freshAccount();
+  assert.deepEqual(await auth.deleteAccount(a.email, 'not my password'), { ok: false, reason: 'wrong' });
+  assert.ok(await auth.findAccount(a.email));
+});
+
+test('the address is free again afterwards', async () => {
+  const a = await freshAccount();
+  await auth.deleteAccount(a.email, PW);
+  const again = await auth.createAccount({ name: 'Someone New', email: a.email, password: PW });
+  assert.equal(again.ok, true);
+  assert.notEqual(again.account.id, a.id, 'a new account, not the old one back');
+});
+
+test('deleting one account leaves the others alone', async () => {
+  useMemoryStore();
+  const mine = (await auth.createAccount({ name: 'A', email: 'a@example.ch', password: PW })).account;
+  const theirs = (await auth.createAccount({ name: 'B', email: 'b@example.ch', password: PW })).account;
+  const theirSession = await auth.startSession(theirs.id);
+
+  await auth.deleteAccount(mine.email, PW);
+  assert.equal(await auth.findAccount('a@example.ch'), null);
+  assert.ok(await auth.findAccount('b@example.ch'));
+  assert.equal((await auth.sessionAccount(theirSession)).id, theirs.id);
+});
+
+test('deleting an account that is not there', async () => {
+  useMemoryStore();
+  assert.deepEqual(await auth.deleteAccount('nobody@example.ch', PW), { ok: false, reason: 'unknown' });
+});

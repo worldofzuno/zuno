@@ -333,9 +333,10 @@ export async function build(stripe, body, origin, opts = {}) {
      Taken from the cookie, never from the body: a client that could name an
      account would be able to file its orders under someone else's. */
   let accountId = null;
+  let accountEmail = null;
   try {
     const account = await sessionAccount(readCookie(opts.cookie));
-    if (account) accountId = account.id;
+    if (account) { accountId = account.id; accountEmail = account.email; }
   } catch (e) {
     /* A lookup that fails must not stop someone buying coffee. They lose the
        history entry, not the order. */
@@ -469,6 +470,10 @@ export async function build(stripe, body, origin, opts = {}) {
 
     const params = sessionParams(lines, shippingBasis, origin, { fnfCode: fnf, coupon });
     if (accountId) params.metadata.account = accountId;
+    /* One field the customer does not have to type again. It also ties the
+       order to the address the account is under, rather than to whatever was
+       typed at the till. */
+    if (accountEmail) params.customer_email = accountEmail;
     if (heldCard) {
       /* The webhook settles the hold, and these three are how it finds it. */
       params.metadata.gift_code = heldCard;

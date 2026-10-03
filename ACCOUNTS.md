@@ -66,12 +66,27 @@ Blobs store `zuno`: `account/<sha256 of the address>` and
 Worth building a small admin view before this happens more than once or
 twice.
 
+## Changing a password, and leaving
+
+Both are on the account page under **Settings**, and both need the current
+password as well as the session. A cookie someone else picked up is then not
+enough to lock the owner out or to erase the account.
+
+- **Changing a password** ends every other session. Without that the change
+  protects nothing: whoever held the old session keeps it. The device making
+  the change stays signed in, and the lockout counter is cleared.
+- **Deleting** takes two presses, eight seconds apart at most, and removes
+  the account record, the id index and every session. The address is free to
+  register again afterwards.
+
+Deleting does **not** delete the orders. Those live at Stripe and Swiss
+accounting law requires keeping them for ten years; the Privacy Policy says
+so and the deletion mail repeats it. What goes is the sign-in and the history
+shown on the site.
+
 ## Not built, and not planned unless you ask
 
-- Changing a password while signed in
 - Changing the email address on an account
-- Deleting your own account from the page (the Privacy Policy promises
-  deletion on request, which today means writing to you)
-- Saved addresses, or anything that makes checkout faster for a returning
-  customer — the ZUNO Circle section on the account page promises "faster
-  checkout", which is not yet true
+- Saved addresses. A signed-in customer's email is prefilled at checkout, and
+  the Circle section now claims exactly that and nothing more — it used to
+  promise "faster checkout", which was not true.

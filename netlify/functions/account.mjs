@@ -18,6 +18,7 @@ import {
   createAccount, findAccount, passwordMatches, burnTime, lockedOut,
   noteFailure, noteSuccess, startSession, sessionAccount, endSession,
   publicAccount, readCookie, setCookie, clearCookie, looksLikeEmail, normaliseEmail,
+  changePassword, deleteAccount,
 } from './auth.mjs';
 import { allow } from './fnf.mjs';
 import { send } from './mailer.mjs';
@@ -64,6 +65,8 @@ export default async function handler(req) {
     if (action === 'logout') return await signOut(token);
     if (action === 'register') return await signUp(body);
     if (action === 'login') return await signIn(body);
+    if (action === 'password') return await changeOwnPassword(token, body);
+    if (action === 'delete') return await deleteOwnAccount(token, body);
   } catch (e) {
     /* Never the message: it may name the store, the key, or the address. */
     console.error('account failed:', e && e.message);
@@ -141,6 +144,59 @@ async function signUp(body) {
     account: publicAccount(made.account),
     orders: [],
   }, setCookie(token));
+}
+
+/**
+ * Both of these need the session AND the current password. The session says
+ * which account; the password says it is really the owner at the keyboard.
+ * A cookie someone else picked up is then not enough to lock the owner out
+ * or to erase their account.
+ */
+async function changeOwnPassword(token, body) {
+  const account = await sessionAccount(token);
+  if (!account) return json(401, { error: 'Please sign in first.' });
+
+  const r = await changePassword(account.email, body.current, body.next, token);
+  if (!r.ok && r.reason === 'wrong') {
+    return json(401, { error: 'That is not your current password.', field: 'current' });
+  }
+  if (!r.ok && (r.reason === 'password' || r.reason === 'same')) {
+    return json(400, { error: r.message, field: 'next' });
+  }
+  if (!r.ok) return json(400, { error: 'That did not work.' });
+
+  /* Still signed in here, signed out everywhere else. */
+  return json(200, { changed: true, otherSessionsEnded: r.otherSessionsEnded });
+}
+
+async function deleteOwnAccount(token, body) {
+  const account = await sessionAccount(token);
+  if (!account) return json(401, { error: 'Please sign in first.' });
+
+  const r = await deleteAccount(account.email, body.password);
+  if (!r.ok && r.reason === 'wrong') {
+    return json(401, { error: 'That is not your password.', field: 'password' });
+  }
+  if (!r.ok) return json(400, { error: 'That did not work.' });
+
+  await send({
+    to: account.email,
+    subject: 'Your ZUNO account has been deleted',
+    text: [
+      `Hello ${account.name},`,
+      '',
+      'Your ZUNO account has been deleted, along with every session that was',
+      'signed in to it. You can order again at any time without one.',
+      '',
+      'Your past orders themselves are not deleted: Swiss accounting law',
+      'requires us to keep transaction records for ten years. What is gone is',
+      'the account, the password and the order list shown on the website.',
+      '',
+      'ZUNO — info@worldofzuno.com',
+    ].join('\n'),
+  });
+
+  return json(200, { deleted: true, signedIn: false }, clearCookie());
 }
 
 async function signIn(body) {

@@ -551,3 +551,37 @@ test('an account cannot be named by the client', async () => {
   assert.equal('account' in s.made.sessions[0].metadata, false,
     'only a cookie may say who you are');
 });
+
+test('a signed-in customer does not retype their email', async () => {
+  useMemoryStore();
+  const auth = await import('./auth.mjs');
+  const made = await auth.createAccount({
+    name: 'A Kundin', email: 'kundin@example.ch', password: 'a decent long passphrase',
+  });
+  const token = await auth.startSession(made.account.id);
+
+  const s = fakeStripe();
+  await build(s, { items: [{ sku: 'castano-200g', qty: 1 }] }, ORIGIN, {
+    cookie: `zuno_session=${encodeURIComponent(token)}`,
+  });
+  assert.equal(s.made.sessions[0].customer_email, 'kundin@example.ch');
+});
+
+test('a guest is asked for an email like anyone else', async () => {
+  useMemoryStore();
+  const s = fakeStripe();
+  await build(s, { items: [{ sku: 'castano-200g', qty: 1 }] }, ORIGIN);
+  assert.equal('customer_email' in s.made.sessions[0], false);
+});
+
+test('a client cannot put someone else address on the session', async () => {
+  useMemoryStore();
+  const s = fakeStripe();
+  await build(s, {
+    items: [{ sku: 'castano-200g', qty: 1 }],
+    customer_email: 'victim@example.ch',
+    email: 'victim@example.ch',
+  }, ORIGIN);
+  assert.equal('customer_email' in s.made.sessions[0], false,
+    'the address comes from the session or not at all');
+});

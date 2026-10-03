@@ -252,3 +252,88 @@ test('signing out when you were not signed in is harmless', async () => {
   assert.equal(r.status, 200);
   assert.equal(r.body.signedIn, false);
 });
+
+/* ------------------------------------------- changing a password, deleting */
+
+test('a password change needs a session', async () => {
+  useMemoryStore(); resetLimiter();
+  const r = await call({ action: 'password', current: PW, next: 'a brand new passphrase' });
+  assert.equal(r.status, 401);
+});
+
+test('signed in with the current password, the change goes through', async () => {
+  const me = await registered();
+  resetLimiter();
+  const r = await call({ action: 'password', current: PW, next: 'a brand new passphrase' },
+    { cookie: asCookie(me.cookie) });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.changed, true);
+
+  resetLimiter();
+  assert.equal((await call({ action: 'login', email: 'kundin@example.ch', password: PW })).status, 401);
+  resetLimiter();
+  assert.equal((await call({ action: 'login', email: 'kundin@example.ch', password: 'a brand new passphrase' })).body.signedIn, true);
+});
+
+test('a session alone cannot change the password', async () => {
+  const me = await registered();
+  resetLimiter();
+  const r = await call({ action: 'password', current: 'not my password', next: 'a brand new passphrase' },
+    { cookie: asCookie(me.cookie) });
+  assert.equal(r.status, 401);
+  assert.equal(r.body.field, 'current');
+  resetLimiter();
+  assert.equal((await call({ action: 'login', email: 'kundin@example.ch', password: PW })).body.signedIn, true,
+    'the old password must still be the password');
+});
+
+test('the device that changed it stays signed in', async () => {
+  const me = await registered();
+  resetLimiter();
+  await call({ action: 'password', current: PW, next: 'a brand new passphrase' }, { cookie: asCookie(me.cookie) });
+  resetLimiter();
+  assert.equal((await call({ action: 'me' }, { cookie: asCookie(me.cookie) })).body.signedIn, true);
+});
+
+test('a deletion needs a session and the password', async () => {
+  useMemoryStore(); resetLimiter();
+  assert.equal((await call({ action: 'delete', password: PW })).status, 401);
+
+  const me = await registered();
+  resetLimiter();
+  const wrong = await call({ action: 'delete', password: 'not my password' }, { cookie: asCookie(me.cookie) });
+  assert.equal(wrong.status, 401);
+  resetLimiter();
+  assert.equal((await call({ action: 'me' }, { cookie: asCookie(me.cookie) })).body.signedIn, true,
+    'a wrong password must leave the account standing');
+});
+
+test('deleting signs you out and clears the cookie', async () => {
+  const me = await registered();
+  resetLimiter();
+  const r = await call({ action: 'delete', password: PW }, { cookie: asCookie(me.cookie) });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.deleted, true);
+  assert.ok(r.cookie.includes('Max-Age=0'));
+
+  resetLimiter();
+  assert.equal((await call({ action: 'me' }, { cookie: asCookie(me.cookie) })).body.signedIn, false);
+  resetLimiter();
+  assert.equal((await call({ action: 'login', email: 'kundin@example.ch', password: PW })).status, 401);
+});
+
+test('neither reply carries a password or a ledger', async () => {
+  const me = await registered();
+  resetLimiter();
+  const changed = await call({ action: 'password', current: PW, next: 'a brand new passphrase' },
+    { cookie: asCookie(me.cookie) });
+  resetLimiter();
+  const gone = await call({ action: 'delete', password: 'a brand new passphrase' },
+    { cookie: asCookie(me.cookie) });
+  for (const body of [changed.body, gone.body]) {
+    const blob = JSON.stringify(body);
+    for (const leak of [PW, 'a brand new passphrase', 'scrypt', 'salt', 'failures']) {
+      assert.ok(!blob.includes(leak), `a reply must not carry ${leak}`);
+    }
+  }
+});

@@ -262,6 +262,74 @@ export async function endSession(token) {
   await s.remove(sessionKey(token));
 }
 
+/**
+ * Ends every session of an account, optionally sparing the one in hand.
+ *
+ * Changing a password has to do this, or the change protects nothing: whoever
+ * was signed in with the old one stays signed in. The scan is affordable
+ * because this runs on a password change or a deletion, not on every request.
+ */
+export async function endAllSessions(accountId, exceptToken = null) {
+  const s = await store();
+  const spare = exceptToken ? sessionKey(exceptToken) : null;
+  let ended = 0;
+  for (const key of await s.list('session/')) {
+    if (key === spare) continue;
+    const { value } = await s.read(key);
+    if (value && value.accountId === accountId) {
+      await s.remove(key);
+      ended++;
+    }
+  }
+  return ended;
+}
+
+/* --------------------------------------------------- changing and leaving --- */
+
+/**
+ * Changes a password, having checked the current one.
+ *
+ * The current password is required even though the caller already holds a
+ * session: a cookie someone else picked up must not be enough to lock the
+ * owner out of their own account.
+ */
+export async function changePassword(email, current, next, keepToken = null) {
+  const account = await findAccount(email);
+  if (!account) return { ok: false, reason: 'unknown' };
+  if (!(await passwordMatches(current, account.password))) return { ok: false, reason: 'wrong' };
+
+  const problem = passwordProblem(next, email);
+  if (problem) return { ok: false, reason: 'password', message: problem };
+  if (await passwordMatches(next, account.password)) {
+    return { ok: false, reason: 'same', message: 'That is the password you already have.' };
+  }
+
+  const password = await hashPassword(next);
+  await mutate(keyForEmail(email), (a) => (a ? { ...a, password, failures: 0, lockedUntil: 0 } : null));
+  const ended = await endAllSessions(account.id, keepToken);
+  return { ok: true, otherSessionsEnded: ended };
+}
+
+/**
+ * Removes an account: the record, the id index, and every session.
+ *
+ * What it does NOT remove is the orders themselves. Those live at Stripe and
+ * Swiss accounting law requires keeping them for ten years — the Privacy
+ * Policy says so, and this is the line it draws. What goes is the ability to
+ * sign in and the copy of the history shown here.
+ */
+export async function deleteAccount(email, password) {
+  const account = await findAccount(email);
+  if (!account) return { ok: false, reason: 'unknown' };
+  if (!(await passwordMatches(password, account.password))) return { ok: false, reason: 'wrong' };
+
+  const s = await store();
+  await endAllSessions(account.id);
+  await s.remove(keyForId(account.id));
+  await s.remove(keyForEmail(account.email));
+  return { ok: true };
+}
+
 /* --------------------------------------------------------------- cookies --- */
 
 export const COOKIE = 'zuno_session';
