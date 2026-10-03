@@ -23,11 +23,34 @@ def sha256(payload: str) -> str:
     return "'sha256-" + base64.b64encode(hashlib.sha256(payload.encode()).digest()).decode() + "'"
 
 
-scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
-styles = re.findall(r"<style>(.*?)</style>", html, re.S)
+# Comments are removed before anything is matched. A comment that mentions a
+# script tag — and one of them does, explaining this very rule — would
+# otherwise be found by the search below, which would then run on to the next
+# closing tag and hash a span of the file that is not a script at all. The
+# page still worked when that happened, since the real hashes were also
+# present, but the policy carried a hash for something that does not exist.
+scannable = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+
+# Only a tag with no attributes: an inline script with a type is a data block
+# (JSON-LD), which the browser does not execute and CSP does not govern.
+scripts = re.findall(r"<script>(.*?)</script>", scannable, re.S)
+styles = re.findall(r"<style>(.*?)</style>", scannable, re.S)
 
 if not scripts or len(styles) != 1:
     sys.exit(f"expected at least one inline <script> and exactly one <style>, found {len(scripts)} and {len(styles)}")
+
+# Every opening tag must have produced exactly one block. If it did not, a
+# match began somewhere that is not a script and ran on to the next closing
+# tag, and the hash covers a span of the file that was never executed. The
+# page keeps working when that happens — the real hashes are there too — so
+# nothing would draw attention to it. Hence the check.
+#
+# A script may legitimately mention a tag in its own comments, so the text
+# inside a block is not evidence of anything; the count is.
+for name, blocks in (("script", scripts), ("style", styles)):
+    opens = scannable.count(f"<{name}>")
+    if opens != len(blocks):
+        sys.exit(f"found {opens} <{name}> tags but matched {len(blocks)} blocks; a match ran past a closing tag")
 
 script_hash = " ".join(sha256(x) for x in scripts)
 style_hash = sha256(styles[0])

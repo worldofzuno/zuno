@@ -31,6 +31,112 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
 
+<!-- Structured data. Every figure below is taken from a page of this site —
+     the prices from the configurator, the postage and the fourteen days from
+     Shipping & Returns, the address from the Legal Notice. Nothing here may
+     say something the site does not: a rich result built on a number that
+     is not true is worse than no rich result.
+
+     This is a data block, not a script: CSP's script-src does not apply to
+     it, and build-headers.py matches only <script> with no attributes, so it
+     adds no hash for it either. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://worldofzuno.com/#organization",
+      "name": "ZUNO",
+      "legalName": "Worldofzuno",
+      "url": "https://worldofzuno.com/",
+      "email": "info@worldofzuno.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://worldofzuno.com/img/zuno-wordmark.png"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Bahngässli 16",
+        "postalCode": "3172",
+        "addressLocality": "Niederwangen bei Bern",
+        "addressCountry": "CH"
+      },
+      "sameAs": ["https://www.instagram.com/worldofzuno/"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://worldofzuno.com/#website",
+      "url": "https://worldofzuno.com/",
+      "name": "ZUNO",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://worldofzuno.com/#organization" }
+    },
+    {
+      "@type": "OfferShippingDetails",
+      "@id": "https://worldofzuno.com/#shipping-details",
+      "shippingRate": { "@type": "MonetaryAmount", "value": "7.00", "currency": "CHF" },
+      "shippingDestination": [
+        { "@type": "DefinedRegion", "addressCountry": "CH" },
+        { "@type": "DefinedRegion", "addressCountry": "LI" }
+      ],
+      "deliveryTime": {
+        "@type": "ShippingDeliveryTime",
+        "handlingTime": { "@type": "QuantitativeValue", "minValue": 0, "maxValue": 2, "unitCode": "DAY" },
+        "transitTime": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 3, "unitCode": "DAY" }
+      }
+    },
+    {
+      "@type": "MerchantReturnPolicy",
+      "@id": "https://worldofzuno.com/#return-policy",
+      "applicableCountry": ["CH", "LI"],
+      "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+      "merchantReturnDays": 14,
+      "returnMethod": "https://schema.org/ReturnByMail",
+      "returnFees": "https://schema.org/ReturnFeesCustomerResponsibility",
+      "merchantReturnLink": "https://worldofzuno.com/#shipping"
+    },
+    {
+      "@type": "Product",
+      "@id": "https://worldofzuno.com/#castano",
+      "name": "ZUNO Castano",
+      "description": "A nutty, chocolaty blend of 70% Arabica and 30% Robusta, roasted in Bern. Made for cappuccino and espresso, in whole beans or pre-ground.",
+      "image": ["https://worldofzuno.com/img/castano-bag.png"],
+      "brand": { "@type": "Brand", "name": "ZUNO" },
+      "category": "Coffee",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "ZUNO Castano — 200 g",
+          "sku": "castano-200g",
+          "url": "https://worldofzuno.com/#product",
+          "price": "14.90",
+          "priceCurrency": "CHF",
+          "availability": "https://schema.org/InStock",
+          "itemCondition": "https://schema.org/NewCondition",
+          "seller": { "@id": "https://worldofzuno.com/#organization" },
+          "shippingDetails": { "@id": "https://worldofzuno.com/#shipping-details" },
+          "hasMerchantReturnPolicy": { "@id": "https://worldofzuno.com/#return-policy" }
+        },
+        {
+          "@type": "Offer",
+          "name": "ZUNO Castano — 500 g",
+          "sku": "castano-500g",
+          "url": "https://worldofzuno.com/#product",
+          "price": "29.90",
+          "priceCurrency": "CHF",
+          "availability": "https://schema.org/InStock",
+          "itemCondition": "https://schema.org/NewCondition",
+          "seller": { "@id": "https://worldofzuno.com/#organization" },
+          "shippingDetails": { "@id": "https://worldofzuno.com/#shipping-details" },
+          "hasMerchantReturnPolicy": { "@id": "https://worldofzuno.com/#return-policy" }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
 <link rel="preload" href="fonts/felix-titling.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
 
@@ -2344,10 +2450,26 @@ html:not(.js) .page:target { display: block; }
   var main = document.getElementById('main');
   var footer = document.querySelector('footer');
 
+  /* A sub-page is not a separate document — it is this one with a different
+     section shown — so the canonical URL stays put. The title does not: it
+     is what a tab, a bookmark and the back button show, and leaving every
+     one of them reading "Swiss Specialty Coffee" is just unhelpful. */
+  var HOME_TITLE = document.title;
+  var TITLES = {
+    cart: 'Your Cart',
+    account: 'Account',
+    gift: 'Gift Card',
+    privacy: 'Privacy Policy',
+    shipping: 'Shipping & Returns',
+    legal: 'Legal Notice & Terms'
+  };
+
   function route() {
     var h = location.hash.replace('#', '');
     h = ALIASES[h] || h;
     var isPage = PAGES.indexOf(h) !== -1;
+
+    document.title = (isPage && TITLES[h]) ? TITLES[h] + ' — ZUNO' : HOME_TITLE;
 
     PAGES.forEach(function (p) {
       document.getElementById('page-' + p).classList.toggle('is-open', isPage && p === h);

@@ -361,6 +361,8 @@ gift card.
 - Choose an `ORDER_NOTIFY_URL`, or enable Stripe's own payment-notification
   email, so a paid order reaches a person rather than only a log.
 - Pull `main` forward — it is behind this branch.
+- SEO has its own handover note: [SEO.md](SEO.md). The one item needing you
+  is Google Search Console.
 - Test the cart and the code field on a real iPhone.
 
 ## Resources
