@@ -1,7 +1,7 @@
 /**
  * Checks on the code-validation endpoint, run with:
  *
- *     node --test netlify/functions/validate-code.test.mjs
+ *     node --test tests/functions/validate-code.test.mjs
  *
  * This endpoint exists so the cart can show the price it will be charged. It
  * must therefore never report a reduction it cannot back up — an unconfigured
@@ -21,8 +21,8 @@ process.env.FNF_CODES = JSON.stringify([
   { code: 'CAPPED', maxRedemptions: 2 },
 ]);
 
-const { resetLimiter } = await import('./fnf.mjs');
-const mod = await import('./validate-code.mjs');
+const { resetLimiter } = await import('../../netlify/functions/fnf.mjs');
+const mod = await import('../../netlify/functions/validate-code.mjs');
 const { check } = mod;
 const handler = mod.default;
 
@@ -196,8 +196,8 @@ test('a client guessing repeatedly is slowed down', async () => {
 
 /* --------------------------------------------------------- gift cards */
 
-const { useMemoryStore } = await import('./store.mjs');
-const gc = await import('./giftcard.mjs');
+const { useMemoryStore } = await import('../../netlify/functions/store.mjs');
+const gc = await import('../../netlify/functions/giftcard.mjs');
 
 test('a gift card answers with its balance, and says it is a gift card', async () => {
   useMemoryStore();

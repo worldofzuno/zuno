@@ -1,7 +1,7 @@
 /**
  * Checks on the account endpoint, run with:
  *
- *     node --test netlify/functions/account.test.mjs
+ *     node --test tests/functions/account.test.mjs
  *
  * Beyond "does signing in work", two properties matter and are easy to lose:
  * the endpoint must not tell a stranger which addresses have accounts, and a
@@ -11,10 +11,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore } = await import('./store.mjs');
-const { resetLimiter } = await import('./fnf.mjs');
-const auth = await import('./auth.mjs');
-const handler = (await import('./account.mjs')).default;
+const { useMemoryStore } = await import('../../netlify/functions/store.mjs');
+const { resetLimiter } = await import('../../netlify/functions/fnf.mjs');
+const auth = await import('../../netlify/functions/auth.mjs');
+const handler = (await import('../../netlify/functions/account.mjs')).default;
 
 const PW = 'a decent long passphrase';
 
