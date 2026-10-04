@@ -236,8 +236,8 @@ is unused, so a future issue date can carry one without a rebuild.
 
 - Sending the card straight to the recipient. As decided, the code goes to
   the buyer, who passes it on.
-- A way for you to look up or void a card. Today that means reading the
-  Netlify Blobs store directly.
+- ~~A way for you to look up or void a card.~~ Built: the back office at
+  `/admin/`, which also takes the backup. See [BACKOFFICE.md](BACKOFFICE.md).
 - VAT treatment of a voucher sale is **not** settled here. The prices carry
   `tax_behavior: inclusive` to match everything else, and `automatic_tax` is
   off, so nothing is computed either way — but whether issuing a voucher is a
@@ -363,6 +363,9 @@ gift card.
 - Pull `main` forward — it is behind this branch.
 - SEO has its own handover note: [SEO.md](SEO.md). The one item needing you
   is Google Search Console.
+- Set `ADMIN_TOKEN` in Netlify and take a first backup from `/admin/`. Gift
+  card balances are money you owe, and only this store knows what has been
+  spent. See [BACKOFFICE.md](BACKOFFICE.md).
 - Test the cart and the code field on a real iPhone.
 
 ## Resources

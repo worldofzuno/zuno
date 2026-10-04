@@ -92,10 +92,42 @@ export function activeHolds(card, now = Date.now()) {
   return out;
 }
 
-/** What could be spent right now. Never below zero, whatever the ledger says. */
+/** What could be spent right now. Never below zero, whatever the ledger says.
+    A voided card is worth nothing without rewriting its history, so the
+    record still shows what it was and what was done with it. */
 export function available(card, now = Date.now()) {
   if (!card) return 0;
+  if (card.voided) return 0;
   return Math.max(0, card.issued - spent(card) - sum(activeHolds(card, now)));
+}
+
+/** Stops a card being spent — a code that leaked, or one issued by mistake.
+    Reversible, because the balance was never erased. */
+export async function setVoided(code, voided, reason = null, now = Date.now()) {
+  let found = false;
+  await mutate(keyFor(code), (card) => {
+    if (!card) return null;
+    found = true;
+    if (Boolean(card.voided) === Boolean(voided)) return null;
+    return {
+      ...card,
+      voided: Boolean(voided),
+      voidedAt: voided ? new Date(now).toISOString() : null,
+      voidReason: voided ? (reason || null) : null,
+    };
+  });
+  return found;
+}
+
+/** Every card, for the admin view and the backup. */
+export async function allCards() {
+  const s = await store();
+  const out = [];
+  for (const key of await s.list('gift/')) {
+    const { value } = await s.read(key);
+    if (value) out.push(value);
+  }
+  return out.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 
 /** What a customer may see: never the internal ledger. */

@@ -21,3 +21,11 @@
 # The library filenames carry their version, so a new one is a new URL.
 /js/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The back office. It is behind a key, but a key is not a reason to let it be
+# indexed, cached or archived — robots.txt disallows it too, and the page
+# carries its own noindex meta. Belt, braces and a third thing, because a
+# search result for "ZUNO back office" would be an invitation.
+/admin/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+  Cache-Control: no-store

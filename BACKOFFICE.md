@@ -1,0 +1,94 @@
+# The back office
+
+`https://worldofzuno.com/admin/` — gift card balances, accounts, and the
+backup. It exists because the alternative was reading the Netlify Blobs store
+by hand, and the first customer saying "my gift card does not work" needs an
+answer rather than a guess.
+
+## Getting in
+
+One key, `ADMIN_TOKEN`, set in Netlify. No account system, no roles: it is
+you or nobody.
+
+```
+openssl rand -base64 32
+```
+
+At least 24 characters or the function refuses to use it — a weak key is
+worse than an obvious one, because it looks like a door. Treat it like the
+Stripe secret key.
+
+Typing it exchanges it for a session cookie that lasts twelve hours. The key
+itself is never stored in the browser, so closing the tab on a shared machine
+leaves nothing behind. Signing out ends the session server-side as well.
+
+The page is kept out of search three ways: `robots.txt` disallows it, the
+page carries a `noindex` meta, and `_headers` sends `X-Robots-Tag` for
+`/admin/*`. A search result for "ZUNO back office" would be an invitation.
+
+## What you can do
+
+**Look a gift card up** by code, however it was typed. You see the balance,
+what was issued, what was spent, what is held by a checkout in flight, who
+bought it, and every spend with its date.
+
+**Void a card** whose code leaked or was issued by mistake. The balance drops
+to zero and the card cannot be spent, but nothing is deleted — the history
+stays and the void can be lifted again.
+
+**Issue a card by hand** for a card sold away from the shop, or as a goodwill
+gesture. It is a real card and real money. The code is shown once; write it
+down.
+
+**Find an account**, see its orders, sign it out of every device, or delete
+it. Deleting from here needs no password — the key to the back office stands
+in for it.
+
+**Take a backup.** See below.
+
+## The backup, and why it matters more than it looks
+
+Gift card balances are money you owe. Stripe knows what was *bought*; only
+this store knows what has been *spent*. Lose it and you cannot tell a
+customer with a CHF 50 card whether they have CHF 50 or nothing left.
+
+The export is every gift card ledger and every account, with password
+derivations stripped. Take one before anything risky, and **keep it somewhere
+other than Netlify** — a backup in the same place as the thing it backs up is
+not a backup.
+
+### Putting one back
+
+There is no restore button, on purpose: an accidental restore would overwrite
+live balances with old ones. To restore, write each entry in `giftCards` to
+the store under `gift/<code without hyphens>`, and each entry in `accounts`
+under `account/<sha256 of the lowercased email>` plus an index at
+`accountid/<id>`.
+
+Restored accounts have no password and cannot be signed in to; their owners
+register again. That is deliberate — a backup that could restore a login is a
+second place to steal one from.
+
+A test covers the gift card half of this: it exports a card with a spend
+against it, wipes the store, writes the export back, and checks the balance
+comes out exactly as it stood.
+
+## What it deliberately does not do
+
+- **No editing a balance.** Issue a card or void one; there is no field to
+  type a new number into. A balance that can be typed is a balance nobody can
+  audit.
+- **No reading a password**, ever, anywhere.
+- **No live/test switch.** The page says which kind of data it is looking at,
+  derived from the cards themselves, so nobody voids a live card thinking it
+  is a test one. Which mode the shop is in is decided by the Stripe keys in
+  Netlify, not here.
+- **No inventory.** That is separate and not built yet.
+
+## The limit is on the door
+
+Ten sign-in attempts a minute per IP. Once you are through, nothing is
+throttled — counting every action instead locked the owner out after three
+card lookups, which is useless against guessing and a nuisance to the one
+person entitled to be here. The rate limit counts per function instance, like
+the others; the real protection is a key nobody can guess.
