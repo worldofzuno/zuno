@@ -13,8 +13,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const st = await import('./stock.mjs');
+const { useMemoryStore, store } = await import('../functions/store.mjs');
+const st = await import('../functions/stock.mjs');
 
 const quiet = async (fn) => {
   const real = console.error;

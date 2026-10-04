@@ -15,11 +15,11 @@ import test from 'node:test';
 const TOKEN = 'a-long-enough-admin-key-0123456789';
 process.env.ADMIN_TOKEN = TOKEN;
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const { resetLimiter } = await import('./fnf.mjs');
-const gc = await import('./giftcard.mjs');
-const auth = await import('./auth.mjs');
-const mod = await import('./admin.mjs');
+const { useMemoryStore, store } = await import('../functions/store.mjs');
+const { resetLimiter } = await import('../functions/fnf.mjs');
+const gc = await import('../functions/giftcard.mjs');
+const auth = await import('../functions/auth.mjs');
+const mod = await import('../functions/admin.mjs');
 const handler = mod.default;
 
 const post = (body, { cookie, ip = '1.2.3.4' } = {}) =>

@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, mutate } = await import('./store.mjs');
+const { useMemoryStore, mutate } = await import('../functions/store.mjs');
 
 test('a key that was never written reads as nothing', async () => {
   const s = useMemoryStore();
