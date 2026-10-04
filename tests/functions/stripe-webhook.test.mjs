@@ -520,3 +520,57 @@ test('a validly signed request is accepted end to end', async () => {
   assert.notEqual(res.status, 400, 'a valid signature must never be rejected');
   assert.ok([200, 500].includes(res.status));
 });
+
+/* ------------------------------------------------------- the order mail --- */
+
+const ORDER = {
+  session: 'cs_test_abcdefghij1234567890',
+  currency: 'CHF', total: '61.90', shipping: '7.00', discount: '0.00',
+  name: 'Davide Felice', email: 'kundin@example.ch',
+  address: { line1: '30 Waldhoeheweg', line2: null, postal_code: '3013', city: 'Bern', country: 'CH' },
+  items: [
+    { name: 'ZUNO Castano — 500 g', grind: 'Pre-Ground', qty: 1, amount: '29.90' },
+    { name: 'ZUNO Gift Card', grind: null, qty: 1, amount: '25.00' },
+  ],
+  giftCards: [{ code: 'ZG-H3AJ-U23E-96EH', amount: 2500 }],
+  giftSpent: null,
+};
+
+test('the order mail carries the figures and the codes', () => {
+  const html = mod.orderMailHtml(ORDER);
+  for (const needle of ['J1234567890'.slice(-8).toUpperCase(), 'CHF 61.90', 'CHF 29.90',
+    'Pre-Ground', 'ZG-H3AJ-U23E-96EH', '3013 Bern', 'Shipping']) {
+    assert.ok(html.includes(needle), `the mail should say ${needle}`);
+  }
+});
+
+test('a gift-only order is not asked for an address it does not have', () => {
+  const html = mod.orderMailHtml({ ...ORDER, address: null, shipping: '0.00' });
+  assert.ok(html.includes('Nothing to ship'));
+  assert.equal(html.includes('Shipping to'), false);
+});
+
+test('what a customer typed cannot become markup', () => {
+  /* The name and the street come from whoever filled in the checkout. A
+     confirmation assembled from them is a mail someone else could write. */
+  const html = mod.orderMailHtml({
+    ...ORDER,
+    name: '<script>alert(1)</script>',
+    address: { ...ORDER.address, line1: '<img src=x onerror=alert(2)>', city: '"><b>bold' },
+  });
+  assert.equal(html.includes('<script>alert(1)</script>'), false);
+  assert.equal(html.includes('<img src=x'), false);
+  assert.equal(html.includes('"><b>bold'), false);
+  assert.ok(html.includes('&lt;script&gt;'), 'escaped, not dropped — the address still reads back');
+});
+
+test('the mail is one document with no outside dependency', () => {
+  const html = mod.orderMailHtml(ORDER);
+  assert.ok(html.startsWith('<!doctype html>'));
+  /* No stylesheet, no web font, no image: a client that blocks what it
+     likes still shows a complete order. */
+  assert.equal(/<link\b/i.test(html), false);
+  assert.equal(/<img\b/i.test(html), false);
+  assert.equal(/https?:\/\/(?!worldofzuno)/i.test(html.replace(/mailto:[^"]*/g, '')), false,
+    'nothing is fetched from anywhere');
+});
