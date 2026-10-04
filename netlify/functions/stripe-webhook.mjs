@@ -171,7 +171,10 @@ async function settleGift(session) {
   const g = giftMeta(session);
   if (!g) return null;
   try {
-    const r = await gift.settle(g.code, g.ref, g.hold);
+    /* The session id goes into the ledger beside the amount: the entry is
+       keyed by the hold reference, which answers nothing when a customer
+       asks which order their balance went to. */
+    const r = await gift.settle(g.code, g.ref, g.hold, Date.now(), session.id);
     console.log(`[gift:${r.outcome}] ${g.code} ${r.amount} rappen for ${session.id}`);
     return { code: g.code, amount: r.amount, outcome: r.outcome };
   } catch (e) {

@@ -412,6 +412,10 @@ test('paying with a gift card debits it once', async () => {
   await captureLog(() => mod.handleEvent(ev, stub(session)));
   assert.equal(gc.spent(await gc.load(card.code)), 2000, 'a redelivery must not debit twice');
   assert.equal(gc.available(await gc.load(card.code)), 3000);
+
+  /* The entry is keyed by the hold reference, which tells nobody which
+     order took the money. The order id has to travel with it. */
+  assert.equal((await gc.load(card.code)).spends['pre_abc'].order, 'cs_spend');
 });
 
 test('an expired session gives the held balance back', async () => {
