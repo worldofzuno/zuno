@@ -37,6 +37,13 @@ const providers = {
         text: message.text,
         ...(message.html ? { html: message.html } : {}),
         ...(message.replyTo ? { reply_to: message.replyTo } : {}),
+        ...(message.attachments ? {
+          attachments: message.attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,            // base64
+            ...(a.type ? { content_type: a.type } : {}),
+          })),
+        } : {}),
       }),
     });
     if (!res.ok) {
@@ -65,6 +72,13 @@ const providers = {
         TextBody: message.text,
         ...(message.html ? { HtmlBody: message.html } : {}),
         ...(message.replyTo ? { ReplyTo: message.replyTo } : {}),
+        ...(message.attachments ? {
+          Attachments: message.attachments.map((a) => ({
+            Name: a.filename,
+            Content: a.content,            // base64
+            ContentType: a.type || 'application/octet-stream',
+          })),
+        } : {}),
         MessageStream: 'outbound',
       }),
     });
@@ -105,8 +119,11 @@ export async function send(message) {
 
   if (!name) {
     /* Written whole, so an order can be read out of the log and sent by hand
-       if it ever comes to that. */
-    console.log(`[mail:unsent] to=${full.to} subject=${full.subject}\n${full.text}`);
+       if it ever comes to that. An attachment is named but not written: a
+       backup belongs in a file, not in a log line. */
+    const files = (full.attachments || []).map((a) => a.filename).join(', ');
+    console.log(`[mail:unsent] to=${full.to} subject=${full.subject}` +
+      (files ? ` attachments=${files}` : '') + `\n${full.text}`);
     return { sent: false, via: 'log', id: null, error: 'no mail provider configured' };
   }
 

@@ -142,6 +142,29 @@ export async function summary(now = Date.now()) {
   };
 }
 
+/**
+ * What a backup is, in one place.
+ *
+ * The button in the back office and the weekly job both call this, so the
+ * file that arrives by mail is the same file the button hands over. Two
+ * definitions of a money record is one too many.
+ */
+export async function takeBackup() {
+  const cards = await gift.allCards();
+  const accounts = await allAccounts();
+  const rows = await Promise.all(stock.TRACKED.map((sku) => stock.read(sku)));
+  return {
+    takenAt: new Date().toISOString(),
+    /* The whole ledger, not the view: a backup has to be able to put a
+       balance back exactly as it stood, holds and all. */
+    giftCards: cards,
+    stock: rows.filter(Boolean),
+    /* Password derivations are already stripped by allAccounts. A backup
+       that could restore a login is a second place to steal one from. */
+    accounts,
+  };
+}
+
 /* ----------------------------------------------------------------- handler */
 
 export default async function handler(req) {
@@ -281,22 +304,7 @@ async function act(action, body) {
     return json(200, { sku: body.sku, qty: r.qty, levels: await stock.levels() });
   }
 
-  if (action === 'export') {
-    const cards = await gift.allCards();
-    const accounts = await allAccounts();
-    return json(200, {
-      takenAt: new Date().toISOString(),
-      /* The whole ledger, not the view: a backup has to be able to put a
-         balance back exactly as it stood, holds and all. */
-      giftCards: cards,
-      stock: await Promise.all(stock.TRACKED.map(async (sku) => await stock.read(sku))).then(
-        (rows) => rows.filter(Boolean)
-      ),
-      /* Password derivations are already stripped by allAccounts. A backup
-         that could restore a login is a second place to steal one from. */
-      accounts,
-    });
-  }
+  if (action === 'export') return json(200, await takeBackup());
 
   return json(400, { error: 'unknown action' });
 }
