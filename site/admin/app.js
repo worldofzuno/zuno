@@ -95,8 +95,62 @@ function loadSummary() {
     $('tSpent').textContent = chf(c.spent);
     $('tOwed').textContent = chf(c.outstanding);
     $('tAcc').textContent = a.count + (a.withOrders ? ' · ' + a.withOrders + ' with orders' : '');
+    paintStock(r.body.stock);
   })['catch'](function () { /* the tiles keep their dashes */ });
 }
+
+/* ---------------------------------------------------------------- stock */
+
+function stockFields() {
+  return Array.prototype.slice.call(document.querySelectorAll('#stockForm input[data-sku]'));
+}
+
+/* Empty is not zero. An empty field is no limit, which is what the server
+   reports as null; zero is sold out and is a decision. */
+function paintStock(levels) {
+  if (!levels || typeof levels !== 'object') return;
+  stockFields().forEach(function (f) {
+    var n = levels[f.dataset.sku];
+    f.value = typeof n === 'number' ? String(n) : '';
+  });
+}
+
+$('stockForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  /* Read every field BEFORE the first request. Repainting from one answer
+     while the next field is still waiting to be read would overwrite what
+     was typed into it with what the server has not been told yet — which is
+     exactly how the second size silently kept its old number. */
+  var wanted = stockFields().map(function (f) {
+    return { sku: f.dataset.sku, raw: f.value.trim() };
+  });
+
+  busy(e.target.querySelector('button'), 'Saving…', function () {
+    /* One request per size, one after the other: each size is its own
+       record, and a refusal on the second must not hide that the first went
+       through. The fields are repainted once, at the end, from whatever the
+       server last reported. */
+    var problems = [];
+    var levels = null;
+    return wanted.reduce(function (chain, w) {
+      return chain.then(function () {
+        return call({ action: 'stock-set', sku: w.sku, qty: w.raw === '' ? null : w.raw })
+          .then(function (r) {
+            if (r.status !== 200) {
+              problems.push(w.sku + ': ' + ((r.body && r.body.error) || 'did not save'));
+              return;
+            }
+            levels = r.body.levels || levels;
+          });
+      });
+    }, Promise.resolve()).then(function () {
+      paintStock(levels);
+      say($('stockMsg'),
+        problems.length ? problems.join(' · ') : 'Saved. The shop page picks it up within a minute.',
+        problems.length ? 'bad' : 'ok');
+    })['catch'](function () { say($('stockMsg'), 'Could not reach the server.', 'bad'); });
+  });
+});
 
 /* ---------------------------------------------------------- gift cards */
 

@@ -24,6 +24,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { store } from './store.mjs';
 import * as gift from './giftcard.mjs';
+import * as stock from './stock.mjs';
 import {
   allAccounts, findAccount, endAllSessions, keyForEmail, keyForId,
   normaliseEmail, looksLikeEmail, readCookie,
@@ -137,6 +138,7 @@ export async function summary(now = Date.now()) {
       count: accounts.length,
       withOrders: accounts.filter((a) => (a.orders || []).length > 0).length,
     },
+    stock: await stock.levels(now),
   };
 }
 
@@ -263,6 +265,22 @@ async function act(action, body) {
     return json(200, { deleted: true });
   }
 
+  if (action === 'stock-set') {
+    /* null clears the limit and the size goes back to unlimited — which is
+       what every size is until someone sets a number. */
+    const qty = body.qty === null || body.qty === '' ? null : body.qty;
+    const r = await stock.setQty(body.sku, qty);
+    if (!r.ok) {
+      return json(400, {
+        error: r.reason === 'unknown-sku'
+          ? 'That is not a size this shop stocks.'
+          : 'A whole number from 0 to 100000, or empty for no limit.',
+      });
+    }
+    console.log(`[stock:set] ${body.sku} = ${r.qty === null ? 'unlimited' : r.qty}`);
+    return json(200, { sku: body.sku, qty: r.qty, levels: await stock.levels() });
+  }
+
   if (action === 'export') {
     const cards = await gift.allCards();
     const accounts = await allAccounts();
@@ -271,6 +289,9 @@ async function act(action, body) {
       /* The whole ledger, not the view: a backup has to be able to put a
          balance back exactly as it stood, holds and all. */
       giftCards: cards,
+      stock: await Promise.all(stock.TRACKED.map(async (sku) => await stock.read(sku))).then(
+        (rows) => rows.filter(Boolean)
+      ),
       /* Password derivations are already stripped by allAccounts. A backup
          that could restore a login is a second place to steal one from. */
       accounts,

@@ -20,6 +20,7 @@ import * as gift from './giftcard.mjs';
 import { store } from './store.mjs';
 import { send, shopInbox } from './mailer.mjs';
 import { recordOrder } from './auth.mjs';
+import * as stock from './stock.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -264,6 +265,48 @@ async function issueGifts(session, order) {
   return minted;
 }
 
+/* ------------------------------------------------------------------ stock */
+
+/** What the cart held, read back from the metadata the checkout wrote. */
+function cartLines(session) {
+  try {
+    const rows = JSON.parse((session.metadata || {}).lines || '[]');
+    return rows.map((r) => ({ sku: r[0], qty: r[1] }));
+  } catch {
+    return [];
+  }
+}
+
+/** Paid, so the bags leave the shelf. */
+async function settleStock(session) {
+  const ref = (session.metadata || {}).stock_ref;
+  if (!ref) return null;
+  try {
+    const out = await stock.settleCart(cartLines(session), ref);
+    const said = Object.entries(out).map(([sku, r]) => `${sku}=${r}`).join(' ');
+    if (said) console.log(`[stock:settled] ${session.id} ${said}`);
+    return out;
+  } catch (e) {
+    /* Thrown means the shelf may not have been debited, and the next
+       delivery should try again — settleCart is idempotent. */
+    console.error(`[stock:settle-failed] ${session.id}: ${e && e.message}`);
+    throw e;
+  }
+}
+
+/** Gone or failed, so they go back. */
+async function releaseStock(session) {
+  const ref = (session.metadata || {}).stock_ref;
+  if (!ref) return;
+  try {
+    await stock.releaseCart(cartLines(session), ref);
+    console.log(`[stock:released] ${session.id}`);
+  } catch (e) {
+    /* A hold not released here expires by itself within the day. */
+    console.error(`[stock:release-failed] ${session.id}: ${e && e.message}`);
+  }
+}
+
 /* ---------------------------------------------------------------- account */
 
 /**
@@ -429,11 +472,13 @@ export async function handleEvent(event, stripe) {
     /* Whatever this session was holding against a gift card goes back now,
        rather than waiting out the hold's own lifetime. */
     await releaseGift(full);
+    await releaseStock(full);
     console.log(`[order:expired] ${full.id}`);
     return 'expired';
   }
   if (event.type === 'checkout.session.async_payment_failed') {
     await releaseGift(full);
+    await releaseStock(full);
     await notify('failed', order);
     return 'failed';
   }
@@ -449,6 +494,7 @@ export async function handleEvent(event, stripe) {
      their own right and both are too important to skip on a redelivery that
      only looked like a repeat. Settling debits once; issuing mints once. */
   order.giftSpent = await settleGift(full);
+  await settleStock(full);
   order.giftCards = await issueGifts(full, order);
   await fileUnderAccount(full, order);
 

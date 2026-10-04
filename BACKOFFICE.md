@@ -44,6 +44,13 @@ down.
 it. Deleting from here needs no password — the key to the back office stands
 in for it.
 
+**Set the stock** per size: a whole number, or empty for no limit. Both sizes
+start unlimited, so a shop that never touches this behaves as it always has.
+`0` means sold out and is a decision; empty means not counted. The checkout
+holds what it is about to sell, so two people cannot both take the last bag,
+and a payment that is never finished puts it back. See
+[STOCK.md](STOCK.md).
+
 **Take a backup.** See below.
 
 ## The backup, and why it matters more than it looks
@@ -52,8 +59,9 @@ Gift card balances are money you owe. Stripe knows what was *bought*; only
 this store knows what has been *spent*. Lose it and you cannot tell a
 customer with a CHF 50 card whether they have CHF 50 or nothing left.
 
-The export is every gift card ledger and every account, with password
-derivations stripped. Take one before anything risky, and **keep it somewhere
+The export is every gift card ledger, every account with password
+derivations stripped, and each size's stock record with its holds and its
+settled sales. Take one before anything risky, and **keep it somewhere
 other than Netlify** — a backup in the same place as the thing it backs up is
 not a backup.
 
@@ -64,6 +72,9 @@ live balances with old ones. To restore, write each entry in `giftCards` to
 the store under `gift/<code without hyphens>`, and each entry in `accounts`
 under `account/<sha256 of the lowercased email>` plus an index at
 `accountid/<id>`.
+
+Each entry in `stock` goes back under `stock/<sku>`, or can simply be typed
+in again on the Stock card — it is two numbers.
 
 Restored accounts have no password and cannot be signed in to; their owners
 register again. That is deliberate — a backup that could restore a login is a
@@ -83,7 +94,9 @@ comes out exactly as it stood.
   derived from the cards themselves, so nobody voids a live card thinking it
   is a test one. Which mode the shop is in is decided by the Stripe keys in
   Netlify, not here.
-- **No inventory.** That is separate and not built yet.
+- **No stock history.** A size has a number, its live holds and what it has
+  sold; there is no audit trail of who changed the number to what. A wrong
+  figure here costs a message at the till, not money.
 
 ## The limit is on the door
 

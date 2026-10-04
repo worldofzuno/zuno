@@ -90,6 +90,29 @@
       <div id="accOut"></div>
     </div>
 
+    <h2>Stock</h2>
+    <div class="card">
+      <p class="hint">A number is how many bags may still be sold. Empty means no limit, which is how both sizes start — a shop that never touches this behaves as it always has. The checkout holds what it is about to sell, so two people cannot both take the last bag, and a payment that is never finished puts it back.</p>
+      <!-- novalidate: min/max/step stay as hints to the keyboard and the
+           spinner, but the server is the one that decides and its words are
+           what gets shown. Without this the browser silently blocks the
+           submit on a half bag and leaves the previous message standing. -->
+      <form id="stockForm" class="row row--fields" novalidate>
+        <span class="field">
+          <label for="stock200">200g</label>
+          <input id="stock200" data-sku="castano-200g" type="number" min="0" max="100000" step="1"
+                 inputmode="numeric" placeholder="no limit" autocomplete="off">
+        </span>
+        <span class="field">
+          <label for="stock500">500g</label>
+          <input id="stock500" data-sku="castano-500g" type="number" min="0" max="100000" step="1"
+                 inputmode="numeric" placeholder="no limit" autocomplete="off">
+        </span>
+        <button class="btn" type="submit">Save</button>
+      </form>
+      <p class="msg" id="stockMsg" role="status" hidden></p>
+    </div>
+
     <h2>Backup</h2>
     <div class="card">
       <p class="hint">Every gift card ledger and every account, without password derivations. Take one before anything risky, and keep it somewhere other than Netlify — a balance lost is money you cannot prove.</p>

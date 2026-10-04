@@ -79,6 +79,14 @@ input::placeholder { color: var(--ink-faint); }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
 .row input { flex: 1 1 200px; width: auto; min-width: 0; }
 
+/* A row of labelled fields: each label sits over its own input, and the
+   button lines up with the inputs instead of stretching over the labels. */
+.row--fields { align-items: flex-end; }
+/* The labels would otherwise sit flush against the paragraph above them. */
+.hint + .row--fields { margin-top: 16px; }
+.row--fields .field { flex: 1 1 150px; min-width: 0; }
+.row--fields .field input { flex: none; width: 100%; }
+
 .btn {
   min-height: 44px; padding: 0 18px; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--gold); background: var(--gold); color: var(--on-gold);
