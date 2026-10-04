@@ -58,13 +58,9 @@ still.
 
 ## If you need to remove an account
 
-There is no admin screen. Today it means deleting two keys from the Netlify
-Blobs store `zuno`: `account/<sha256 of the address>` and
-`accountid/<the id>`. Sessions expire by themselves within 30 days; delete
-`session/*` too if you want them gone immediately.
-
-Worth building a small admin view before this happens more than once or
-twice.
+Use the back office at `/admin/`: look the address up, then *Delete account*.
+It also signs every device out and shows the account's orders first, in case
+you want to check before removing it. See [BACKOFFICE.md](BACKOFFICE.md).
 
 ## Changing a password, and leaving
 

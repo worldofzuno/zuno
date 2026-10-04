@@ -356,6 +356,20 @@ export const setCookie = (token) =>
 export const clearCookie = () =>
   `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 
+/** Every account, with the password left out. For the admin view and the
+    backup: neither has any business holding a derivation. */
+export async function allAccounts() {
+  const s = await store();
+  const out = [];
+  for (const key of await s.list('account/')) {
+    const { value } = await s.read(key);
+    if (!value) continue;
+    const { password, ...rest } = value;
+    out.push(rest);
+  }
+  return out.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
 /* ---------------------------------------------------------------- orders --- */
 
 /**

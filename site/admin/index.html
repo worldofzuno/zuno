@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ZUNO Back Office</title>
+<!-- Its own files rather than inline blocks: the site's CSP allows
+     script-src 'self', so an external file needs no hash and this page stays
+     out of build-headers.py entirely. -->
+<link rel="stylesheet" href="app.css">
+<link rel="icon" href="../favicon.ico" sizes="any">
+</head>
+<body>
+
+<header class="bar">
+  <span class="mark">ZUNO</span>
+  <span class="where">Back office</span>
+  <span class="spacer"></span>
+  <span class="mode" id="mode" hidden></span>
+  <button class="btn btn--quiet" type="button" id="signOut" hidden>Sign out</button>
+</header>
+
+<main class="rail">
+
+  <!-- the door -->
+  <section id="gate">
+    <h1>Back office</h1>
+    <p class="lede">Gift card balances, accounts and the backup. Everything here is the shop's own record — treat the export as the money document it is.</p>
+    <form id="gateForm" class="card">
+      <label for="token">Key</label>
+      <input id="token" name="token" type="password" autocomplete="current-password" required
+             placeholder="ADMIN_TOKEN" spellcheck="false">
+      <button class="btn" type="submit">Open</button>
+      <p class="msg" id="gateMsg" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <!-- the office -->
+  <section id="office" hidden>
+
+    <h2>Today</h2>
+    <div class="tiles" id="tiles">
+      <div class="tile"><span class="tile__k">Cards</span><span class="tile__v" id="tCards">—</span></div>
+      <div class="tile"><span class="tile__k">Issued</span><span class="tile__v" id="tIssued">—</span></div>
+      <div class="tile"><span class="tile__k">Spent</span><span class="tile__v" id="tSpent">—</span></div>
+      <div class="tile tile--owe"><span class="tile__k">Outstanding</span><span class="tile__v" id="tOwed">—</span></div>
+      <div class="tile"><span class="tile__k">Accounts</span><span class="tile__v" id="tAcc">—</span></div>
+    </div>
+    <p class="hint">Outstanding is what the shop still owes on gift cards. It is a liability, not income.</p>
+
+    <h2>Gift cards</h2>
+    <div class="card">
+      <form id="findCard" class="row">
+        <label for="findCode" class="sr">Gift card code</label>
+        <input id="findCode" name="code" placeholder="ZG-XXXX-XXXX-XXXX" spellcheck="false" autocomplete="off" required>
+        <button class="btn" type="submit">Look up</button>
+      </form>
+      <p class="msg" id="cardMsg" role="status" hidden></p>
+      <div id="cardOut"></div>
+    </div>
+
+    <details class="card">
+      <summary>Issue a card by hand</summary>
+      <p class="hint">For a card bought away from the shop, or as a goodwill gesture. It is a real card and real money.</p>
+      <form id="issueCard" class="row">
+        <label for="issueAmount" class="sr">Amount in francs</label>
+        <input id="issueAmount" name="amount" type="number" min="1" max="1000" step="0.05" placeholder="CHF" required>
+        <label for="issueNote" class="sr">Note</label>
+        <input id="issueNote" name="note" placeholder="Why (kept on the card)" maxlength="120">
+        <button class="btn" type="submit">Issue</button>
+      </form>
+      <p class="msg" id="issueMsg" role="status" hidden></p>
+    </details>
+
+    <details class="card">
+      <summary>All cards</summary>
+      <button class="btn btn--quiet" type="button" id="loadCards">Load</button>
+      <div id="cardsOut"></div>
+    </details>
+
+    <h2>Accounts</h2>
+    <div class="card">
+      <form id="findAcc" class="row">
+        <label for="findEmail" class="sr">Email address</label>
+        <input id="findEmail" name="email" type="email" placeholder="name@example.ch" spellcheck="false" autocomplete="off" required>
+        <button class="btn" type="submit">Look up</button>
+      </form>
+      <p class="msg" id="accMsg" role="status" hidden></p>
+      <div id="accOut"></div>
+    </div>
+
+    <h2>Stock</h2>
+    <div class="card">
+      <p class="hint">A number is how many bags may still be sold. Empty means no limit, which is how both sizes start — a shop that never touches this behaves as it always has. The checkout holds what it is about to sell, so two people cannot both take the last bag, and a payment that is never finished puts it back.</p>
+      <!-- novalidate: min/max/step stay as hints to the keyboard and the
+           spinner, but the server is the one that decides and its words are
+           what gets shown. Without this the browser silently blocks the
+           submit on a half bag and leaves the previous message standing. -->
+      <form id="stockForm" class="row row--fields" novalidate>
+        <span class="field">
+          <label for="stock200">200g</label>
+          <input id="stock200" data-sku="castano-200g" type="number" min="0" max="100000" step="1"
+                 inputmode="numeric" placeholder="no limit" autocomplete="off">
+        </span>
+        <span class="field">
+          <label for="stock500">500g</label>
+          <input id="stock500" data-sku="castano-500g" type="number" min="0" max="100000" step="1"
+                 inputmode="numeric" placeholder="no limit" autocomplete="off">
+        </span>
+        <button class="btn" type="submit">Save</button>
+      </form>
+      <p class="msg" id="stockMsg" role="status" hidden></p>
+    </div>
+
+    <h2>Backup</h2>
+    <div class="card">
+      <p class="hint">Every gift card ledger and every account, without password derivations. Take one before anything risky, and keep it somewhere other than Netlify — a balance lost is money you cannot prove.</p>
+      <button class="btn" type="button" id="exportBtn">Download backup</button>
+      <p class="msg" id="exportMsg" role="status" hidden></p>
+    </div>
+
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

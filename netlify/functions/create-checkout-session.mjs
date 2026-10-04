@@ -38,6 +38,7 @@ import Stripe from 'stripe';
 import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './fnf.mjs';
 import * as gift from './giftcard.mjs';
 import { sessionAccount, readCookie } from './auth.mjs';
+import * as stock from './stock.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -389,6 +390,7 @@ export async function build(stripe, body, origin, opts = {}) {
   let held = 0;
   let holdRef = null;
   let heldCard = null;
+  let stockRef = null;
   try {
     const ids = [...new Set(needed.map((s) => catalogue[s]))];
     const prices = await Promise.all(ids.map((id) => stripe.prices.retrieve(id)));
@@ -468,7 +470,37 @@ export async function build(stripe, body, origin, opts = {}) {
       coupon = made.id;
     }
 
+    /* The shelf, if a number is set for it. Held under the same reference as
+       the gift card so one webhook resolves both, and held AFTER the prices
+       are known so a cart that was never going to work does not reserve
+       anything. A size with no number set holds nothing. */
+    stockRef = holdRef || `pre_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    const shelf = await stock.holdCart(lines, stockRef);
+    if (!shelf.ok) {
+      stockRef = null;
+      /* holdCart already gave back the lines it had taken. What it knows
+         nothing about is the gift card held a few lines above, and leaving
+         that standing would freeze a customer's balance for a day over an
+         order that never happened. */
+      if (held > 0 && heldCard && holdRef) {
+        try {
+          await gift.release(heldCard, holdRef);
+        } catch (inner) {
+          console.error('checkout: could not release the gift card hold:', inner && inner.message);
+        }
+      }
+      return json(409, {
+        error: shelf.available > 0
+          ? `Only ${shelf.available} left of that one. Please lower the quantity.`
+          : 'That one just sold out.',
+        reason: 'out-of-stock',
+        sku: shelf.sku,
+        available: shelf.available,
+      });
+    }
+
     const params = sessionParams(lines, shippingBasis, origin, { fnfCode: fnf, coupon });
+    params.metadata.stock_ref = stockRef;
     if (accountId) params.metadata.account = accountId;
     /* One field the customer does not have to type again. It also ties the
        order to the address the account is under, rather than to whatever was
@@ -491,6 +523,13 @@ export async function build(stripe, body, origin, opts = {}) {
         await gift.release(heldCard, holdRef);
       } catch (inner) {
         console.error('checkout: could not release the gift card hold:', inner && inner.message);
+      }
+    }
+    if (stockRef) {
+      try {
+        await stock.releaseCart(lines, stockRef);
+      } catch (inner) {
+        console.error('checkout: could not release the stock hold:', inner && inner.message);
       }
     }
     console.error('checkout session failed:', e && e.message);

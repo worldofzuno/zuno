@@ -1,0 +1,137 @@
+/* The shop's palette, but a working surface rather than a shop window:
+   denser, plainer, and with no ambition beyond being read quickly. System
+   fonts on purpose — this page must not wait on a webfont to tell someone
+   what a balance is, and it is never seen by a customer. */
+
+:root {
+  --black: #000;
+  --panel: #0c0f0e;
+  --line: rgba(234, 228, 214, 0.14);
+  --line-strong: rgba(234, 228, 214, 0.28);
+  --ink: #eae4d6;
+  --ink-dim: rgba(234, 228, 214, 0.66);
+  --ink-faint: rgba(234, 228, 214, 0.45);
+  --gold: #f8d99b;
+  --on-gold: #16150e;
+  --warn: #f3b562;
+  --bad: #f08a7a;
+  --ok: #8fd6a9;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--black);
+  color: var(--ink);
+  font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.rail { max-width: 760px; margin: 0 auto; padding: 0 16px 72px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* ---------- bar ---------- */
+.bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: rgba(0, 0, 0, 0.94); z-index: 5;
+}
+.mark { font-weight: 600; letter-spacing: 0.24em; color: var(--gold); font-size: 0.78rem; }
+.where { color: var(--ink-faint); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.spacer { flex: 1 1 auto; }
+.mode {
+  font-family: var(--mono); font-size: 0.72rem; padding: 3px 9px; border-radius: 99px;
+  border: 1px solid var(--line-strong); color: var(--ink-dim);
+}
+.mode.is-live { border-color: var(--bad); color: var(--bad); }
+
+/* ---------- type ---------- */
+h1 { font-size: 1.7rem; margin: 36px 0 10px; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; margin: 40px 0 12px; letter-spacing: 0.02em; }
+.lede { color: var(--ink-dim); margin: 0 0 24px; max-width: 58ch; }
+.hint { color: var(--ink-faint); font-size: 0.85rem; margin: 10px 0 0; max-width: 60ch; }
+
+/* ---------- cards ---------- */
+.card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 18px;
+  background: var(--panel); margin-bottom: 14px;
+}
+.card > summary {
+  cursor: pointer; font-weight: 600; margin: -18px; padding: 18px;
+  list-style-position: inside;
+}
+.card[open] > summary { margin-bottom: 4px; }
+
+label { display: block; font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 7px; }
+
+input {
+  width: 100%; min-height: 44px; padding: 0 13px;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35); color: var(--ink);
+  font: inherit; outline: none;
+}
+input:focus { border-color: var(--gold); }
+input::placeholder { color: var(--ink-faint); }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+.row input { flex: 1 1 200px; width: auto; min-width: 0; }
+
+/* A row of labelled fields: each label sits over its own input, and the
+   button lines up with the inputs instead of stretching over the labels. */
+.row--fields { align-items: flex-end; }
+/* The labels would otherwise sit flush against the paragraph above them. */
+.hint + .row--fields { margin-top: 16px; }
+.row--fields .field { flex: 1 1 150px; min-width: 0; }
+.row--fields .field input { flex: none; width: 100%; }
+
+.btn {
+  min-height: 44px; padding: 0 18px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--gold); background: var(--gold); color: var(--on-gold);
+  font: inherit; font-weight: 600; white-space: nowrap;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: 0.5; cursor: default; filter: none; }
+.btn--quiet { background: transparent; color: var(--ink-dim); border-color: var(--line-strong); font-weight: 400; }
+.btn--quiet:hover { color: var(--ink); border-color: var(--ink-faint); }
+.btn--bad { background: transparent; border-color: var(--bad); color: var(--bad); }
+#gateForm .btn, #gateForm input { margin-top: 0; }
+#gateForm .btn { margin-top: 12px; }
+
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- messages ---------- */
+.msg { margin: 12px 0 0; font-size: 0.88rem; color: var(--ink-dim); }
+.msg.is-bad { color: var(--bad); }
+.msg.is-ok { color: var(--ok); }
+
+/* ---------- tiles ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.tile {
+  border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--panel);
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.tile__k { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+.tile__v { font-family: var(--mono); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.tile--owe { border-color: rgba(243, 181, 98, 0.45); }
+.tile--owe .tile__v { color: var(--warn); }
+
+/* ---------- records ---------- */
+.rec { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.rec dl { display: grid; grid-template-columns: minmax(0, 11ch) minmax(0, 1fr); gap: 5px 14px; margin: 0; }
+.rec dt { color: var(--ink-faint); font-size: 0.82rem; }
+.rec dd { margin: 0; font-family: var(--mono); font-size: 0.85rem; word-break: break-word; min-width: 0; }
+.rec .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.tag { font-family: var(--mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line-strong); color: var(--ink-dim); }
+.tag.is-void { border-color: var(--bad); color: var(--bad); }
+
+.list { margin-top: 12px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--ink-faint); font-weight: 500; font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; }
+td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td.num { text-align: right; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

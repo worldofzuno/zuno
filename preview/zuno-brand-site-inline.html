@@ -368,6 +368,12 @@ button, input, textarea, select { font-family: inherit; }
     color var(--press) var(--ease-premium);
 }
 .btn:active { transform: scale(0.97); }
+/* A button that cannot be pressed should not look pressable. The page has
+   had disabled buttons since the gift card field; until now they kept full
+   gold and a hover lift, which reads as a page that has stopped working
+   rather than a control that is off. Same 0.5 the back office uses. */
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn:disabled:hover, .btn:disabled:active { transform: none; }
 .btn--primary { background: var(--gold); color: var(--on-gold); }
 .btn--outline { border-color: rgba(248, 217, 155, 0.4); color: var(--gold); background: transparent; }
 @media (hover: hover) and (pointer: fine) {
@@ -906,7 +912,13 @@ html:not(.js) .page:target { display: block; }
   #grindLabel { grid-column: 2; grid-row: 2; }
   #grindRow   { grid-column: 2; grid-row: 3; }
   .buy .add-row { grid-column: 1 / -1; grid-row: 4; }
-  .buy .note    { grid-column: 1 / -1; grid-row: 5; }
+  /* Two notes now, so each gets its own row rather than both landing on
+     row 5 and overlapping. The stock note is hidden until there is a number
+     to report, and a hidden grid item takes no row and no height — so with
+     no stock set this renders exactly as it did with one note. */
+  .buy .note { grid-column: 1 / -1; }
+  #stockNote { grid-row: 5; }
+  #shipNote  { grid-row: 6; }
   #sizeRow, #grindRow { flex-direction: column; gap: 10px; }
   #sizeRow .option, #grindRow .option { width: 100%; }
   /* The labels sit over a full-width column of tiles, so they centre on
@@ -1165,7 +1177,8 @@ html:not(.js) .page:target { display: block; }
           </button>
         </p>
 
-        <p class="note">Free shipping on orders of CHF 45 or more. Delivery within Switzerland &amp; Liechtenstein, 1&ndash;3 business days.</p>
+        <p class="note" id="stockNote" role="status" hidden></p>
+        <p class="note" id="shipNote">Free shipping on orders of CHF 45 or more. Delivery within Switzerland &amp; Liechtenstein, 1&ndash;3 business days.</p>
     </div>
   </div>
 </section>
@@ -1825,6 +1838,7 @@ html:not(.js) .page:target { display: block; }
     size = b.dataset.size;
     price = parseFloat(b.dataset.price);
     priceEl.textContent = 'CHF ' + price.toFixed(2);
+    paintStock();
   });
   group(document.getElementById('grindRow'), function (b) { grind = b.dataset.grind; });
 
@@ -1851,6 +1865,93 @@ html:not(.js) .page:target { display: block; }
      line before anyone has talked to Stripe. */
   var GIFT_AMOUNTS = { 'gift-25': 2500, 'gift-50': 5000, 'gift-100': 10000 };
   var GIFT_MIN = 1500, GIFT_MAX = 20000;
+
+  /* What the shop says is left, per size. Null means no limit is set, which
+     is what every size reports until someone sets a number — so a shop that
+     never touches stock behaves exactly as it did before. Only a courtesy:
+     the checkout holds and checks the shelf itself, so a stale number here
+     costs a clear message at the till rather than an oversold bag. */
+  var stockLeft = { 'castano-200g': null, 'castano-500g': null };
+
+  function leftFor(size) {
+    var n = stockLeft[SKU[size]];
+    return typeof n === 'number' ? n : null;
+  }
+
+  function inCart(size) {
+    return cart.reduce(function (t, i) {
+      return t + (isCoffee(i) && i.size === size ? i.qty : 0);
+    }, 0);
+  }
+
+  /** How many more of this size may be added right now. */
+  function canAdd(size) {
+    var n = leftFor(size);
+    if (n === null) return Infinity;
+    return Math.max(0, n - inCart(size));
+  }
+
+  /* Below this, the number is worth saying out loud. Above it, a count on a
+     coffee page is noise dressed up as urgency. */
+  var LOW = 5;
+  var stockNote = document.getElementById('stockNote');
+  var addBtn = document.getElementById('addBtn');
+
+  /* The size tiles and the Add button, told what the shelf says. A size with
+     no number set is left exactly as it was, which is every size until
+     someone sets one. */
+  function paintStock() {
+    document.querySelectorAll('#sizeRow .option').forEach(function (b) {
+      var out = leftFor(b.dataset.size) === 0;
+      /* aria-disabled, not disabled: the tile stays in the tab order and can
+         still be chosen, so choosing it is what explains itself. A tile that
+         vanished from the keyboard would be a size that silently stopped
+         existing. */
+      if (out) {
+        b.setAttribute('aria-disabled', 'true');
+        /* The visible label stays "200g". The accessible name carries the
+           rest, because a tile that cannot be bought should say so when it
+           is read out. */
+        b.setAttribute('aria-label', b.dataset.size + ', sold out');
+      } else {
+        b.removeAttribute('aria-disabled');
+        b.removeAttribute('aria-label');
+      }
+    });
+
+    var room = canAdd(size);
+    addBtn.disabled = room === 0;
+    /* Nothing to be had is worth more than a footnote, so it borrows the
+       warn style the cart already uses — full-strength text with the gold
+       rule. A low count stays faint: it is information, not a problem. */
+    stockNote.classList.toggle('note--warn', room === 0);
+    if (leftFor(size) === 0) {
+      say(stockNote, size + ' is sold out just now.');
+    } else if (room === 0) {
+      say(stockNote, 'Your cart already holds every ' + size + ' bag we have left.');
+    } else if (room !== Infinity && room <= LOW) {
+      say(stockNote, room === 1
+        ? 'Only one ' + size + ' bag left.'
+        : 'Only ' + room + ' ' + size + ' bags left.');
+    } else {
+      say(stockNote, '');
+    }
+  }
+
+  /* Ask what is on the shelf. Failure is silence: no limit is the state the
+     page is already in, and the checkout is the one that decides anyway. */
+  function loadStock() {
+    window.fetch('/.netlify/functions/stock-levels', { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (b) {
+        if (!b || typeof b !== 'object') return;
+        Object.keys(stockLeft).forEach(function (sku) {
+          var n = b[sku];
+          stockLeft[sku] = typeof n === 'number' && isFinite(n) && n >= 0 ? Math.trunc(n) : null;
+        });
+        syncCart(false);
+      })['catch'](function () { /* unlimited, as before */ });
+  }
 
   function isCoffee(i) { return i.kind !== 'gift'; }
   function skuOf(i) { return i.kind === 'gift' ? i.sku : SKU[i.size]; }
@@ -1974,13 +2075,17 @@ html:not(.js) .page:target { display: block; }
 
   function renderLines() {
     linesEl.innerHTML = cart.map(function (i, idx) {
+      /* aria-disabled rather than disabled, so the button keeps its place in
+         the tab order and pressing it can say why nothing happened. */
+      var capped = isCoffee(i) && canAdd(i.size) <= 0;
       return '<div class="line" data-idx="' + idx + '"><div class="line__in">' +
         '<div class="line__info"><p class="line__name">' + nameOf(i) + '</p>' +
         '<p class="line__meta">' + chf(unit(i)) + ' each</p>' +
         '<button class="remove" type="button" data-remove="' + idx + '">Remove</button></div>' +
         '<span class="qty"><button type="button" data-dec="' + idx + '" aria-label="Decrease quantity">&minus;</button>' +
         '<span>' + i.qty + '</span>' +
-        '<button type="button" data-inc="' + idx + '" aria-label="Increase quantity">+</button></span>' +
+        '<button type="button" data-inc="' + idx + '"' + (capped ? ' aria-disabled="true"' : '') +
+          ' aria-label="Increase quantity">+</button></span>' +
         '<span class="line__price">' + chf(i.qty * unit(i)) + '</span>' +
       '</div></div>';
     }).join('');
@@ -1994,6 +2099,20 @@ html:not(.js) .page:target { display: block; }
     var coffeeReg = cart.filter(isCoffee).reduce(function (t, i) { return t + i.qty * i.price; }, 0);
     var sh = ship(coffeeReg);
     var paid = giftApplied();
+
+    /* A cart that holds more than the shelf does. It happens: the cart
+       survives a reload and the shelf can move while it sits there. Said
+       rather than enforced — this number can be stale, and refusing a sale
+       over a figure we are not sure of is the worse of the two mistakes.
+       The checkout holds the real stock and gives the real answer. */
+    var short = null;
+    Object.keys(SKU).forEach(function (s) {
+      var n = leftFor(s);
+      if (short !== null || n === null || inCart(s) <= n) return;
+      short = n === 0
+        ? 'The ' + s + ' bags just sold out.'
+        : 'Only ' + n + ' left of the ' + s + ' bags — please lower the quantity.';
+    });
 
     summaryEl.innerHTML =
       '<div class="row"><span>Subtotal</span><span>' + chf(reg) + '</span></div>' +
@@ -2010,6 +2129,7 @@ html:not(.js) .page:target { display: block; }
         : (giftCard && paid < giftCard.balance / 100
           ? '<div class="row hint"><span></span><span>' + chf(giftCard.balance / 100 - paid) + ' stays on the card</span></div>'
           : '')) +
+      (short ? '<div class="row hint"><span></span><span>' + short + '</span></div>' : '') +
       '<div class="row total"><span>Total</span><span>' + chf(s + sh - paid) + '</span></div>';
 
     var totalEl = summaryEl.querySelector('.row.total span:last-child');
@@ -2036,6 +2156,9 @@ html:not(.js) .page:target { display: block; }
     persistCart();
     paintBadge();
     renderLines();
+    /* What is in the cart decides how much is still addable, so the tiles
+       are repainted whenever the cart moves. */
+    paintStock();
     var isEmpty = cart.length === 0;
     if (animate) { swapState(isEmpty); }
     else { filledEl.hidden = isEmpty; emptyEl.hidden = !isEmpty; }
@@ -2043,7 +2166,11 @@ html:not(.js) .page:target { display: block; }
 
   var addSwap = document.getElementById('addSwap');
   var addTimer;
-  document.getElementById('addBtn').addEventListener('click', function () {
+  addBtn.addEventListener('click', function () {
+    /* The button is disabled when there is no room, which covers the mouse.
+       This covers a stale click and a stock number that arrived a moment
+       ago, and it is the server that refuses for real. */
+    if (canAdd(size) <= 0) { paintStock(); return; }
     var found = null;
     cart.forEach(function (i) { if (i.size === size && i.grind === grind) found = i; });
     if (found) { found.qty += 1; } else { cart.push({ size: size, grind: grind, price: price, qty: 1 }); }
@@ -2113,7 +2240,16 @@ html:not(.js) .page:target { display: block; }
     if (!t) return;
 
     if (t.hasAttribute('data-inc')) {
-      cart[+t.getAttribute('data-inc')].qty += 1;
+      var line = cart[+t.getAttribute('data-inc')];
+      if (isCoffee(line) && canAdd(line.size) <= 0) {
+        /* Nothing left to add. The size tiles say so too, but nobody looking
+           at the cart can see them from here. */
+        say(checkoutNote, leftFor(line.size) === 0
+          ? 'The ' + line.size + ' bags are sold out just now.'
+          : 'That is every ' + line.size + ' bag we have left.');
+        return;
+      }
+      line.qty += 1;
       syncCart(false);
       return;
     }
@@ -2144,7 +2280,13 @@ html:not(.js) .page:target { display: block; }
   };
 
   function showStep(name) {
+    var changed = steps[name] && steps[name].hidden;
     order.forEach(function (s) { steps[s].hidden = s !== name; });
+    /* The confirmation replaces the cart in place, with no navigation. A
+       reader that is not moved there is still reading the basket. */
+    if (changed && name === 'done') {
+      focusPage(document.querySelector('#stepDone .step-title'));
+    }
     var cur = order.indexOf(name);
     document.querySelectorAll('#steps li').forEach(function (li) {
       var i = { cart: 0, pay: 0.5, done: 1 }[li.getAttribute('data-step')];
@@ -2282,6 +2424,13 @@ html:not(.js) .page:target { display: block; }
              else stays a generic failure, because the customer can act on the
              first and not on the second. */
           if (r.status === 400 && b.reason) { err.reason = b.reason; err.shown = b.error; }
+          /* The shelf, as the server sees it — which is the only version that
+             counts. It comes with the figure, so the cart can be redrawn
+             truthfully instead of offering the same thing again. */
+          if (r.status === 409 && b.reason === 'out-of-stock') {
+            err.stock = { sku: b.sku, available: typeof b.available === 'number' ? b.available : 0 };
+            err.shown = b.error;
+          }
           throw err;
         }
         return b.url;
@@ -2291,6 +2440,14 @@ html:not(.js) .page:target { display: block; }
     }).catch(function (e) {
       checkoutBtn.disabled = false;
       checkoutBtn.textContent = label;
+      if (e && e.stock) {
+        if (Object.prototype.hasOwnProperty.call(stockLeft, e.stock.sku)) {
+          stockLeft[e.stock.sku] = e.stock.available;
+        }
+        syncCart(false);
+        say(checkoutError, e.shown || 'That one just sold out.');
+        return;
+      }
       if (e && e.reason) {
         /* A code went stale between applying it and paying. Drop both so the
            cart shows what will actually be charged, rather than leaving the
@@ -2446,9 +2603,16 @@ html:not(.js) .page:target { display: block; }
   }
 
   function adopt(b) {
+    var was = !!user;
     user = b.signedIn ? b.account : null;
     orders = b.signedIn ? (b.orders || []) : [];
     renderAccount();
+    /* Signing in swaps the whole panel without navigating. Only on a real
+       change, so the check on page load does not steal focus from someone
+       who is already reading. */
+    if (was !== !!user) {
+      focusPage(document.querySelector(user ? '.member__name' : '#loginForm h2'));
+    }
   }
 
   /* Asked once, the first time the account page is opened — not on every
@@ -2664,13 +2828,30 @@ html:not(.js) .page:target { display: block; }
     footer.style.display = '';
 
     if (isPage) {
-      if (h === 'cart') { syncCart(false); showStep('cart'); }
+      /* Asked again here: the cart is the last place a stale count costs
+         anything, and this is the moment just before it matters. */
+      if (h === 'cart') { syncCart(false); loadStock(); showStep('cart'); }
       if (h === 'account') { loadAccount(); renderAccount(); }
       window.scrollTo(0, 0);
+      /* Scrolling moves the page, not the reader. Without this, someone on a
+         keyboard or a screen reader stays wherever they were — usually in the
+         menu they just left — and is never told the page changed. Moving
+         focus to the new heading says it, and puts Tab back at the top. */
+      focusPage(document.querySelector('#page-' + h + ' .page__title'));
     } else if (h) {
       var t = document.getElementById(h);
       if (t) t.scrollIntoView();
     }
+  }
+
+  /* -1 so it takes focus from script but never from Tab, and the outline is
+     suppressed only here: an outline around a heading nobody clicked reads as
+     a bug, while the announcement is the point. */
+  function focusPage(el) {
+    if (!el) return;
+    el.setAttribute('tabindex', '-1');
+    el.style.outline = 'none';
+    try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
   }
   window.addEventListener('hashchange', route);
 
@@ -2691,6 +2872,7 @@ html:not(.js) .page:target { display: block; }
      otherwise overwrite the stored one on every load. */
   restoreCart();
   syncCart(false);
+  loadStock();
   route();
 })();
 </script>
