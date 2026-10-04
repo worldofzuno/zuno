@@ -258,7 +258,11 @@ netlify/functions/giftcard.mjs          the gift card ledger: hold, settle, rele
 netlify/functions/mailer.mjs            send, through whichever provider has a key
 ```
 
-Each has a `.test.mjs` beside it.
+Each has a `.test.mjs` under `tests/functions/`. They live outside the
+functions directory on purpose: Netlify treats every file in there as a
+function to deploy, and a name like `account.test` contains a character a
+function name may not have — which failed the whole deploy, not just that
+one file.
 
 Changed:
 

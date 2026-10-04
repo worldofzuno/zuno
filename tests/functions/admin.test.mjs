@@ -1,7 +1,7 @@
 /**
  * Checks on the back office, run with:
  *
- *     node --test netlify/functions/admin.test.mjs
+ *     node --test tests/functions/admin.test.mjs
  *
  * This endpoint can read every balance, delete any account and hand out
  * money. So the tests are mostly about the door: a wrong key opens nothing,
@@ -15,11 +15,11 @@ import test from 'node:test';
 const TOKEN = 'a-long-enough-admin-key-0123456789';
 process.env.ADMIN_TOKEN = TOKEN;
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const { resetLimiter } = await import('./fnf.mjs');
-const gc = await import('./giftcard.mjs');
-const auth = await import('./auth.mjs');
-const mod = await import('./admin.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
+const { resetLimiter } = await import('../../netlify/functions/fnf.mjs');
+const gc = await import('../../netlify/functions/giftcard.mjs');
+const auth = await import('../../netlify/functions/auth.mjs');
+const mod = await import('../../netlify/functions/admin.mjs');
 const handler = mod.default;
 
 const post = (body, { cookie, ip = '1.2.3.4' } = {}) =>

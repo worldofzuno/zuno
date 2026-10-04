@@ -1,7 +1,7 @@
 /**
  * Checks on gift cards, run with:
  *
- *     node --test netlify/functions/giftcard.test.mjs
+ *     node --test tests/functions/giftcard.test.mjs
  *
  * A gift card is money, so the tests are about the ways money goes wrong: the
  * same balance spent twice, a balance frozen by a hold nobody released, a
@@ -12,8 +12,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const gc = await import('./giftcard.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
+const gc = await import('../../netlify/functions/giftcard.mjs');
 
 const quiet = async (fn) => {
   const real = console.error;

@@ -1,7 +1,7 @@
 /**
  * Checks on accounts, run with:
  *
- *     node --test netlify/functions/auth.test.mjs
+ *     node --test tests/functions/auth.test.mjs
  *
  * This is the only part of the shop holding a secret that belongs to someone
  * else, and the one where a mistake costs more than a bag of coffee. So the
@@ -14,8 +14,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const auth = await import('./auth.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
+const auth = await import('../../netlify/functions/auth.mjs');
 
 const PW = 'a decent long passphrase';
 

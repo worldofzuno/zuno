@@ -83,6 +83,6 @@ export carries each size's record with its holds and its settled sales.
 | `stripe-webhook.mjs` | settles on paid, releases on expired or failed |
 | `admin.mjs` | `stock-set`, plus stock in the summary and the export |
 
-Twenty-five tests cover the ledger (`stock.test.mjs`), among them five
+Twenty-five tests cover the ledger (`tests/functions/stock.test.mjs`), among them five
 checkouts racing for three bags, a hold nobody ever resolved, a replayed
 webhook, and a payment that lands after its hold expired.

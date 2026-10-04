@@ -1,7 +1,7 @@
 /**
  * Checks on the checkout session builder, run with:
  *
- *     node --test netlify/functions/create-checkout-session.test.mjs
+ *     node --test tests/functions/create-checkout-session.test.mjs
  *
  * The point of these is narrow: the amount charged must come from the Stripe
  * catalogue and from nowhere else, and the promotion-code field must be
@@ -23,10 +23,10 @@ process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
 process.env.FNF_CODES = JSON.stringify([{ code: 'FAMILY26' }]);
 
 const { parseCart, parseCode, parseGift, subtotalRappen, physicalSubtotal, hasPhysical,
-  shippingOption, sessionParams, build } = await import('./create-checkout-session.mjs');
-const { FNF_CATALOGUE } = await import('./fnf.mjs');
-const { useMemoryStore } = await import('./store.mjs');
-const gc = await import('./giftcard.mjs');
+  shippingOption, sessionParams, build } = await import('../../netlify/functions/create-checkout-session.mjs');
+const { FNF_CATALOGUE } = await import('../../netlify/functions/fnf.mjs');
+const { useMemoryStore } = await import('../../netlify/functions/store.mjs');
+const gc = await import('../../netlify/functions/giftcard.mjs');
 
 const PRICES = {
   price_test_200: { id: 'price_test_200', unit_amount: 1490, currency: 'chf' },
@@ -511,7 +511,7 @@ test('a cart with no gift card touches no balance and mints no coupon', async ()
 
 test('an order placed while signed in is tagged with the account', async () => {
   useMemoryStore();
-  const auth = await import('./auth.mjs');
+  const auth = await import('../../netlify/functions/auth.mjs');
   const made = await auth.createAccount({
     name: 'A Kundin', email: 'kundin@example.ch', password: 'a decent long passphrase',
   });
@@ -537,7 +537,7 @@ test('a guest order belongs to nobody', async () => {
 
 test('an account cannot be named by the client', async () => {
   useMemoryStore();
-  const auth = await import('./auth.mjs');
+  const auth = await import('../../netlify/functions/auth.mjs');
   const victim = await auth.createAccount({
     name: 'B', email: 'b@example.ch', password: 'a decent long passphrase',
   });
@@ -554,7 +554,7 @@ test('an account cannot be named by the client', async () => {
 
 test('a signed-in customer does not retype their email', async () => {
   useMemoryStore();
-  const auth = await import('./auth.mjs');
+  const auth = await import('../../netlify/functions/auth.mjs');
   const made = await auth.createAccount({
     name: 'A Kundin', email: 'kundin@example.ch', password: 'a decent long passphrase',
   });

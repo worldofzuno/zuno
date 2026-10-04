@@ -13,8 +13,8 @@ import test from 'node:test';
 
 process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
 
-const { stateOf, publicView } = await import('./checkout-status.mjs');
-const handler = (await import('./checkout-status.mjs')).default;
+const { stateOf, publicView } = await import('../../netlify/functions/checkout-status.mjs');
+const handler = (await import('../../netlify/functions/checkout-status.mjs')).default;
 
 const get = (qs) =>
   handler(new Request('https://worldofzuno.com/.netlify/functions/checkout-status' + qs));

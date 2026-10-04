@@ -1,7 +1,7 @@
 /**
  * Checks on the store, run with:
  *
- *     node --test netlify/functions/store.test.mjs
+ *     node --test tests/functions/store.test.mjs
  *
  * The point of these is one thing: a conditional write must actually be
  * conditional. Everything a balance depends on rests on `update` refusing a
@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, mutate } = await import('./store.mjs');
+const { useMemoryStore, mutate } = await import('../../netlify/functions/store.mjs');
 
 test('a key that was never written reads as nothing', async () => {
   const s = useMemoryStore();

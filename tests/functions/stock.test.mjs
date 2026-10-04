@@ -1,7 +1,7 @@
 /**
  * Checks on the stock count, run with:
  *
- *     node --test netlify/functions/stock.test.mjs
+ *     node --test tests/functions/stock.test.mjs
  *
  * Two things matter. A shop that never sets a number must behave exactly as
  * it did before this existed — an inventory nobody maintains is not a
@@ -13,8 +13,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const st = await import('./stock.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
+const st = await import('../../netlify/functions/stock.mjs');
 
 const quiet = async (fn) => {
   const real = console.error;

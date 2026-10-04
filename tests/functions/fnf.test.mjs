@@ -1,7 +1,7 @@
 /**
  * Checks on the Family & Friends code module, run with:
  *
- *     node --test netlify/functions/fnf.test.mjs
+ *     node --test tests/functions/fnf.test.mjs
  *
  * Two things matter here. A code that was not configured must never match —
  * a malformed variable has to close the door, not open it. And an expired or
@@ -15,7 +15,7 @@ import test from 'node:test';
 const {
   parseCodes, normalise, sameCode, matchCode, allow, resetLimiter, exhausted,
   fnfConfigured, FNF_CATALOGUE,
-} = await import('./fnf.mjs');
+} = await import('../../netlify/functions/fnf.mjs');
 
 const quiet = (fn) => {
   const real = console.error;
