@@ -133,5 +133,8 @@ th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--lin
 th { color: var(--ink-faint); font-weight: 500; font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; }
 td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 td.num { text-align: right; }
+/* A spend from before the order number was recorded: the hold reference is
+   all there is, and it should not read like an order number. */
+td.dim { color: var(--ink-faint); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

@@ -184,6 +184,27 @@ test('settling turns a hold into a spend', async () => {
   assert.equal(gc.available(after), 3000, 'the rest is still there to spend');
 });
 
+test('a spend says which order took the money', async () => {
+  const c = await card(5000);
+  await gc.hold(c.code, 'pre_abc', 2000);
+  await gc.settle(c.code, 'pre_abc', 0, Date.now(), 'cs_test_12345');
+
+  const after = await gc.load(c.code);
+  assert.equal(after.spends['pre_abc'].order, 'cs_test_12345',
+    'the ledger is keyed by the hold reference, which answers nothing on its own');
+  assert.equal(after.spends['pre_abc'].amount, 2000);
+});
+
+test('a spend with no order given is still a spend', async () => {
+  const c = await card(5000);
+  await gc.hold(c.code, 'pre_abc', 2000);
+  await gc.settle(c.code, 'pre_abc');
+
+  const spend = (await gc.load(c.code)).spends['pre_abc'];
+  assert.equal(spend.amount, 2000);
+  assert.equal('order' in spend, false, 'absent, not an empty string pretending to be one');
+});
+
 test('a replayed webhook settles once', async () => {
   const c = await card(5000);
   await gc.hold(c.code, 'cs_1', 2000);

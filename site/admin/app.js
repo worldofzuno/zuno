@@ -181,11 +181,17 @@ function renderCard(card, host) {
     var list = el('div', 'list');
     var t = el('table');
     var head = el('tr');
-    ['Spent on', 'Amount', 'When'].forEach(function (h) { head.append(el('th', null, h)); });
+    ['Order', 'Amount', 'When'].forEach(function (h) { head.append(el('th', null, h)); });
     t.append(head);
     card.spends.forEach(function (s) {
       var tr = el('tr');
-      tr.append(el('td', null, String(s.session).slice(-10)));
+      /* The order, in the same short form the account history uses, so the
+         two can be read against each other. Older entries carry only the
+         hold reference they were keyed by; those still say something, just
+         less. */
+      tr.append(s.order
+        ? el('td', null, String(s.order).slice(-8).toUpperCase())
+        : el('td', 'dim', String(s.session).slice(-10)));
       tr.append(el('td', 'num', chf(s.amount)));
       tr.append(el('td', null, new Date(s.at).toISOString().slice(0, 16).replace('T', ' ')));
       t.append(tr);

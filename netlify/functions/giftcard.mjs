@@ -235,7 +235,15 @@ export async function hold(code, sessionId, wanted, now = Date.now()) {
  * before a slow payment landed, the money was still taken, and a ledger that
  * quietly forgets that is worse than one that shows an overdraft.
  */
-export async function settle(code, sessionId, fallbackAmount = 0, now = Date.now()) {
+/**
+ * `order` is the Stripe session the money went to, kept beside the amount.
+ * The ledger is keyed by the hold reference, which is what the checkout and
+ * the webhook both know — but a customer asking where their CHF 25 went is
+ * asking about an order, and nobody should have to look a reference up in
+ * someone else's metadata to answer that. Optional: a card settled without
+ * one still settles, it just reads as the reference it was keyed by.
+ */
+export async function settle(code, sessionId, fallbackAmount = 0, now = Date.now(), order = null) {
   let outcome = 'none';
   let amount = 0;
 
@@ -266,7 +274,9 @@ export async function settle(code, sessionId, fallbackAmount = 0, now = Date.now
     }
     const holds = { ...(card.holds || {}) };
     delete holds[sessionId];
-    return { ...card, holds, spends: { ...(card.spends || {}), [sessionId]: { amount, at: now } } };
+    const spend = { amount, at: now };
+    if (typeof order === 'string' && order) spend.order = order;
+    return { ...card, holds, spends: { ...(card.spends || {}), [sessionId]: spend } };
   });
 
   return { outcome, amount };

@@ -30,7 +30,10 @@ page carries a `noindex` meta, and `_headers` sends `X-Robots-Tag` for
 
 **Look a gift card up** by code, however it was typed. You see the balance,
 what was issued, what was spent, what is held by a checkout in flight, who
-bought it, and every spend with its date.
+bought it, and every spend with its date and the order it went to. Spends
+from before that was recorded show the internal hold reference instead,
+greyed out — the order is still findable, by that reference in the Stripe
+session's metadata.
 
 **Void a card** whose code leaked or was issued by mistake. The balance drops
 to zero and the card cannot be spent, but nothing is deleted — the history
