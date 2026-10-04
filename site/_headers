@@ -2,7 +2,7 @@
 # Regenerate after any change to the inline <script> or <style> in index.html.
 
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self'; font-src 'self'; style-src 'self' 'sha256-ySBVdBreX4kMmF45S/PRPPCEiTkP5lyUFve7IqYjFsw='; script-src 'self' 'sha256-/x7W7R75k8Roq0WaVRQX9blP4OufE5xbAdzklGxsgpw=' 'sha256-D6DpC5dStnbF0RGXYoZJ/JWlA5pFxQQ+tCgRYdWrgsI=' 'sha256-ZPwED4yhKEKUZKYvXsgFzcilejZ9V0yZdQGvgotA090='; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self'; font-src 'self'; style-src 'self' 'sha256-e/oyLHE1VmV3AhDazuy1wQ1hFgHOXIloqfAT0ku2OQE='; script-src 'self' 'sha256-/x7W7R75k8Roq0WaVRQX9blP4OufE5xbAdzklGxsgpw=' 'sha256-pdFrTwV9++hJfmDmPs9dX9p8UDWXMyYnqwRIQy2WMq8=' 'sha256-ZPwED4yhKEKUZKYvXsgFzcilejZ9V0yZdQGvgotA090='; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
@@ -17,6 +17,14 @@
 
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Not immutable, because these filenames carry no version: a photo replaced
+# under the same name has to be able to reach people. A day fresh, then a
+# week in which the old one is shown once while the new one is fetched —
+# so a returning visitor pays nothing for 230 KB of pictures, and a changed
+# picture is never more than a visit behind.
+/img/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 
 # The library filenames carry their version, so a new one is a new URL.
 /js/*

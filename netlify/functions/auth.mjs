@@ -284,6 +284,97 @@ export async function endAllSessions(accountId, exceptToken = null) {
   return ended;
 }
 
+/* ------------------------------------------------------- forgotten password --- */
+
+/**
+ * A password reset is a second way into an account, which makes it a second
+ * way in for everyone else too. The rules that keep it narrow:
+ *
+ *   - the token is 32 random bytes and only its hash is stored, like a
+ *     session, so reading the store yields nothing usable
+ *   - one hour, then it is dead whether or not anyone used it
+ *   - one use: it is removed as it is spent, so a link forwarded, logged by
+ *     a mail gateway or sitting in a browser history opens nothing twice
+ *   - spending it ends every session the account had, because the honest
+ *     reason to reset a password is that someone else may know the old one
+ *
+ * What it deliberately does NOT do is say whether an address has an account.
+ * That answer belongs to nobody but the owner of the mailbox.
+ */
+const RESET_TTL_MS = 60 * 60 * 1000;
+const resetKey = (token) => 'reset/' + createHash('sha256').update(token).digest('hex');
+
+/** Mints a reset token for an address, or returns null if there is no
+    account. The caller answers the same either way. */
+export async function startReset(email, now = Date.now()) {
+  const account = await findAccount(email);
+  if (!account) return null;
+
+  const token = randomBytes(32).toString('base64url');
+  const s = await store();
+  await s.create(resetKey(token), {
+    accountId: account.id,
+    email: account.email,
+    createdAt: new Date(now).toISOString(),
+    expiresAt: now + RESET_TTL_MS,
+  });
+  return { token, account };
+}
+
+/** What a token stands for, or null. An expired one is cleared as it is
+    found rather than left to rot in the store. */
+export async function resetTarget(token, now = Date.now()) {
+  if (typeof token !== 'string' || token.length < 20 || token.length > 200) return null;
+  const s = await store();
+  const key = resetKey(token);
+  const { value } = await s.read(key);
+  if (!value) return null;
+  if (!value.expiresAt || value.expiresAt < now) {
+    await s.remove(key);
+    return null;
+  }
+  return value;
+}
+
+/**
+ * Spends a token and sets the new password.
+ *
+ * The token is removed BEFORE the password is written. If the write then
+ * fails the customer asks for a new link, which is a small annoyance; the
+ * other order would leave a spent link alive after a crash, which is a way
+ * in. Annoyance over a way in, every time.
+ */
+export async function finishReset(token, next, now = Date.now()) {
+  const target = await resetTarget(token, now);
+  if (!target) return { ok: false, reason: 'unknown' };
+
+  const problem = passwordProblem(next, target.email);
+  if (problem) return { ok: false, reason: 'password', message: problem };
+
+  const s = await store();
+  await s.remove(resetKey(token));
+
+  const password = await hashPassword(next);
+  await mutate(keyForEmail(target.email), (a) => (a ? { ...a, password, failures: 0, lockedUntil: 0 } : null));
+  /* Every session goes, including any the intruder may be holding. The
+     owner signs in again with the password they just chose. */
+  const ended = await endAllSessions(target.accountId);
+  return { ok: true, email: target.email, accountId: target.accountId, otherSessionsEnded: ended };
+}
+
+/** Housekeeping: a link nobody followed should not sit in the store for
+    ever. Called when a new one is minted, so the cost is paid by the person
+    asking rather than by a timer. */
+export async function sweepResets(now = Date.now()) {
+  const s = await store();
+  let gone = 0;
+  for (const key of await s.list('reset/')) {
+    const { value } = await s.read(key);
+    if (!value || !value.expiresAt || value.expiresAt < now) { await s.remove(key); gone++; }
+  }
+  return gone;
+}
+
 /* --------------------------------------------------- changing and leaving --- */
 
 /**

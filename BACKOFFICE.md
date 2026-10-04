@@ -68,6 +68,32 @@ settled sales. Take one before anything risky, and **keep it somewhere
 other than Netlify** — a backup in the same place as the thing it backs up is
 not a backup.
 
+### The weekly one, which needs nobody
+
+A button only helps in the week somebody presses it. `backup.mjs` runs
+itself every Monday at 04:17 UTC and mails the same file to `MAIL_TO`, with
+the figures that matter in the body — how many cards, how much is still
+owed, how many accounts — so you can see whether anything moved without
+opening the attachment.
+
+It is the same file the button hands over: both call one function, because
+two definitions of a money record is one too many.
+
+Two guards, because a scheduled function still answers an HTTP request:
+
+- with the admin token (header `x-admin-token`, or `?token=`), it runs on
+  demand — that is how it gets tested
+- without one, at most one backup every six hours, so a stranger who finds
+  the URL costs the inbox one mail a quarter-day and nothing else
+
+The data never comes back in the response. The mailbox is the only way to
+it. And if the mail cannot be sent, the function says so rather than
+reporting a backup that does not exist.
+
+**It sends the ledger by email.** That is the point — a copy that leaves
+Netlify — and it is also worth knowing: the money record is in the inbox,
+so the inbox deserves the same care as the back office key.
+
 ### Putting one back
 
 There is no restore button, on purpose: an accidental restore would overwrite

@@ -18,7 +18,7 @@ import {
   createAccount, findAccount, passwordMatches, burnTime, lockedOut,
   noteFailure, noteSuccess, startSession, sessionAccount, endSession,
   publicAccount, readCookie, setCookie, clearCookie, looksLikeEmail, normaliseEmail,
-  changePassword, deleteAccount,
+  changePassword, deleteAccount, startReset, finishReset, sweepResets,
 } from './auth.mjs';
 import { allow } from './fnf.mjs';
 import { send } from './mailer.mjs';
@@ -67,6 +67,8 @@ export default async function handler(req) {
     if (action === 'login') return await signIn(body);
     if (action === 'password') return await changeOwnPassword(token, body);
     if (action === 'delete') return await deleteOwnAccount(token, body);
+    if (action === 'forgot') return await askForReset(body, origin(req));
+    if (action === 'reset') return await useReset(body);
   } catch (e) {
     /* Never the message: it may name the store, the key, or the address. */
     console.error('account failed:', e && e.message);
@@ -235,4 +237,88 @@ async function signIn(body) {
     account: publicAccount(account),
     orders: account.orders || [],
   }, setCookie(token));
+}
+
+/* ------------------------------------------------- forgotten password --- */
+
+/** Where the link should point. Taken from the request rather than
+    configured, so a deploy preview mails a link into itself instead of into
+    production. */
+function origin(req) {
+  try { return new URL(req.url).origin; } catch { return 'https://worldofzuno.com'; }
+}
+
+/**
+ * Asks for a link.
+ *
+ * The answer is the same whether or not the address has an account, and it
+ * is the truthful one in both cases: if there is an account, a link is on
+ * its way; if there is not, nothing is. Saying which would turn this into a
+ * way to ask the shop who its customers are.
+ */
+async function askForReset(body, base) {
+  const email = normaliseEmail(body.email);
+  const said = { sent: true, message: 'If that address has an account, a link is on its way.' };
+
+  if (!looksLikeEmail(email)) {
+    /* Not even an address. Same answer, same delay — the shape of the input
+       is not worth leaking either. */
+    await burnTime();
+    return json(200, said);
+  }
+
+  await sweepResets();
+  const started = await startReset(email);
+  if (!started) { await burnTime(); return json(200, said); }
+
+  const link = `${base}/?reset=${encodeURIComponent(started.token)}#account`;
+  await send({
+    to: started.account.email,
+    subject: 'Reset your ZUNO password',
+    text: [
+      `Hello ${started.account.name},`,
+      '',
+      'You asked to set a new password. Open this link within the hour:',
+      '',
+      link,
+      '',
+      'It works once. If you did not ask for it, you can ignore this message —',
+      'your password is unchanged until the link is used, and nobody else can',
+      'use it without this mail.',
+      '',
+      'ZUNO — info@worldofzuno.com',
+    ].join('\n'),
+  });
+  return json(200, said);
+}
+
+/**
+ * Spends a link and sets the new password.
+ *
+ * A spent link signs the customer in straight away: they have just proved
+ * they hold the mailbox, and sending them to a login form to type the
+ * password they chose ten seconds ago helps nobody.
+ */
+async function useReset(body) {
+  const token = typeof body.token === 'string' ? body.token : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+
+  const r = await finishReset(token, password);
+  if (!r.ok) {
+    if (r.reason === 'password') return json(400, { error: r.message });
+    return json(400, {
+      error: 'That link is no longer valid. Links last an hour and work once — please ask for a new one.',
+      expired: true,
+    });
+  }
+
+  const account = await findAccount(r.email);
+  const session = await startSession(r.accountId);
+  console.log(`[account:reset] ${r.accountId} (${r.otherSessionsEnded} session(s) ended)`);
+  return json(200, {
+    signedIn: true,
+    account: publicAccount(account),
+    orders: (account && account.orders) || [],
+    otherSessionsEnded: r.otherSessionsEnded,
+  }, setCookie(session));
 }

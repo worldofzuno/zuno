@@ -337,3 +337,128 @@ test('neither reply carries a password or a ledger', async () => {
     }
   }
 });
+
+/* ------------------------------------------------- forgotten password --- */
+
+/* The link never travels through the response — it goes by mail, and with
+   no provider configured the mailer writes the whole message to the log.
+   Reading it back from there is how a test gets hold of the link, and it is
+   also a quiet check that the mail is actually produced. */
+async function linkFromLog(run) {
+  const real = console.log;
+  const lines = [];
+  console.log = (...a) => lines.push(a.join(' '));
+  try { await run(); } finally { console.log = real; }
+  const m = lines.join('\n').match(/\?reset=([A-Za-z0-9_-]+)#account/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+test('asking for a link says the same thing to everyone', async () => {
+  await registered();
+  const known = await call({ action: 'forgot', email: 'kundin@example.ch' });
+  resetLimiter();
+  const unknown = await call({ action: 'forgot', email: 'niemand@example.ch' });
+  resetLimiter();
+  const nonsense = await call({ action: 'forgot', email: 'not-an-address' });
+
+  assert.deepEqual(known.body, unknown.body, 'an account must not be detectable here');
+  assert.deepEqual(known.body, nonsense.body);
+  assert.equal(known.status, 200);
+  assert.equal(unknown.status, 200);
+});
+
+test('a link sets a new password and signs the owner in', async () => {
+  await registered();
+  const token = await linkFromLog(() => call({ action: 'forgot', email: 'kundin@example.ch' }));
+  assert.ok(token, 'a link should have been mailed');
+
+  resetLimiter();
+  const r = await call({ action: 'reset', token, password: 'a brand new passphrase' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.signedIn, true);
+  assert.ok(r.cookie, 'signed in on the spot — they just proved they hold the mailbox');
+
+  resetLimiter();
+  const old = await call({ action: 'login', email: 'kundin@example.ch', password: PW });
+  assert.equal(old.status, 401, 'the old password is gone');
+  resetLimiter();
+  const fresh = await call({ action: 'login', email: 'kundin@example.ch', password: 'a brand new passphrase' });
+  assert.equal(fresh.status, 200);
+});
+
+test('a link works once', async () => {
+  await registered();
+  const token = await linkFromLog(() => call({ action: 'forgot', email: 'kundin@example.ch' }));
+  resetLimiter();
+  assert.equal((await call({ action: 'reset', token, password: 'a brand new passphrase' })).status, 200);
+
+  resetLimiter();
+  const again = await call({ action: 'reset', token, password: 'yet another passphrase' });
+  assert.equal(again.status, 400, 'a forwarded or logged link must not open twice');
+  assert.equal(again.body.expired, true);
+});
+
+test('a link dies after an hour', async () => {
+  useMemoryStore();
+  resetLimiter();
+  const made = await auth.createAccount({ name: 'A Kundin', email: 'kundin@example.ch', password: PW });
+  assert.ok(made.account);
+
+  const started = await auth.startReset('kundin@example.ch');
+  const later = Date.now() + 61 * 60 * 1000;
+  assert.equal(await auth.resetTarget(started.token, later), null);
+
+  const r = await auth.finishReset(started.token, 'a brand new passphrase', later);
+  assert.equal(r.ok, false);
+  assert.equal((await auth.passwordMatches(PW, (await auth.findAccount('kundin@example.ch')).password)), true,
+    'an expired link must leave the password alone');
+});
+
+test('spending a link throws every session out', async () => {
+  const made = await registered();
+  const cookie = asCookie(made.cookie);
+  assert.equal((await call({ action: 'me' }, { cookie })).body.signedIn, true);
+
+  resetLimiter();
+  const token = await linkFromLog(() => call({ action: 'forgot', email: 'kundin@example.ch' }));
+  resetLimiter();
+  await call({ action: 'reset', token, password: 'a brand new passphrase' });
+
+  const after = await call({ action: 'me' }, { cookie });
+  assert.equal(after.body.signedIn, false,
+    'the reason to reset a password is that someone else may hold a session');
+});
+
+test('a reset refuses a password too short to be one', async () => {
+  await registered();
+  const token = await linkFromLog(() => call({ action: 'forgot', email: 'kundin@example.ch' }));
+  resetLimiter();
+  const r = await call({ action: 'reset', token, password: 'short' });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.expired, undefined, 'the link is fine; the password is not');
+
+  resetLimiter();
+  const retry = await call({ action: 'reset', token, password: 'a brand new passphrase' });
+  assert.equal(retry.status, 200, 'and the link survives a rejected password');
+});
+
+test('an invented token opens nothing', async () => {
+  await registered();
+  resetLimiter();
+  const r = await call({ action: 'reset', token: 'x'.repeat(43), password: 'a brand new passphrase' });
+  assert.equal(r.status, 400);
+  resetLimiter();
+  assert.equal((await call({ action: 'login', email: 'kundin@example.ch', password: PW })).status, 200,
+    'the real password still works');
+});
+
+test('the store never holds a usable link', async () => {
+  await registered();
+  const token = await linkFromLog(() => call({ action: 'forgot', email: 'kundin@example.ch' }));
+  const st = await (await import('../../netlify/functions/store.mjs')).store();
+  const keys = await st.list('reset/');
+  assert.equal(keys.length, 1);
+  assert.equal(keys[0].includes(token), false, 'only the hash is stored, as with a session');
+  const { value } = await st.read(keys[0]);
+  assert.equal(JSON.stringify(value).includes(token), false);
+});
