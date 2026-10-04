@@ -585,3 +585,62 @@ test('a client cannot put someone else address on the session', async () => {
   assert.equal('customer_email' in s.made.sessions[0], false,
     'the address comes from the session or not at all');
 });
+
+/* ------------------------------------------------------------------------
+   The one class of mistake this file could not otherwise catch.
+
+   Every test above hands build() a substitute for Stripe, because talking to
+   the real one from a test is slower, flakier and costs money. The hole that
+   leaves is precisely the call being substituted: sessions.create. The shop's
+   first live checkout returned 502 because the session carried the Checkout
+   Studio parameters — ui_mode "hosted_page", origin_context,
+   integration_identifier — while the client pinned apiVersion 2024-06-20,
+   which predates all three. Stripe refuses an unknown parameter; a stub
+   accepts anything.
+
+   These two checks are the closest a test without a network can get: the
+   parameters must be ones the installed SDK declares, and the version the
+   client asks for must be the one those declarations were generated from.
+   ---------------------------------------------------------------------- */
+
+import { readFileSync } from 'node:fs';
+
+const SRC = new URL('../../netlify/functions/create-checkout-session.mjs', import.meta.url);
+const SDK_TYPES = new URL('../../node_modules/stripe/cjs/resources/Checkout/Sessions.d.ts', import.meta.url);
+const SDK_VERSION = new URL('../../node_modules/stripe/cjs/apiVersion.js', import.meta.url);
+
+test('every session parameter is one this Stripe SDK declares', () => {
+  let types;
+  try {
+    types = readFileSync(SDK_TYPES, 'utf8');
+  } catch {
+    return;                      // no SDK installed: nothing to check against
+  }
+  /* The create parameters, as the SDK's own declaration file lists them. */
+  const block = types.slice(types.indexOf('interface SessionCreateParams'));
+  const declared = new Set(
+    [...block.slice(0, block.indexOf('\n    }')).matchAll(/^\s{8}(\w+)\??:/gm)].map((m) => m[1])
+  );
+  assert.ok(declared.size > 20, 'could not read the SDK parameter list');
+
+  const params = sessionParams(
+    [{ sku: 'castano-200g', qty: 1, grind: 'Whole Beans' }], 1490, ORIGIN, { fnfCode: 'FAMILY26' }
+  );
+  const unknown = Object.keys(params).filter((k) => !declared.has(k));
+  assert.deepEqual(unknown, [], `Stripe would refuse: ${unknown.join(', ')}`);
+});
+
+test('the checkout client does not pin a version older than its parameters', () => {
+  const src = readFileSync(SRC, 'utf8');
+  const pinned = src.match(/new Stripe\([^)]*apiVersion:\s*'([^']+)'/);
+  if (!pinned) return;           // unpinned: the SDK sends its own, which is the point
+
+  let sdk;
+  try {
+    sdk = readFileSync(SDK_VERSION, 'utf8').match(/ApiVersion = '([^']+)'/);
+  } catch {
+    return;
+  }
+  assert.equal(pinned[1], sdk && sdk[1],
+    'a pinned version that is not the SDK\'s own accepts a different set of parameters');
+});
