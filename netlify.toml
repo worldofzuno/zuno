@@ -27,13 +27,12 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# This rule must come before the catch-all below. Rules are matched in order,
-# and /* -> /index.html would otherwise answer every function call with the
-# home page, which fails as a silent 200 rather than an error.
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+# There is deliberately no rule for /.netlify/functions/* here. One used to
+# sit above the catch-all, on the theory that /* -> /index.html would
+# otherwise answer every function call with the home page. Netlify refuses
+# it — "Invalid /.netlify path in redirect source" — because that prefix is
+# reserved and is served before any redirect is considered. The rule never
+# did anything on any deploy; it only failed the redirect check.
 
 # Hash-routed sub-pages (#imprint, #cart, …) are served by index.html, so any
 # deep path a crawler or a mistyped link produces should still land on the site
