@@ -1,22 +1,39 @@
 # Accounts — what works, and what does not yet
 
-Customers can register, sign in, sign out, and see the orders they placed
-while signed in. That is the whole of it today, and two things that people
-expect from an account are **missing on purpose** — both for the same
-reason, and both come back the moment a mail provider is configured.
+Customers can register, sign in, sign out, set a new password when they have
+forgotten the old one, and see the orders they placed while signed in.
 
-## Blocked until mail works
+## Forgotten password
 
-### Password reset
+On the account page, under the sign-in form. The customer types their
+address and gets a link.
 
-There is none. Without a way to send a mail there is no way to prove someone
-owns an address, and a reset that does not prove that is a way to take over
-accounts. **A customer who forgets their password today is locked out**, and
-the only remedy is for you to delete their account from the Netlify Blobs
-store so they can register again.
+| | |
+| --- | --- |
+| how long | one hour |
+| how often | once — it is spent as it is used |
+| what is stored | only the hash of the token, as with a session |
+| side effect | setting the password ends every session the account had |
 
-This is the single strongest reason to set up `RESEND_API_KEY` before telling
-anyone the accounts exist.
+Four decisions worth knowing, because each is a door left shut:
+
+- **The answer never says whether the address has an account.** Known,
+  unknown and malformed all get the same sentence after the same delay.
+  Anything else turns the form into a way to ask who shops here.
+- **The token is removed before the new password is written.** If the write
+  then fails the customer asks for a new link, which is an annoyance; the
+  other order would leave a spent link alive after a crash, which is a way
+  in.
+- **Every session ends.** The honest reason to reset a password is that
+  someone else may know the old one — and they may be holding a cookie too.
+- **The link arrives by mail and nowhere else.** It is never in a response
+  body, so a proxy, a log or a screenshot of the page does not carry it.
+
+Spending a link signs the customer straight in: they have just proved they
+hold the mailbox, and a login form asking for the password they chose ten
+seconds ago helps nobody.
+
+## Still blocked until a verified address exists
 
 ### Claiming earlier orders
 

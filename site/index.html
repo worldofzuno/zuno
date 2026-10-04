@@ -828,10 +828,20 @@ html:not(.js) .page:target { display: block; }
 
 .auth { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 36px; }
 .auth-card { border: 1px solid var(--line); border-radius: 18px; padding: 30px 28px; display: flex; flex-direction: column; gap: 12px; }
+/* The card sets display, and the browser's own rule for [hidden] carries no
+   more weight than a class does — so hiding one has to be said here, the
+   same way .cart-state already says it. */
+.auth-card[hidden] { display: none; }
 .auth-card h2 { font-size: 1.2rem; margin-bottom: 6px; }
 .auth-card .btn { margin-top: 8px; align-self: flex-start; }
 .auth-hint { margin-top: 2px; }
 .auth-msg { margin-top: 4px; }
+/* One thing to do, so it takes the width of both cards rather than leaving
+   an empty column beside it — but not the full rail, because a single field
+   stretched over 900 pixels reads as a mistake. */
+.auth-card--wide { grid-column: 1 / -1; max-width: 520px; }
+.auth-alt { margin: 0; }
+.auth-alt .remove { padding-top: 2px; }
 
 .member {
   display: flex; align-items: center; gap: 22px; margin-top: 36px; flex-wrap: wrap;
@@ -1344,6 +1354,7 @@ html:not(.js) .page:target { display: block; }
           <label class="visually-hidden" for="f-password-16">Password</label><input id="f-password-16" class="field field--box" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
           <button class="btn btn--primary" type="submit">Sign In</button>
           <p class="note note--warn auth-msg" id="loginMsg" role="alert" hidden></p>
+          <p class="auth-alt"><button class="remove" type="button" id="forgotBtn">Forgotten your password?</button></p>
         </form>
         <form class="auth-card" id="registerForm">
           <h2>Create Account</h2>
@@ -1354,6 +1365,30 @@ html:not(.js) .page:target { display: block; }
           <button class="btn btn--outline" type="submit">Join ZUNO</button>
           <p class="note note--warn auth-msg" id="registerMsg" role="alert" hidden></p>
         </form>
+
+        <!-- Both of these replace the pair above rather than sitting beside
+             them: asking for a link and choosing a password are each one
+             thing to do, and a second form next to them is only a way to
+             fill in the wrong one. -->
+        <form class="auth-card auth-card--wide" id="forgotForm" hidden>
+          <h2>Forgotten Password</h2>
+          <label class="visually-hidden" for="f-forgot">Email address</label>
+          <input id="f-forgot" class="field field--box" name="email" type="email" placeholder="Email address" autocomplete="email" required aria-describedby="forgotHint">
+          <p class="note auth-hint" id="forgotHint">We send a link to that address. It lasts one hour and works once.</p>
+          <button class="btn btn--primary" type="submit">Send the link</button>
+          <p class="note auth-msg" id="forgotMsg" role="status" hidden></p>
+          <p class="auth-alt"><button class="remove" type="button" id="forgotBack">Back to signing in</button></p>
+        </form>
+
+        <form class="auth-card auth-card--wide" id="resetForm" hidden>
+          <h2>Choose a New Password</h2>
+          <label class="visually-hidden" for="f-reset">New password</label>
+          <input id="f-reset" class="field field--box" name="password" type="password" placeholder="New password" autocomplete="new-password" minlength="10" required aria-describedby="resetHint">
+          <p class="note auth-hint" id="resetHint">At least 10 characters. Setting it also signs you out on every other device.</p>
+          <button class="btn btn--primary" type="submit">Set the password</button>
+          <p class="note note--warn auth-msg" id="resetMsg" role="alert" hidden></p>
+        </form>
+
         <p class="note note--nojs">Accounts need JavaScript. Please enable it to sign in.</p>
       </div>
     </div>
@@ -2572,11 +2607,24 @@ html:not(.js) .page:target { display: block; }
     });
   }
 
+  /* Which of the three cards the signed-out side is showing: the usual
+     pair, the "send me a link" form, or the "choose a password" form a
+     mailed link lands on. Kept here so renderAccount cannot undo it when
+     the answer to `me` arrives a moment later. */
+  var authMode = 'signin';
+  function paintAuthMode() {
+    var pair = authMode === 'signin';
+    document.getElementById('loginForm').hidden = !pair;
+    document.getElementById('registerForm').hidden = !pair;
+    document.getElementById('forgotForm').hidden = authMode !== 'forgot';
+    document.getElementById('resetForm').hidden = authMode !== 'reset';
+  }
+
   function renderAccount() {
     var authed = !!user;
     document.getElementById('authView').hidden = authed;
     document.getElementById('dashView').hidden = !authed;
-    if (!authed) return;
+    if (!authed) { paintAuthMode(); return; }
     document.getElementById('memberName').textContent = user.name;
     document.getElementById('memberMail').textContent = user.email;
 
@@ -2679,6 +2727,103 @@ html:not(.js) .page:target { display: block; }
       password: this.elements.password.value
     }, 'Creating…');
   });
+
+  /* ---------- forgotten password ----------
+     The link is a query, not a hash, because the hash already names the
+     page: /?reset=TOKEN#account lands on the account page with the token in
+     hand. It is read once and taken out of the address bar straight away,
+     so a reload, a bookmark or a shoulder does not carry it further. */
+  var forgotForm = document.getElementById('forgotForm');
+  var forgotMsg = document.getElementById('forgotMsg');
+  var resetForm = document.getElementById('resetForm');
+  var resetMsg = document.getElementById('resetMsg');
+  var resetToken = null;
+
+  function showAuthMode(mode, focusSel) {
+    authMode = mode;
+    paintAuthMode();
+    if (focusSel) focusPage(document.querySelector(focusSel));
+  }
+
+  document.getElementById('forgotBtn').addEventListener('click', function () {
+    say(forgotMsg, '');
+    showAuthMode('forgot', '#forgotForm h2');
+  });
+  document.getElementById('forgotBack').addEventListener('click', function () {
+    showAuthMode('signin', '#loginForm h2');
+  });
+
+  forgotForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = this.querySelector('button[type="submit"]');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    say(forgotMsg, '');
+    account({ action: 'forgot', email: this.elements.email.value.trim() })
+      .then(function (r) {
+        /* The server says the same thing whether or not the address has an
+           account, and so does this. Repeating it here rather than inventing
+           a cheerier line keeps the one promise it can keep. */
+        say(forgotMsg, (r.body && r.body.message) ||
+          'If that address has an account, a link is on its way.');
+      })['catch'](function () {
+        say(forgotMsg, 'We could not reach the server just now. Please try again in a moment.');
+      }).then(function () {
+        btn.disabled = false;
+        btn.textContent = label;
+      });
+  });
+
+  resetForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!resetToken) return;
+    var btn = this.querySelector('button[type="submit"]');
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Setting…';
+    say(resetMsg, '');
+    var field = this.elements.password;
+    account({ action: 'reset', token: resetToken, password: field.value })
+      .then(function (r) {
+        if (r.body && r.body.signedIn) {
+          resetToken = null;
+          field.value = '';
+          authMode = 'signin';
+          adopt(r.body);
+          return;
+        }
+        if (r.body && r.body.expired) {
+          /* A dead link is not a wrong password, and the way out of it is a
+             new link rather than another try. */
+          resetToken = null;
+          showAuthMode('forgot', '#forgotForm h2');
+          say(forgotMsg, r.body.error);
+          return;
+        }
+        say(resetMsg, (r.body && r.body.error) || 'That did not work. Please try again.');
+      })['catch'](function () {
+        say(resetMsg, 'We could not reach the server just now. Please try again in a moment.');
+      }).then(function () {
+        btn.disabled = false;
+        btn.textContent = label;
+      });
+  });
+
+  (function linkFromMail() {
+    var q;
+    try { q = new URLSearchParams(window.location.search); } catch (e) { return; }
+    var t = q.get('reset');
+    if (!t) return;
+    resetToken = t;
+    authMode = 'reset';
+    /* Out of the address bar before anything else happens. */
+    try {
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    } catch (e) { /* not fatal */ }
+    if (!window.location.hash) window.location.hash = 'account';
+    paintAuthMode();
+  })();
 
   document.getElementById('logoutBtn').addEventListener('click', function () {
     account({ action: 'logout' })['catch'](function () { /* the cookie goes either way */ })
