@@ -79,12 +79,14 @@ opening the attachment.
 It is the same file the button hands over: both call one function, because
 two definitions of a money record is one too many.
 
-Two guards, because a scheduled function still answers an HTTP request:
+**You cannot trigger it by hand in production.** Netlify answers a direct
+HTTP call to a scheduled function with 403 before the function runs — tried,
+not assumed. The download button in the back office is the on-demand route.
 
-- with the admin token (header `x-admin-token`, or `?token=`), it runs on
-  demand — that is how it gets tested
-- without one, at most one backup every six hours, so a stranger who finds
-  the URL costs the inbox one mail a quarter-day and nothing else
+The function carries two guards anyway, for the local run and in case that
+policy ever changes: the admin token (header `x-admin-token`, or `?token=`)
+runs it on demand, and without one it allows at most one backup every six
+hours.
 
 The data never comes back in the response. The mailbox is the only way to
 it. And if the mail cannot be sent, the function says so rather than

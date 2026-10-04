@@ -12,11 +12,17 @@
  * admin.mjs — as an attachment, which is also the point: a copy that leaves
  * Netlify. A backup kept beside the thing it backs up is not a backup.
  *
- * Two guards, because a scheduled function still answers an HTTP request:
+ * Netlify refuses a direct HTTP call to a scheduled function in production
+ * — it answers 403 before this file runs — which was worth finding out by
+ * trying rather than assuming. The two guards below therefore protect a
+ * door that is already shut:
  *
- *   - with the admin token, it runs on demand, which is how it is tested
- *   - without one, at most one backup every six hours, so a stranger who
- *     finds the URL can cost the inbox one mail a quarter-day and no more
+ *   - with the admin token it runs on demand, which is how it is exercised
+ *     locally and in the tests
+ *   - without one, at most one backup every six hours
+ *
+ * They stay because the 403 is Netlify's policy, not ours, and a guard that
+ * costs nothing is a poor thing to remove on someone else's promise.
  *
  * It never returns the backup in the response. The only way to the data is
  * the mailbox it is sent to.
