@@ -18,6 +18,14 @@
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
+# Not immutable, because these filenames carry no version: a photo replaced
+# under the same name has to be able to reach people. A day fresh, then a
+# week in which the old one is shown once while the new one is fetched —
+# so a returning visitor pays nothing for 230 KB of pictures, and a changed
+# picture is never more than a visit behind.
+/img/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
 # The library filenames carry their version, so a new one is a new URL.
 /js/*
   Cache-Control: public, max-age=31536000, immutable
