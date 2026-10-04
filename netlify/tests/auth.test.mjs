@@ -14,8 +14,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const auth = await import('./auth.mjs');
+const { useMemoryStore, store } = await import('../functions/store.mjs');
+const auth = await import('../functions/auth.mjs');
 
 const PW = 'a decent long passphrase';
 

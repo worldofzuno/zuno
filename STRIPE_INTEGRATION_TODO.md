@@ -258,7 +258,8 @@ netlify/functions/giftcard.mjs          the gift card ledger: hold, settle, rele
 netlify/functions/mailer.mjs            send, through whichever provider has a key
 ```
 
-Each has a `.test.mjs` beside it.
+Each has a `.test.mjs` in `netlify/tests/`, kept out of the functions
+directory so Netlify does not try to deploy the tests as functions.
 
 Changed:
 

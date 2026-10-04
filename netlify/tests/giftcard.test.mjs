@@ -12,8 +12,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('./store.mjs');
-const gc = await import('./giftcard.mjs');
+const { useMemoryStore, store } = await import('../functions/store.mjs');
+const gc = await import('../functions/giftcard.mjs');
 
 const quiet = async (fn) => {
   const real = console.error;

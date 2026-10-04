@@ -15,7 +15,7 @@ import test from 'node:test';
 const {
   parseCodes, normalise, sameCode, matchCode, allow, resetLimiter, exhausted,
   fnfConfigured, FNF_CATALOGUE,
-} = await import('./fnf.mjs');
+} = await import('../functions/fnf.mjs');
 
 const quiet = (fn) => {
   const real = console.error;

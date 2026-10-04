@@ -9,6 +9,10 @@
 # a runtime the Stripe SDK was not tested against here.
 [build.environment]
   NODE_VERSION = "20"
+  # package.json lists next, so Netlify attaches the Next.js runtime and it
+  # fails looking for .next output that is never built. The deployed site is
+  # the static site/ folder, so the runtime must stay out of the way.
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 # The checkout session is created server side. The Stripe secret key lives in
 # this site's environment variables and never reaches the browser.
@@ -16,13 +20,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# This rule must come before the catch-all below. Rules are matched in order,
-# and /* -> /index.html would otherwise answer every function call with the
-# home page, which fails as a silent 200 rather than an error.
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+# Function paths under /.netlify/ are routed by Netlify before any redirect
+# rule is evaluated, so the catch-all below cannot shadow them. A redirect
+# from /.netlify/* is rejected by Netlify as invalid.
 
 # Hash-routed sub-pages (#imprint, #cart, …) are served by index.html, so any
 # deep path a crawler or a mistyped link produces should still land on the site

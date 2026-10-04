@@ -11,10 +11,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore } = await import('./store.mjs');
-const { resetLimiter } = await import('./fnf.mjs');
-const auth = await import('./auth.mjs');
-const handler = (await import('./account.mjs')).default;
+const { useMemoryStore } = await import('../functions/store.mjs');
+const { resetLimiter } = await import('../functions/fnf.mjs');
+const auth = await import('../functions/auth.mjs');
+const handler = (await import('../functions/account.mjs')).default;
 
 const PW = 'a decent long passphrase';
 

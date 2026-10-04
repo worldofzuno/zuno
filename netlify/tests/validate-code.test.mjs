@@ -21,8 +21,8 @@ process.env.FNF_CODES = JSON.stringify([
   { code: 'CAPPED', maxRedemptions: 2 },
 ]);
 
-const { resetLimiter } = await import('./fnf.mjs');
-const mod = await import('./validate-code.mjs');
+const { resetLimiter } = await import('../functions/fnf.mjs');
+const mod = await import('../functions/validate-code.mjs');
 const { check } = mod;
 const handler = mod.default;
 
@@ -196,8 +196,8 @@ test('a client guessing repeatedly is slowed down', async () => {
 
 /* --------------------------------------------------------- gift cards */
 
-const { useMemoryStore } = await import('./store.mjs');
-const gc = await import('./giftcard.mjs');
+const { useMemoryStore } = await import('../functions/store.mjs');
+const gc = await import('../functions/giftcard.mjs');
 
 test('a gift card answers with its balance, and says it is a gift card', async () => {
   useMemoryStore();
