@@ -312,7 +312,23 @@ export default async function handler(req) {
     return json(400, { error: 'body must be JSON' });
   }
 
-  const stripe = new Stripe(key, { apiVersion: '2024-06-20' });
+  /* No pinned apiVersion here, deliberately. The session this function
+     creates carries the Checkout Studio parameters — ui_mode "hosted_page",
+     origin_context, integration_identifier — and none of those exist in
+     2024-06-20. Stripe rejects an unknown parameter rather than ignoring it,
+     so every checkout came back as a 502 the moment it ran against the real
+     API. Nothing caught it earlier: the local harness substitutes
+     sessions.create, which is exactly the call that was wrong.
+
+     Leaving it out means the SDK sends its own version, the one its types
+     were generated from, so the parameters it accepts and the ones Stripe
+     accepts are the same set. What this function reads back — a price's
+     unit_amount, a coupon id, a session's id and url — has been stable
+     across every version in between.
+
+     The webhook and the status endpoint keep their pin: they parse event
+     and session shapes, where a version change is a behaviour change. */
+  const stripe = new Stripe(key);
   const { status, payload } = await build(stripe, body, new URL(req.url).origin, {
     cookie: req.headers.get('cookie'),
   });
