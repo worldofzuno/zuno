@@ -1,14 +1,25 @@
 # The repository root holds the Next.js app. The static launch site that gets
 # deployed to worldofzuno.com lives in site/, so point Netlify there and run no
 # build step — the folder is already the finished artefact.
+#
+# The command is an explicit no-op rather than an empty string. Netlify
+# detects the Next.js app at the root and proposes "npm run build"; an empty
+# command can read as "nothing configured here" and let that proposal stand,
+# which builds the wrong thing. A command that runs and succeeds cannot be
+# mistaken for an absent one.
 [build]
   publish = "site"
-  command = ""
+  command = "echo 'site/ is already built — nothing to do'"
 
 # Pinned so a change to Netlify's default cannot quietly move the function to
 # a runtime the Stripe SDK was not tested against here.
+#
+# NETLIFY_NEXT_PLUGIN_SKIP stops the Next.js runtime, which Netlify installs
+# by itself as soon as it sees "next" in the dependencies, from looking for a
+# Next build that this site never produces.
 [build.environment]
   NODE_VERSION = "20"
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 # The checkout session is created server side. The Stripe secret key lives in
 # this site's environment variables and never reaches the browser.
