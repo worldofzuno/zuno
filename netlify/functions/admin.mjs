@@ -30,6 +30,8 @@ import {
   normaliseEmail, looksLikeEmail, readCookie,
 } from './auth.mjs';
 import { allow } from './fnf.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE } from './mailer.mjs';
+import Stripe from 'stripe';
 
 const COOKIE = 'zuno_admin';
 const SESSION_HOURS = 12;
@@ -163,6 +165,176 @@ export async function takeBackup() {
        that could restore a login is a second place to steal one from. */
     accounts,
   };
+}
+
+/* ------------------------------------------------------------- fulfilment */
+
+/**
+ * Orders live at Stripe. What Stripe does not know is whether a parcel has
+ * gone out, so that — and only that — is kept here, one small record per
+ * order under `ship/<session id>`.
+ *
+ * Reading the list from Stripe rather than keeping our own copy means the
+ * back office cannot drift out of step with what was actually paid for. The
+ * cost is one API call per view, which is the right price.
+ */
+const shipKey = (session) => `ship/${session}`;
+
+/* Handed in by the caller wherever it can be, the way build() takes it in
+   create-checkout-session: a test should be able to answer for Stripe
+   without owning the network. */
+const stripe = (given) => {
+  if (given) return given;
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY is not set');
+  return new Stripe(key);
+};
+
+/** The lines a session carries, as the checkout wrote them. */
+function linesOf(session) {
+  try {
+    return JSON.parse((session.metadata || {}).lines || '[]')
+      .map(([sku, qty, grind]) => ({ sku, qty, grind: grind || null }));
+  } catch { return []; }
+}
+
+const SHIPPABLE = new Set(['castano-200g', 'castano-500g']);
+
+/** What the back office shows for one order. */
+export function orderView(session, shipped = null) {
+  const lines = linesOf(session);
+  const info = session.collected_information || {};
+  const ship = info.shipping_details || session.shipping_details || null;
+  const needsParcel = lines.some((l) => SHIPPABLE.has(l.sku));
+  return {
+    session: session.id,
+    ref: session.id.slice(-8).toUpperCase(),
+    at: session.created ? new Date(session.created * 1000).toISOString() : null,
+    total: ((session.amount_total || 0) / 100).toFixed(2),
+    currency: (session.currency || 'chf').toUpperCase(),
+    email: (session.customer_details || {}).email || null,
+    name: (ship && ship.name) || (session.customer_details || {}).name || null,
+    address: ship ? ship.address : null,
+    lines,
+    needsParcel,
+    livemode: session.livemode === true,
+    shipped: shipped ? { at: shipped.at, carrier: shipped.carrier || null, tracking: shipped.tracking || null } : null,
+  };
+}
+
+/** Recent paid orders, newest first, with what we know about despatch. */
+export async function recentOrders(limit = 25, client = null) {
+  const list = await stripe(client).checkout.sessions.list({ limit: Math.min(100, Math.max(1, limit)) });
+  const paid = list.data.filter((x) => x.payment_status === 'paid');
+  const s = await store();
+  const out = [];
+  for (const session of paid) {
+    const { value } = await s.read(shipKey(session.id));
+    out.push(orderView(session, value));
+  }
+  return out;
+}
+
+/* The one mail the shop sends by hand, so it is the one most worth making
+   hard to get wrong: it refuses to go twice, and it refuses to go for an
+   order that has nothing in a parcel. */
+export function shippedMailHtml(order) {
+  const P = PALETTE;
+  const where = order.address ? [order.name, order.address.line1, order.address.line2,
+    `${order.address.postal_code || ''} ${order.address.city || ''}`.trim(), order.address.country]
+    .filter(Boolean).map(esc).join('<br>') : null;
+
+  const track = order.shipped && order.shipped.tracking
+    ? `        ${mailHeading('Tracking')}
+        <p style="margin:0 0 4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;letter-spacing:0.04em;color:${P.ink};">${esc(order.shipped.tracking)}</p>
+        ${order.shipped.carrier ? mailText(esc(order.shipped.carrier), { dim: true }) : ''}`
+    : null;
+
+  return mailLayout({
+    title: `Your ZUNO order ${esc(order.ref)} is on its way`,
+    preheader: `Order ${esc(order.ref)} left us today.`,
+    blocks: [
+      `        <p style="margin:0 0 6px;font-size:19px;color:${P.ink};font-weight:600;">Your coffee is on its way.</p>
+        <p style="margin:0;font-size:14px;color:${P.dim};">Order ${esc(order.ref)}</p>`,
+      `        ${mailHeading('On its way to')}
+        ${mailText(where || '&mdash;', { top: false })}`,
+      track,
+      `        ${mailText('Delivery inside Switzerland and Liechtenstein takes 1&ndash;3 business days from today.', { top: false })}
+        ${mailText(`Something not right? Reply to this mail, or see ${mailLink('https://worldofzuno.com/#shipping', 'shipping &amp; returns')}.`, { dim: true })}`,
+    ],
+  });
+}
+
+export function shippedMailText(order) {
+  const where = order.address ? [order.name, order.address.line1, order.address.line2,
+    `${order.address.postal_code || ''} ${order.address.city || ''}`.trim(), order.address.country]
+    .filter(Boolean).join('\n') : '—';
+  return [
+    'Your coffee is on its way.',
+    '',
+    `Order ${order.ref}`,
+    '',
+    'On its way to:',
+    where,
+    order.shipped && order.shipped.tracking
+      ? `\nTracking: ${order.shipped.tracking}${order.shipped.carrier ? ` (${order.shipped.carrier})` : ''}`
+      : null,
+    '',
+    'Delivery inside Switzerland and Liechtenstein takes 1-3 business days',
+    'from today. Something not right? Just reply to this mail.',
+    '',
+    'ZUNO — info@worldofzuno.com',
+  ].filter((l) => l !== null).join('\n');
+}
+
+/**
+ * Marks an order despatched and tells the customer.
+ *
+ * The record is written before the mail goes, and written with onlyIfNew
+ * semantics: a second press finds it already there and stops, so the
+ * customer cannot be told twice that the same parcel left.
+ */
+export async function markShipped(sessionId, { carrier = null, tracking = null, now = Date.now(), client = null } = {}) {
+  const session = await stripe(client).checkout.sessions.retrieve(sessionId);
+  if (!session || session.payment_status !== 'paid') return { ok: false, reason: 'not-paid' };
+
+  const s = await store();
+  const existing = await s.read(shipKey(sessionId));
+  if (existing.value) return { ok: false, reason: 'already', shipped: existing.value };
+
+  const record = {
+    at: new Date(now).toISOString(),
+    carrier: carrier ? String(carrier).slice(0, 60) : null,
+    tracking: tracking ? String(tracking).slice(0, 80) : null,
+  };
+  const written = await s.create(shipKey(sessionId), record);
+  if (!written) {
+    const again = await s.read(shipKey(sessionId));
+    return { ok: false, reason: 'already', shipped: again.value };
+  }
+
+  const order = orderView(session, record);
+  if (!order.needsParcel) {
+    /* A gift card has no parcel. The record stands so the list stops
+       showing it as outstanding, but nobody is told a box is coming. */
+    console.log(`[order:shipped-nothing] ${order.ref}`);
+    return { ok: true, order, mailed: false, reason: 'nothing-to-ship' };
+  }
+
+  let mailed = false;
+  if (order.email) {
+    const r = await send({
+      to: order.email,
+      subject: `Your ZUNO order ${order.ref} is on its way`,
+      text: shippedMailText(order),
+      html: shippedMailHtml(order),
+      replyTo: 'info@worldofzuno.com',
+    });
+    mailed = r.sent;
+    if (!r.sent) console.error(`[order:shipped-mail-unsent] ${order.ref}: ${r.error}`);
+  }
+  console.log(`[order:shipped] ${order.ref}${record.tracking ? ' ' + record.tracking : ''}`);
+  return { ok: true, order, mailed };
 }
 
 /* ----------------------------------------------------------------- handler */
@@ -302,6 +474,26 @@ async function act(action, body) {
     }
     console.log(`[stock:set] ${body.sku} = ${r.qty === null ? 'unlimited' : r.qty}`);
     return json(200, { sku: body.sku, qty: r.qty, levels: await stock.levels() });
+  }
+
+  if (action === 'orders-list') {
+    const orders = await recentOrders(Number(body.limit) || 25);
+    return json(200, { orders });
+  }
+
+  if (action === 'order-ship') {
+    const id = typeof body.session === 'string' ? body.session : '';
+    if (!id.startsWith('cs_')) return json(400, { error: 'That is not an order.' });
+    const r = await markShipped(id, { carrier: body.carrier, tracking: body.tracking });
+    if (!r.ok) {
+      return json(r.reason === 'already' ? 409 : 400, {
+        error: r.reason === 'already'
+          ? 'That order is already marked as sent — the customer has been told once.'
+          : 'That order is not paid.',
+        shipped: r.shipped || null,
+      });
+    }
+    return json(200, { order: r.order, mailed: r.mailed, reason: r.reason || null });
   }
 
   if (action === 'export') return json(200, await takeBackup());

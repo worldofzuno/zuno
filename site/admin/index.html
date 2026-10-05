@@ -49,6 +49,14 @@
     </div>
     <p class="hint">Outstanding is what the shop still owes on gift cards. It is a liability, not income.</p>
 
+    <h2>Orders</h2>
+    <div class="card">
+      <p class="hint">What Stripe says was paid, newest first, with what we know about despatch. Marking an order sent writes the customer a mail — once; a second press is refused rather than sending a second one.</p>
+      <button class="btn btn--quiet" type="button" id="loadOrders">Load orders</button>
+      <p class="msg" id="orderMsg" role="status" hidden></p>
+      <div id="ordersOut"></div>
+    </div>
+
     <h2>Gift cards</h2>
     <div class="card">
       <form id="findCard" class="row">

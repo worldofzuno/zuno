@@ -18,7 +18,7 @@
 import Stripe from 'stripe';
 import * as gift from './giftcard.mjs';
 import { store } from './store.mjs';
-import { send, shopInbox } from './mailer.mjs';
+import { send, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE } from './mailer.mjs';
 import { recordOrder } from './auth.mjs';
 import * as stock from './stock.mjs';
 
@@ -350,118 +350,70 @@ const francs = (rappen) => `CHF ${(rappen / 100).toFixed(2)}`;
 
 /* ------------------------------------------------------- the order mail --- */
 
-/**
- * Everything in this mail that a customer typed — their name, their street —
- * is escaped. A confirmation is assembled from what someone handed the
- * checkout, and handing it back as markup is how a mail turns into someone
- * else's canvas.
- */
-const esc = (v) => String(v === null || v === undefined ? '' : v)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;');
-
-/* Mail clients are a museum. Tables for layout, every style on the element
-   that uses it, no stylesheet, no web font, no image that has to load before
-   the mail makes sense — the ZUNO wordmark is letterspaced text, so a client
-   that blocks images still shows the brand.
-
-   The palette is the shop's own four: black, gold, the deep green and the
-   warm paper. Dark text on light ground rather than the site's black, because
-   a mail client's own dark mode inverts what it likes and a near-black mail
-   is the one that comes out illegible. */
-const INK = '#16150e';
-const DIM = '#55513f';
-const GOLD = '#f8d99b';
-const GREEN = '#1e3932';
-const PAPER = '#f4f1ea';
-const LINE = '#e0dacb';
+const P = PALETTE;
 
 const row = (label, value, opts = {}) => `
           <tr>
-            <td style="padding:${opts.tight ? '4px' : '7px'} 0;font-size:14px;color:${opts.strong ? INK : DIM};${opts.strong ? 'font-weight:700;' : ''}">${label}</td>
-            <td align="right" style="padding:${opts.tight ? '4px' : '7px'} 0;font-size:14px;color:${opts.strong ? INK : DIM};${opts.strong ? 'font-weight:700;' : ''}white-space:nowrap;">${value}</td>
+            <td style="padding:${opts.tight ? '4px' : '7px'} 0;font-size:14px;color:${opts.strong ? P.ink : P.dim};${opts.strong ? 'font-weight:700;' : ''}">${label}</td>
+            <td align="right" style="padding:${opts.tight ? '4px' : '7px'} 0;font-size:14px;color:${opts.strong ? P.ink : P.dim};${opts.strong ? 'font-weight:700;' : ''}white-space:nowrap;">${value}</td>
           </tr>`;
 
 export function orderMailHtml(order) {
   const ref = esc(order.session.slice(-8).toUpperCase());
   const cur = esc(order.currency);
+  const ships = Boolean(order.address);
 
   const items = order.items.map((i) => `
           <tr>
-            <td style="padding:10px 0;border-bottom:1px solid ${LINE};font-size:14px;color:${INK};">
-              <strong style="font-weight:600;">${esc(i.qty)} &times; ${esc(i.name)}</strong>${i.grind ? `<br><span style="color:${DIM};font-size:13px;">${esc(i.grind)}</span>` : ''}
+            <td style="padding:10px 0;border-bottom:1px solid ${P.line};font-size:14px;color:${P.ink};">
+              <strong style="font-weight:600;">${esc(i.qty)} &times; ${esc(i.name)}</strong>${i.grind ? `<br><span style="color:${P.dim};font-size:13px;">${esc(i.grind)}</span>` : ''}
             </td>
-            <td align="right" style="padding:10px 0;border-bottom:1px solid ${LINE};font-size:14px;color:${INK};white-space:nowrap;vertical-align:top;">${cur} ${esc(i.amount)}</td>
+            <td align="right" style="padding:10px 0;border-bottom:1px solid ${P.line};font-size:14px;color:${P.ink};white-space:nowrap;vertical-align:top;">${cur} ${esc(i.amount)}</td>
           </tr>`).join('');
 
   const cards = (order.giftCards || []).map((c) => `
-            <tr><td style="padding:6px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:17px;letter-spacing:0.06em;color:${INK};">${esc(c.code)}</td>
-                <td align="right" style="padding:6px 0;font-size:14px;color:${DIM};white-space:nowrap;">${esc(francs(c.amount))}</td></tr>`).join('');
+            <tr><td style="padding:6px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:17px;letter-spacing:0.06em;color:${P.ink};">${esc(c.code)}</td>
+                <td align="right" style="padding:6px 0;font-size:14px;color:${P.dim};white-space:nowrap;">${esc(francs(c.amount))}</td></tr>`).join('');
 
-  const where = order.address ? [order.name, order.address.line1, order.address.line2,
+  const where = ships ? [order.name, order.address.line1, order.address.line2,
     `${order.address.postal_code || ''} ${order.address.city || ''}`.trim(), order.address.country]
     .filter(Boolean).map(esc).join('<br>') : null;
 
-  return `<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
-<title>Your ZUNO order ${ref}</title>
-</head>
-<body style="margin:0;padding:0;background:${PAPER};">
-<!-- What a preview line shows before anything is opened. -->
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Order ${ref} — ${cur} ${esc(order.total)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};">
-  <tr><td align="center" style="padding:28px 16px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid ${LINE};border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  return mailLayout({
+    title: `Your ZUNO order ${ref}`,
+    preheader: `Order ${ref} — ${cur} ${esc(order.total)}`,
+    blocks: [
+      `        <p style="margin:0 0 6px;font-size:19px;color:${P.ink};font-weight:600;">Thank you for your order.</p>
+        <p style="margin:0;font-size:14px;color:${P.dim};">Order ${ref}</p>`,
 
-      <tr><td style="background:#000000;padding:22px 28px;">
-        <span style="color:${GOLD};font-size:17px;font-weight:600;letter-spacing:0.32em;">ZUNO</span>
-      </td></tr>
-
-      <tr><td style="padding:28px 28px 8px;">
-        <p style="margin:0 0 6px;font-size:19px;color:${INK};font-weight:600;">Thank you for your order.</p>
-        <p style="margin:0;font-size:14px;color:${DIM};">Order ${ref}</p>
-      </td></tr>
-
-      <tr><td style="padding:12px 28px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}
+      `        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}
 ${order.discount !== '0.00' ? row('Discount', `&minus;${cur} ${esc(order.discount)}`, { tight: true }) : ''}
 ${order.giftSpent ? row(`Gift card ${esc(order.giftSpent.code)}`, `&minus;${esc(francs(order.giftSpent.amount))}`, { tight: true }) : ''}
 ${row('Shipping', order.shipping === '0.00' ? 'Free' : `${cur} ${esc(order.shipping)}`, { tight: true })}
 ${row('Total', `${cur} ${esc(order.total)}`, { strong: true })}
-        </table>
-      </td></tr>
-${cards ? `
-      <tr><td style="padding:22px 28px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${GOLD};border-radius:10px;background:#fffdf7;">
+        </table>`,
+
+      cards ? `        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${P.gold};border-radius:10px;background:#fffdf7;">
           <tr><td style="padding:16px 18px 10px;">
-            <p style="margin:0 0 10px;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:${GREEN};font-weight:600;">Your gift card${(order.giftCards || []).length > 1 ? 's' : ''}</p>
+            ${mailHeading(`Your gift card${(order.giftCards || []).length > 1 ? 's' : ''}`)}
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cards}</table>
-            <p style="margin:12px 0 0;font-size:13px;color:${DIM};line-height:1.55;">Redeem it in the Voucher code field at checkout. It never expires, and whatever is left stays on the card.</p>
+            ${mailText('Redeem it in the Voucher code field at checkout. It never expires, and whatever is left stays on the card.', { dim: true, top: false })}
           </td></tr>
-        </table>
-      </td></tr>` : ''}
+        </table>` : null,
 
-      <tr><td style="padding:22px 28px 0;">
-        <p style="margin:0 0 6px;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:${GREEN};font-weight:600;">${where ? 'Shipping to' : 'Delivery'}</p>
-        <p style="margin:0;font-size:14px;color:${INK};line-height:1.6;">${where || 'Nothing to ship &mdash; delivered by email.'}</p>
-      </td></tr>
+      `        ${mailHeading(ships ? 'Shipping to' : 'Delivery')}
+        ${mailText(where || 'Nothing to ship &mdash; delivered by email.', { top: false })}`,
 
-      <tr><td style="padding:26px 28px 28px;">
-        <hr style="border:0;border-top:1px solid ${LINE};margin:0 0 16px;">
-        <p style="margin:0;font-size:12px;color:${DIM};line-height:1.7;">
-          ZUNO &mdash; Worldofzuno, Bahng&auml;ssli 16, 3172 Niederwangen bei Bern<br>
-          <a href="mailto:info@worldofzuno.com" style="color:${GREEN};text-decoration:underline;">info@worldofzuno.com</a>
-        </p>
-      </td></tr>
-
-    </table>
-  </td></tr>
-</table>
-</body></html>`;
+      /* The one question this mail used to leave open. Stripe says 1–3
+         business days at the till; saying it nowhere afterwards is how a
+         shop earns a "where is my coffee" mail on day two. */
+      ships
+        ? `        ${mailHeading('When')}
+        ${mailText('We pack within one business day. Delivery inside Switzerland and Liechtenstein takes 1&ndash;3 business days, and you get a second mail the moment your parcel is on its way.', { top: false })}
+        ${mailText(`${mailLink('https://worldofzuno.com/#shipping', 'Shipping &amp; returns')} &middot; ${mailLink('https://worldofzuno.com/#account', 'Your orders')}`, { dim: true })}`
+        : `        ${mailText(`${mailLink('https://worldofzuno.com/#shipping', 'Shipping &amp; returns')} &middot; ${mailLink('https://worldofzuno.com/#account', 'Your orders')}`, { dim: true, top: false })}`,
+    ],
+  });
 }
 
 export function orderMailText(order) {

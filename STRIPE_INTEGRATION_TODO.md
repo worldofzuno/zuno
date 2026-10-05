@@ -377,3 +377,26 @@ gift card.
 - <https://docs.stripe.com>
 - <https://docs.stripe.com/mcp>
 - <https://support.stripe.com>
+
+## The mails the shop sends
+
+| To | When | Carries |
+| --- | --- | --- |
+| customer | payment received | `Your ZUNO order …` — lines, discounts, gift card codes, address, when to expect it |
+| customer | you mark it sent | `… is on its way` — address, tracking if given, 1–3 business days |
+| customer | registration | welcome, and where the order list lives |
+| customer | registration with an address that already has an account | that nothing changed; said to the mailbox, never to the form |
+| customer | password reset asked for | the one-hour, one-use link |
+| customer | account deleted | what went, and what the law makes us keep |
+| shop | every paid order | one-line summary on top, the full order below |
+| shop | Mondays | the backup, with the ledger attached |
+
+All of them use one frame (`mailLayout` in `mailer.mjs`) and all of them go
+as HTML with the plain text alongside. Nothing in a mail is fetched from
+anywhere: no stylesheet, no web font, no image. The wordmark is letterspaced
+text, so a client that blocks images still shows the brand.
+
+There is deliberately no mail for a failed payment. Card, TWINT, PayPal and
+Link all settle at once, so `checkout.session.async_payment_failed` is
+unreachable today; it releases the gift card hold and the stock and writes
+to the log. Enable a delayed method and this becomes a real gap.

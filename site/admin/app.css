@@ -126,6 +126,9 @@ input::placeholder { color: var(--ink-faint); }
 .rec .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .tag { font-family: var(--mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line-strong); color: var(--ink-dim); }
 .tag.is-void { border-color: var(--bad); color: var(--bad); }
+/* A parcel that has gone. The same green the messages use, so "done" reads
+   the same wherever it appears. */
+.tag.is-ok { border-color: var(--ok); color: var(--ok); }
 
 .list { margin-top: 12px; overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
