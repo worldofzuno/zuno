@@ -164,8 +164,8 @@ test('a bare address still arrives as ZUNO', async () => {
   clearEnv();
   process.env.RESEND_API_KEY = 're_test_key';
 
-  /* Netlify's API will not store a value with angle brackets in it, so the
-     address has to be settable on its own. */
+  /* The address is the part that changes between environments; the name
+     is the brand and stays where it is. */
   process.env.MAIL_FROM = 'info@worldofzuno.com';
   let calls = stubFetch();
   await quiet(() => send(MSG));

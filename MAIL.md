@@ -63,9 +63,9 @@ a mailbox that swallows it costs a sale; and spam filters — Microsoft's
 above all — count `noreply@` on a young domain against it.
 
 A bare address is enough. `MAIL_FROM_NAME` (default `ZUNO`) is put in front
-of it, so the reader sees a name rather than a mailbox. This is also the
-only form that can be set without opening the Netlify dashboard: their API
-refuses a value with angle brackets in it.
+of it, so the reader sees a name rather than a mailbox. The address is the
+part that changes; the name is the brand and belongs in one place. A full
+`Name <addr>` pair is taken as written.
 
 Every mail carries a `Reply-To`, defaulting to the sending address, so there
 is one mailbox to watch rather than two. `MAIL_REPLY_TO` overrides it.

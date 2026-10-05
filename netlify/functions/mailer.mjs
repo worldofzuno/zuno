@@ -22,11 +22,10 @@
 const FROM = () => {
   const set = (process.env.MAIL_FROM || '').trim();
   /* A full "Name <addr>" pair is taken as written. A bare address gets the
-     name put in front of it — which is not a nicety: a mail whose sender
-     reads "info@worldofzuno.com" rather than "ZUNO" is one a reader has to
-     decode, and Netlify's own API refuses to store a value with angle
-     brackets in it, so the bare form is the one that can be set without
-     opening the dashboard. */
+     name put in front of it, because a sender that reads
+     "info@worldofzuno.com" rather than "ZUNO" is one the reader has to
+     decode — and because the address is the part that changes, while the
+     name is the brand and belongs in one place. */
   if (set.includes('<')) return set;
   const name = (process.env.MAIL_FROM_NAME || 'ZUNO').trim();
   return `${name} <${set || 'info@worldofzuno.com'}>`;
