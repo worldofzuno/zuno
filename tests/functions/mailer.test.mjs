@@ -15,8 +15,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { send, shopInbox, chosenProvider, replyAddress, siteUrl, mailLayout } =
+const { send, alarm, shopInbox, chosenProvider, replyAddress, siteUrl, mailLayout } =
   await import('../../netlify/functions/mailer.mjs');
+const { useMemoryStore, resetStore } = await import('../../netlify/functions/store.mjs');
 
 const ENV = ['RESEND_API_KEY', 'POSTMARK_SERVER_TOKEN', 'MAIL_PROVIDER', 'MAIL_FROM', 'MAIL_TO',
   'MAIL_FROM_NAME', 'MAIL_REPLY_TO', 'SITE_URL', 'URL'];
@@ -146,6 +147,58 @@ test('shopInbox is where shop-side notices go, or nowhere', () => {
   process.env.MAIL_TO = 'info@worldofzuno.com';
   assert.equal(shopInbox(), 'info@worldofzuno.com');
   clearEnv();
+});
+
+/* ----------------------------------------------------------- alarms --- */
+
+test('an alarm reaches the shop, with what and when in it', async () => {
+  clearEnv(); useMemoryStore();
+  process.env.RESEND_API_KEY = 're_test_key';
+  process.env.MAIL_TO = 'info@worldofzuno.com';
+  const calls = stubFetch();
+
+  const r = await quiet(() => alarm('order confirmation not sent', 'order AB12CD34: 403 refused'));
+  assert.equal(r.value.sent, true);
+  assert.equal(calls[0].body.to[0], 'info@worldofzuno.com');
+  assert.ok(calls[0].body.subject.includes('order confirmation not sent'));
+  assert.ok(calls[0].body.text.includes('order AB12CD34'));
+  assert.ok(calls[0].body.text.includes('403 refused'), 'the reason, not just that something happened');
+  clearEnv();
+});
+
+test('one outage is one mail, not forty', async () => {
+  clearEnv(); useMemoryStore();
+  process.env.RESEND_API_KEY = 're_test_key';
+  process.env.MAIL_TO = 'info@worldofzuno.com';
+  const t0 = Date.parse('2026-10-05T09:00:00Z');
+  const calls = stubFetch();
+
+  await quiet(() => alarm('order confirmation not sent', 'first', { now: t0 }));
+  const second = await quiet(() => alarm('order confirmation not sent', 'second', { now: t0 + 60_000 }));
+  assert.equal(second.value.sent, false);
+  assert.equal(second.value.error, 'throttled');
+  assert.equal(calls.length, 1);
+
+  /* A different failure is a different thing to know about. */
+  await quiet(() => alarm('gift card not issued', 'other', { now: t0 + 60_000 }));
+  assert.equal(calls.length, 2);
+
+  /* And the same one is worth hearing again once it has gone quiet. */
+  await quiet(() => alarm('order confirmation not sent', 'still', { now: t0 + 16 * 60_000 }));
+  assert.equal(calls.length, 3);
+  clearEnv();
+});
+
+test('with nowhere to raise it, an alarm says so instead of pretending', async () => {
+  clearEnv(); useMemoryStore();
+  process.env.RESEND_API_KEY = 're_test_key';
+  const calls = stubFetch();
+  const r = await quiet(() => alarm('order confirmation not sent', 'nobody is listening'));
+  assert.equal(r.value.sent, false);
+  assert.ok(/MAIL_TO/.test(r.value.error));
+  assert.equal(calls.length, 0);
+  assert.ok(r.log.includes('nobody is listening'), 'the log still has it');
+  clearEnv(); resetStore();
 });
 
 /* ------------------------------------------------- who it comes from --- */

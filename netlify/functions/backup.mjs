@@ -29,7 +29,7 @@
  */
 
 import { takeBackup, tokenMatches, tokenProblem } from './admin.mjs';
-import { send, shopInbox } from './mailer.mjs';
+import { send, alarm, shopInbox } from './mailer.mjs';
 import { mutate } from './store.mjs';
 
 /* Monday at 04:17 UTC. Not on the hour: every scheduler in the world fires
@@ -101,6 +101,16 @@ export async function runBackup({ force = false, now = Date.now() } = {}) {
     }],
   });
 
+  if (!r.sent && r.via !== 'log') {
+    /* Worth raising even though the alarm goes to the same inbox: the
+       likeliest reason a backup stops arriving is its own attachment
+       growing past what the provider accepts, and a mail with nothing
+       attached still gets through. If the provider itself is down, this
+       does not arrive either, and the log is all there is. */
+    await alarm('weekly backup not sent',
+      `${(json.length / 1024).toFixed(1)} KB: ${r.error}`);
+    return { ok: false, reason: 'mail', error: r.error, bytes: json.length };
+  }
   if (!r.sent) {
     console.error(`[backup:unsent] ${r.error}`);
     return { ok: false, reason: 'mail', error: r.error, bytes: json.length };

@@ -582,3 +582,63 @@ test('the mail is one document, and the only thing it loads is the wordmark', ()
   assert.equal(/https?:\/\/(?!worldofzuno)/i.test(html.replace(/mailto:[^"]*/g, '')), false,
     'nothing is fetched from anywhere but the shop itself');
 });
+
+/* ---------------------------------------------------------- the alarm --- */
+
+/**
+ * A confirmation that never left used to be one line in a log nobody reads.
+ * The shop found out when the customer wrote in.
+ */
+test('a refused order confirmation raises an alarm at the shop', async () => {
+  const { useMemoryStore, resetStore } = await import('../../netlify/functions/store.mjs');
+  useMemoryStore();
+  const realFetch = global.fetch;
+  const sent = [];
+  global.fetch = async (url, init) => {
+    sent.push(JSON.parse(init.body));
+    return { ok: false, status: 403, text: async () => '{"message":"domain is not verified"}' };
+  };
+  process.env.RESEND_API_KEY = 're_test_key';
+  process.env.MAIL_TO = 'info@worldofzuno.com';
+
+  try {
+    const s = stub({ ...SESSION, id: 'cs_test_MAILFAIL' });
+    const real = console.error;
+    console.error = () => {};
+    try {
+      await captureLog(() => mod.handleEvent(
+        { type: 'checkout.session.completed', data: { object: { id: 'cs_test_MAILFAIL' } } }, s));
+    } finally { console.error = real; }
+
+    const raised = sent.find((m) => String(m.subject).includes('order confirmation not sent'));
+    assert.ok(raised, 'the shop is told the customer never heard from us');
+    assert.equal(raised.to[0], 'info@worldofzuno.com');
+    assert.ok(raised.text.includes('MAILFAIL'), 'and which order it was');
+    assert.ok(raised.text.includes('kundin@example.ch'), 'and who never heard from us');
+  } finally {
+    global.fetch = realFetch;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.MAIL_TO;
+    resetStore();
+  }
+});
+
+test('with no provider at all, no alarm is raised per order', async () => {
+  const { useMemoryStore, resetStore } = await import('../../netlify/functions/store.mjs');
+  useMemoryStore();
+  process.env.MAIL_TO = 'info@worldofzuno.com';
+  const real = console.error;
+  const errs = [];
+  console.error = (...a) => errs.push(a.join(' '));
+  try {
+    const s = stub({ ...SESSION, id: 'cs_no_provider' });
+    await captureLog(() => mod.handleEvent(
+      { type: 'checkout.session.completed', data: { object: { id: 'cs_no_provider' } } }, s));
+  } finally { console.error = real; delete process.env.MAIL_TO; resetStore(); }
+
+  /* Not configured is a state the whole shop is in, not something that went
+     wrong with this order. It belongs in the log, once per order, not in an
+     inbox. */
+  assert.equal(errs.some((l) => l.startsWith('[alarm]')), false);
+  assert.ok(errs.some((l) => l.includes('customer-mail-unsent')));
+});

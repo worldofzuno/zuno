@@ -115,6 +115,43 @@ reputation. That comes from sending real mail that people do not mark as
 spam. Marking the first few **Not junk** in your own mailbox genuinely
 helps, and so does adding the sender to your contacts.
 
+## When one does not go out
+
+Every failure here already wrote to the function log. The trouble with a log
+is that nobody reads it on a Tuesday: an order whose confirmation never went
+out looks exactly like one that did, until the customer writes in.
+
+`alarm(kind, detail)` in `mailer.mjs` turns the failures nobody else finds
+out about into a mail to `MAIL_TO`:
+
+| Raised when | Why it cannot wait |
+| --- | --- |
+| an order confirmation is refused | nothing retries it — Stripe will not redeliver a 200, and asking it to would re-run the gift cards and the stock |
+| a gift card is not issued, or was claimed and never finished | the customer paid for a card that may not exist |
+| an order cannot be filed under its account | the money is safe, but the order will not appear in their history |
+| the weekly backup is not sent | the likeliest cause is the attachment outgrowing what the provider takes, and a mail without it still gets through |
+
+Deliberately **not** raised:
+
+- **When no provider is configured at all.** `send` reports `via: 'log'` for
+  that, and it is a state the whole shop is in rather than something that
+  went wrong with one order. One alarm per order would be no way to learn
+  it.
+- **The shop's own copy of an order.** The alarm goes to the same inbox, so
+  a copy that could not be delivered is an alarm that could not be either.
+- **A gift card that could not be settled at checkout.** That one throws, so
+  Stripe retries it, and `settle` is idempotent. The retry is the answer;
+  an alarm on the first attempt would cry about something that fixes itself.
+
+Each kind is throttled to one mail every 15 minutes, so one provider outage
+during a busy hour is one mail rather than forty. The throttle lives in the
+blob store under `alarm/<kind>`; if it cannot be read, the alarm goes out
+anyway — the alarm is the point, counting it is the convenience.
+
+There is no retry, no queue and no second channel. If the provider itself is
+down, this cannot get through either, and it says so in the log rather than
+pretending.
+
 ## Seeing one before it goes out
 
 No provider configured means nothing is sent: the whole message is written

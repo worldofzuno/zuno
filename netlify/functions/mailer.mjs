@@ -14,6 +14,11 @@
  * all — check the flag.
  */
 
+/* The only thing the mailer keeps: how recently each kind of alarm went
+   out, so one outage is one mail. store.mjs knows nothing about mail, so
+   there is no cycle here. */
+import { mutate } from './store.mjs';
+
 /* A real address, not noreply@. Two reasons, and neither is sentimental:
    a customer who hits reply on an order confirmation is asking a question,
    and a mailbox that swallows it costs a sale; and spam filters —
@@ -178,6 +183,65 @@ export async function send(message) {
     console.log(`[mail:unsent] to=${full.to} subject=${full.subject}\n${full.text}`);
     return { sent: false, via: name, id: null, error };
   }
+}
+
+/* ----------------------------------------------------------- the alarm --- */
+
+/**
+ * Tell the shop that something did not work.
+ *
+ * Everything in here already wrote to the function log when it failed. The
+ * trouble with a log is that nobody reads it on a Tuesday: an order whose
+ * confirmation never went out looks exactly like an order whose
+ * confirmation went out, until the customer writes in. This turns the four
+ * failures nobody else finds out about into a mail.
+ *
+ * It is deliberately not clever. No retry, no queue, no second channel. If
+ * the mail provider is the thing that is down then this cannot get through
+ * either, and it says so in the log rather than pretending.
+ *
+ * `kind` is a short stable key — it is what the throttle counts, so one
+ * provider outage during a busy hour is one mail rather than forty.
+ */
+const ALARM_QUIET_MS = 15 * 60 * 1000;
+
+export async function alarm(kind, detail, { now = Date.now() } = {}) {
+  console.error(`[alarm] ${kind}: ${detail}`);
+
+  const to = shopInbox();
+  if (!to) return { sent: false, error: 'MAIL_TO is not set; nowhere to raise it' };
+
+  let allowed = false;
+  try {
+    await mutate(`alarm/${kind}`, (cur) => {
+      if (cur && cur.at && now - cur.at < ALARM_QUIET_MS) return null;
+      allowed = true;
+      return { at: now, detail: String(detail).slice(0, 500) };
+    });
+  } catch (e) {
+    /* A throttle that cannot be read is not a reason to stay silent. The
+       alarm is the point; counting it is the convenience. */
+    console.error(`[alarm:throttle-unavailable] ${kind}: ${e && e.message}`);
+    allowed = true;
+  }
+  if (!allowed) return { sent: false, error: 'throttled' };
+
+  return send({
+    to,
+    subject: `ZUNO: ${kind}`,
+    text: [
+      'Something in the shop did not work.',
+      '',
+      `What:  ${kind}`,
+      `Where: ${detail}`,
+      `When:  ${new Date(now).toISOString()}`,
+      '',
+      'The function log has the full entry. Nothing retries by itself —',
+      'if this was a mail to a customer, it has to be sent by hand.',
+      '',
+      `ZUNO — ${replyAddress()}`,
+    ].join('\n'),
+  });
 }
 
 /* ------------------------------------------------------------- the look --- */
