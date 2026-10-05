@@ -44,7 +44,9 @@ Also outstanding, outside the code:
   Family & Friends), all CHF with `tax_behavior: inclusive`. **`tax_behavior`
   cannot be changed once set**, so get it right at creation.
 - Create the live-mode coupon and promotion code for the public 15% discount
-  (sandbox has coupon `zuno-15`, code `ZUNO15`).
+  (sandbox has coupon `zuno-15-coffee`, restricted to the two coffee
+  products, with promotion code `ZUNO15`). See [LIVE.md](LIVE.md) for why the
+  restriction matters.
 - Decide on Adaptive Pricing. It is currently **on**, which lets Stripe show
   foreign customers their own currency. Harmless, but it is a pricing
   decision, not a default to inherit silently.

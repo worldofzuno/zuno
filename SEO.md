@@ -75,6 +75,6 @@ doing for the legal pages.
   `https://worldofzuno.com/sitemap.xml`. Nothing I can do from here.
 - **Rich Results Test** (`search.google.com/test/rich-results`) once the site
   is live, to see the Product card the structured data produces.
-- Confirm the Instagram URL. `instagram.com/worldofzuno/` was derived from
-  the handle and has never been checked; it is in the structured data as the
-  brand's `sameAs`, so a wrong one is a wrong claim about who you are.
+- ~~Confirm the Instagram URL.~~ `@worldofzuno`, confirmed by the owner on
+  2026-10-05. `https://www.instagram.com/worldofzuno/` stands in the footer
+  and in the structured data as the brand's `sameAs`.
