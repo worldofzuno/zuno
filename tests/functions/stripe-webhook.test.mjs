@@ -564,13 +564,21 @@ test('what a customer typed cannot become markup', () => {
   assert.ok(html.includes('&lt;script&gt;'), 'escaped, not dropped — the address still reads back');
 });
 
-test('the mail is one document with no outside dependency', () => {
+test('the mail is one document, and the only thing it loads is the wordmark', () => {
   const html = mod.orderMailHtml(ORDER);
   assert.ok(html.startsWith('<!doctype html>'));
-  /* No stylesheet, no web font, no image: a client that blocks what it
-     likes still shows a complete order. */
+  /* No stylesheet and no web font: a client that blocks what it likes
+     still shows a complete order. */
   assert.equal(/<link\b/i.test(html), false);
-  assert.equal(/<img\b/i.test(html), false);
+  assert.equal(/@font-face/i.test(html), false);
+
+  /* Exactly one image, and it is the logo. Every other part of the mail
+     has to read with images off. */
+  const imgs = html.match(/<img\b[^>]*>/gi) || [];
+  assert.equal(imgs.length, 1);
+  assert.ok(imgs[0].includes('/img/zuno-wordmark-mail.png'));
+  assert.ok(/alt="ZUNO"/.test(imgs[0]), 'blocked images still say who sent this');
+
   assert.equal(/https?:\/\/(?!worldofzuno)/i.test(html.replace(/mailto:[^"]*/g, '')), false,
-    'nothing is fetched from anywhere');
+    'nothing is fetched from anywhere but the shop itself');
 });

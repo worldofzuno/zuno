@@ -14,11 +14,49 @@
  * all — check the flag.
  */
 
-const FROM = () => process.env.MAIL_FROM || 'ZUNO <noreply@worldofzuno.com>';
+/* A real address, not noreply@. Two reasons, and neither is sentimental:
+   a customer who hits reply on an order confirmation is asking a question,
+   and a mailbox that swallows it costs a sale; and spam filters —
+   Microsoft's above all — treat noreply@ on a young domain as a mark
+   against it. Whatever stands here must be a mailbox somebody reads. */
+const FROM = () => {
+  const set = (process.env.MAIL_FROM || '').trim();
+  /* A full "Name <addr>" pair is taken as written. A bare address gets the
+     name put in front of it — which is not a nicety: a mail whose sender
+     reads "info@worldofzuno.com" rather than "ZUNO" is one a reader has to
+     decode, and Netlify's own API refuses to store a value with angle
+     brackets in it, so the bare form is the one that can be set without
+     opening the dashboard. */
+  if (set.includes('<')) return set;
+  const name = (process.env.MAIL_FROM_NAME || 'ZUNO').trim();
+  return `${name} <${set || 'info@worldofzuno.com'}>`;
+};
 const PROVIDER = () => (process.env.MAIL_PROVIDER || 'auto').toLowerCase();
+
+/** The bare address out of a "Name <addr>" pair, for Reply-To. */
+const bare = (from) => {
+  const m = /<([^>]+)>/.exec(from);
+  return (m ? m[1] : from).trim();
+};
+
+/** Where a reply goes. The sending address unless something says otherwise,
+    so there is one mailbox to watch rather than two. */
+export const replyAddress = () => process.env.MAIL_REPLY_TO || bare(FROM());
 
 /** Where shop-side notices go: new orders, and anything needing a human. */
 export const shopInbox = () => process.env.MAIL_TO || null;
+
+/**
+ * Where the shop lives, for links and for the logo in the mail frame.
+ *
+ * Netlify sets `URL` to the project's primary address, so this follows the
+ * custom domain the day it is attached and needs no deploy of its own. The
+ * literal is the last resort — a mail with a dead link in it is a mail that
+ * looks like phishing to both the reader and the filter.
+ */
+export const siteUrl = () =>
+  String(process.env.SITE_URL || process.env.URL || 'https://worldofzuno.com')
+    .replace(/\/+$/, '');
 
 /* ---------------------------------------------------------- providers --- */
 
@@ -114,7 +152,11 @@ export async function send(message) {
   if (!message || !ok(message.to) || !ok(message.subject) || !ok(message.text)) {
     return { sent: false, via: 'none', id: null, error: 'a message needs to, subject and text' };
   }
-  const full = { ...message, from: message.from || FROM() };
+  const full = {
+    ...message,
+    from: message.from || FROM(),
+    replyTo: message.replyTo || replyAddress(),
+  };
   const name = chosenProvider();
 
   if (!name) {
@@ -145,22 +187,40 @@ export async function send(message) {
  * One frame for every mail the shop sends.
  *
  * Mail clients are a museum. Tables for layout, every style on the element
- * that uses it, no stylesheet, no web font, and no image that has to load
- * before the mail makes sense — the ZUNO wordmark is letterspaced text, so
- * a client that blocks images still shows the brand.
+ * that uses it, no stylesheet and no web font.
  *
- * The palette is the shop's own four: black, gold, the deep green and the
- * warm paper. Dark text on light ground rather than the site's black,
- * because a mail client's own dark mode inverts what it likes and a
+ * The one image is the wordmark, and it is the real one — the same gold
+ * lettering as the site's header, not a bold sans pretending. It is served
+ * from the shop rather than attached, flattened onto the band's own black
+ * so no client can composite its transparency against white and leave a
+ * halo, and it carries alt text styled to look right on its own: a mail
+ * with images off still shows ZUNO in gold, letterspaced.
+ *
+ * The palette is the shop's own: black, the gold, the deep green and the
+ * warm beige the site uses for paper (#ede4d3 — the same value, not an
+ * approximation of it). Dark text on light ground rather than the site's
+ * black, because a mail client's own dark mode inverts what it likes and a
  * near-black mail is the one that comes out illegible.
  *
  * It lives beside `send` rather than in a module of its own because every
  * file in netlify/functions is published as an endpoint, and one more inert
  * URL to explain is a worse trade than one slightly wider mailer.
+ *
+ * Contrast on the white card, measured: ink 17.9:1, dim 8.0:1, green
+ * headings 12.5:1. On the black band, gold is 14.5:1. All clear of AA.
  */
 export const PALETTE = {
-  ink: '#16150e', dim: '#55513f', gold: '#f8d99b',
-  green: '#1e3932', paper: '#f4f1ea', line: '#e0dacb',
+  ink: '#16150e', dim: '#55513f', gold: '#f8d99b', green: '#1e3932',
+  /* The site's --beige, as the ground the card sits on. */
+  paper: '#ede4d3',
+  card: '#ffffff',
+  /* A warmer white for the panel that has to stand out from the card
+     without becoming a second colour. */
+  panel: '#fdf8ee',
+  /* The beige, a shade down: a rule that belongs to the paper rather than
+     a grey borrowed from somewhere else. */
+  line: '#ded3bd',
+  band: '#000000',
 };
 
 /** Everything a customer typed is escaped. A mail assembled from what
@@ -203,12 +263,13 @@ export function mailLayout({ title, preheader = '', blocks = [] }) {
 </head>
 <body style="margin:0;padding:0;background:${P.paper};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${P.paper};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${P.paper}" style="background:${P.paper};">
   <tr><td align="center" style="padding:28px 16px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid ${P.line};border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${P.card}" style="max-width:560px;background:${P.card};border:1px solid ${P.line};border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
 
-      <tr><td style="background:#000000;padding:22px 28px;">
-        <span style="color:${P.gold};font-size:17px;font-weight:600;letter-spacing:0.32em;">ZUNO</span>
+      <tr><td bgcolor="${P.band}" style="background:${P.band};padding:20px 28px;line-height:22px;">
+        <img src="${siteUrl()}/img/zuno-wordmark-mail.png" width="140" alt="ZUNO"
+             style="display:block;width:140px;max-width:140px;height:auto;border:0;outline:none;text-decoration:none;color:${P.gold};font-size:17px;font-weight:600;letter-spacing:0.32em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
       </td></tr>
 ${blocks.filter(Boolean).map((b, i) => `
       <tr><td style="padding:${i === 0 ? '28px' : '22px'} 28px 0;">
@@ -219,8 +280,8 @@ ${b}
         <hr style="border:0;border-top:1px solid ${P.line};margin:0 0 16px;">
         <p style="margin:0;font-size:12px;color:${P.dim};line-height:1.7;">
           ZUNO &mdash; Worldofzuno, Bahng&auml;ssli 16, 3172 Niederwangen bei Bern<br>
-          ${mailLink('mailto:info@worldofzuno.com', 'info@worldofzuno.com')} &middot;
-          ${mailLink('https://worldofzuno.com', 'worldofzuno.com')}
+          ${mailLink(`mailto:${replyAddress()}`, esc(replyAddress()))} &middot;
+          ${mailLink(siteUrl(), esc(siteUrl().replace(/^https?:\/\//, '')))}
         </p>
       </td></tr>
 

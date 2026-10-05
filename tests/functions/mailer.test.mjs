@@ -15,9 +15,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { send, shopInbox, chosenProvider } = await import('../../netlify/functions/mailer.mjs');
+const { send, shopInbox, chosenProvider, replyAddress, siteUrl, mailLayout } =
+  await import('../../netlify/functions/mailer.mjs');
 
-const ENV = ['RESEND_API_KEY', 'POSTMARK_SERVER_TOKEN', 'MAIL_PROVIDER', 'MAIL_FROM', 'MAIL_TO'];
+const ENV = ['RESEND_API_KEY', 'POSTMARK_SERVER_TOKEN', 'MAIL_PROVIDER', 'MAIL_FROM', 'MAIL_TO',
+  'MAIL_FROM_NAME', 'MAIL_REPLY_TO', 'SITE_URL', 'URL'];
 function clearEnv() { for (const k of ENV) delete process.env[k]; }
 
 /** Captures the one request the adapter makes. */
@@ -143,5 +145,102 @@ test('shopInbox is where shop-side notices go, or nowhere', () => {
   assert.equal(shopInbox(), null);
   process.env.MAIL_TO = 'info@worldofzuno.com';
   assert.equal(shopInbox(), 'info@worldofzuno.com');
+  clearEnv();
+});
+
+/* ------------------------------------------------- who it comes from --- */
+
+test('nothing is sent from noreply@', async () => {
+  clearEnv();
+  process.env.RESEND_API_KEY = 're_test_key';
+  const calls = stubFetch();
+  await quiet(() => send(MSG));
+  assert.ok(!/noreply/i.test(calls[0].body.from),
+    'a customer who replies to an order confirmation is asking a question');
+  clearEnv();
+});
+
+test('a bare address still arrives as ZUNO', async () => {
+  clearEnv();
+  process.env.RESEND_API_KEY = 're_test_key';
+
+  /* Netlify's API will not store a value with angle brackets in it, so the
+     address has to be settable on its own. */
+  process.env.MAIL_FROM = 'info@worldofzuno.com';
+  let calls = stubFetch();
+  await quiet(() => send(MSG));
+  assert.equal(calls[0].body.from, 'ZUNO <info@worldofzuno.com>');
+
+  process.env.MAIL_FROM_NAME = 'ZUNO Shop';
+  calls = stubFetch();
+  await quiet(() => send(MSG));
+  assert.equal(calls[0].body.from, 'ZUNO Shop <info@worldofzuno.com>');
+
+  process.env.MAIL_FROM = 'Someone Else <hallo@worldofzuno.com>';
+  calls = stubFetch();
+  await quiet(() => send(MSG));
+  assert.equal(calls[0].body.from, 'Someone Else <hallo@worldofzuno.com>',
+    'a pair written out in full is left alone');
+  clearEnv();
+});
+
+test('a reply goes back to the sending address unless told otherwise', async () => {
+  clearEnv();
+  assert.equal(replyAddress(), 'info@worldofzuno.com');
+
+  process.env.MAIL_FROM = 'ZUNO Shop <bestellungen@worldofzuno.com>';
+  assert.equal(replyAddress(), 'bestellungen@worldofzuno.com', 'the bare address, without the name');
+
+  process.env.MAIL_REPLY_TO = 'hallo@worldofzuno.com';
+  assert.equal(replyAddress(), 'hallo@worldofzuno.com');
+  clearEnv();
+
+  process.env.RESEND_API_KEY = 're_test_key';
+  const calls = stubFetch();
+  await quiet(() => send(MSG));
+  assert.equal(calls[0].body.reply_to, 'info@worldofzuno.com',
+    'every mail carries one, not only the ones that remembered to ask');
+  clearEnv();
+});
+
+/* ------------------------------------------------------- the address --- */
+
+test('the shop address follows the deploy, and never ends in a slash', () => {
+  clearEnv();
+  assert.equal(siteUrl(), 'https://worldofzuno.com', 'the last resort, not the usual case');
+
+  process.env.URL = 'https://worldofzuno.netlify.app';
+  assert.equal(siteUrl(), 'https://worldofzuno.netlify.app',
+    'Netlify sets this to the primary address, so the custom domain needs no code change');
+
+  process.env.SITE_URL = 'https://deploy-preview-7--worldofzuno.netlify.app/';
+  assert.equal(siteUrl(), 'https://deploy-preview-7--worldofzuno.netlify.app',
+    'an explicit override wins, and the trailing slash goes');
+  clearEnv();
+});
+
+test('the frame carries the real wordmark, from wherever the shop is', () => {
+  clearEnv();
+  process.env.URL = 'https://worldofzuno.netlify.app';
+  const html = mailLayout({ title: 'T', preheader: 'P', blocks: ['<p>Body</p>'] });
+
+  assert.ok(html.includes('https://worldofzuno.netlify.app/img/zuno-wordmark-mail.png'));
+  assert.ok(html.includes('alt="ZUNO"'));
+  /* The band is black and the logo is flattened onto black: a transparent
+     PNG is what leaves a white halo round the letters in Outlook. */
+  assert.ok(/bgcolor="#000000"/.test(html));
+  assert.equal(/https:\/\/worldofzuno\.com/.test(html), false,
+    'no link to a domain that is not up yet — a dead link reads as phishing to filter and reader alike');
+  assert.ok(html.includes('mailto:info@worldofzuno.com'), 'the address to write back to still stands');
+  clearEnv();
+});
+
+test('the frame uses the shop palette, not an approximation of it', () => {
+  clearEnv();
+  const html = mailLayout({ title: 'T', blocks: ['<p>Body</p>'] });
+  assert.ok(html.includes('#ede4d3'), "the site's own beige");
+  assert.ok(html.includes('#1e3932'), 'the deep green');
+  assert.ok(html.includes('#f8d99b'), 'the gold');
+  assert.equal(/#f4f1ea/.test(html), false, 'the invented grey-beige is gone');
   clearEnv();
 });

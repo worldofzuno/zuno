@@ -33,7 +33,7 @@ existing call already had real values and they were kept. What is missing is
 | `STRIPE_PRICE_GIFT_25` / `_50` / `_100` | sandbox ids | The **live** gift card Prices, on a product marked `shippable: false`. |
 | `STRIPE_PRODUCT_GIFT` | sandbox `prod_VNGsiJ…` | The **live** gift card Product. The chosen-amount option bills against it inline, so there is no fourth Price. |
 | `MAIL_PROVIDER`, `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` | empty | Your mail provider. **Until one is set, no mail is sent** — order confirmations and gift card codes go to the function log instead. |
-| `MAIL_FROM` | `noreply@worldofzuno.com` | Must be on a domain the provider has verified, or every message is refused. |
+| `MAIL_FROM` | `info@worldofzuno.com` | Must be on a domain the provider has verified, or every message is refused. A bare address is enough — `MAIL_FROM_NAME` (default `ZUNO`) goes in front of it. Not `noreply@`: see [MAIL.md](MAIL.md). |
 | `MAIL_TO` | empty | Where new-order notices reach you. |
 | `STRIPE_WEBHOOK_SECRET` | empty | The signing secret of your webhook endpoint, `whsec_…`. Each endpoint has its own, and test and live differ. |
 | `ORDER_NOTIFY_URL` | empty | Optional. Where a paid order is POSTed as JSON. Unset is supported — orders go to the Netlify function log instead, which is durable but is not an inbox. |
@@ -392,9 +392,10 @@ gift card.
 | shop | Mondays | the backup, with the ledger attached |
 
 All of them use one frame (`mailLayout` in `mailer.mjs`) and all of them go
-as HTML with the plain text alongside. Nothing in a mail is fetched from
-anywhere: no stylesheet, no web font, no image. The wordmark is letterspaced
-text, so a client that blocks images still shows the brand.
+as HTML with the plain text alongside. No stylesheet and no web font. The
+one thing a mail loads is the ZUNO wordmark, and the alt text is styled to
+stand in for it — see [MAIL.md](MAIL.md) for the look, the sending address
+and what keeps these out of the junk folder.
 
 There is deliberately no mail for a failed payment. Card, TWINT, PayPal and
 Link all settle at once, so `checkout.session.async_payment_failed` is

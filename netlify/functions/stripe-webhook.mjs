@@ -18,7 +18,7 @@
 import Stripe from 'stripe';
 import * as gift from './giftcard.mjs';
 import { store } from './store.mjs';
-import { send, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE } from './mailer.mjs';
+import { send, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './mailer.mjs';
 import { recordOrder } from './auth.mjs';
 import * as stock from './stock.mjs';
 
@@ -393,7 +393,7 @@ ${row('Shipping', order.shipping === '0.00' ? 'Free' : `${cur} ${esc(order.shipp
 ${row('Total', `${cur} ${esc(order.total)}`, { strong: true })}
         </table>`,
 
-      cards ? `        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${P.gold};border-radius:10px;background:#fffdf7;">
+      cards ? `        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${P.panel}" style="border:1px solid ${P.gold};border-radius:10px;background:${P.panel};">
           <tr><td style="padding:16px 18px 10px;">
             ${mailHeading(`Your gift card${(order.giftCards || []).length > 1 ? 's' : ''}`)}
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cards}</table>
@@ -410,8 +410,8 @@ ${row('Total', `${cur} ${esc(order.total)}`, { strong: true })}
       ships
         ? `        ${mailHeading('When')}
         ${mailText('We pack within one business day. Delivery inside Switzerland and Liechtenstein takes 1&ndash;3 business days, and you get a second mail the moment your parcel is on its way.', { top: false })}
-        ${mailText(`${mailLink('https://worldofzuno.com/#shipping', 'Shipping &amp; returns')} &middot; ${mailLink('https://worldofzuno.com/#account', 'Your orders')}`, { dim: true })}`
-        : `        ${mailText(`${mailLink('https://worldofzuno.com/#shipping', 'Shipping &amp; returns')} &middot; ${mailLink('https://worldofzuno.com/#account', 'Your orders')}`, { dim: true, top: false })}`,
+        ${mailText(`${mailLink(`${siteUrl()}/#shipping`, 'Shipping &amp; returns')} &middot; ${mailLink(`${siteUrl()}/#account`, 'Your orders')}`, { dim: true })}`
+        : `        ${mailText(`${mailLink(`${siteUrl()}/#shipping`, 'Shipping &amp; returns')} &middot; ${mailLink(`${siteUrl()}/#account`, 'Your orders')}`, { dim: true, top: false })}`,
     ],
   });
 }
@@ -445,7 +445,7 @@ export function orderMailText(order) {
     where ? 'Shipping to:\n' + where : 'Nothing to ship — delivered by email.',
     '',
     'ZUNO — Worldofzuno, Bahngässli 16, 3172 Niederwangen bei Bern',
-    'info@worldofzuno.com',
+    replyAddress(),
   ].filter((l) => l !== null).join('\n');
 }
 
@@ -468,7 +468,6 @@ async function mailOrder(order) {
          function log see — and it is what gets read out if a mail ever has
          to be reconstructed by hand. */
       html: orderMailHtml(order),
-      replyTo: 'info@worldofzuno.com',
     });
     if (!r.sent) console.error(`[order:customer-mail-unsent] ${order.session}: ${r.error}`);
   }
