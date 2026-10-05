@@ -21,8 +21,8 @@
  */
 
 import Stripe from 'stripe';
-import { codes, matchCode, exhausted, allow, FNF_CATALOGUE, fnfConfigured } from './fnf.mjs';
-import * as gift from './giftcard.mjs';
+import { codes, matchCode, exhausted, allow, FNF_CATALOGUE, fnfConfigured } from './lib/fnf.mjs';
+import * as gift from './lib/giftcard.mjs';
 
 const json = (status, obj) =>
   new Response(JSON.stringify(obj), {

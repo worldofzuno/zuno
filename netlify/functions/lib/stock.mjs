@@ -122,10 +122,18 @@ export async function hold(sku, ref, wanted, now = Date.now()) {
   return outcome;
 }
 
-/** The bags left the shelf. Recorded even if the hold had expired: the goods
-    are gone either way, and a count that quietly forgets is worse than one
-    showing zero. */
-export async function settle(sku, ref, fallbackQty = 0, now = Date.now()) {
+/**
+ * The bags left the shelf. Recorded even if the hold had expired: the goods
+ * are gone either way, and a count that quietly forgets is worse than one
+ * showing zero.
+ *
+ * `order` is the Checkout Session the sale belongs to. Without it the
+ * ledger records only `ref`, the internal hold reference, which answers
+ * nothing when somebody asks which order took the last bag — the gift card
+ * ledger had the same hole and it was worth closing there too. Optional,
+ * because a settle with no session is still a sale that happened.
+ */
+export async function settle(sku, ref, fallbackQty = 0, now = Date.now(), order = null) {
   let outcome = 'none';
   await mutate(keyFor(sku), (cur) => {
     if (!cur || typeof cur.qty !== 'number') { outcome = 'untracked'; return null; }
@@ -148,7 +156,12 @@ export async function settle(sku, ref, fallbackQty = 0, now = Date.now()) {
       ...cur,
       qty: Math.max(0, cur.qty - qty),
       holds,
-      sold: { ...(cur.sold || {}), [ref]: { qty, at: now } },
+      sold: {
+        ...(cur.sold || {}),
+        /* `order` only when there is one, so an entry without it reads as
+           absent rather than as an order called null. */
+        [ref]: { qty, at: now, ...(typeof order === 'string' && order ? { order } : {}) },
+      },
       updatedAt: new Date(now).toISOString(),
     };
   });
@@ -186,11 +199,11 @@ export async function holdCart(lines, ref, now = Date.now()) {
   return { ok: true, held: taken };
 }
 
-export async function settleCart(lines, ref, now = Date.now()) {
+export async function settleCart(lines, ref, now = Date.now(), order = null) {
   const out = {};
   for (const line of lines) {
     if (!TRACKED.includes(line.sku)) continue;
-    out[line.sku] = await settle(line.sku, ref, line.qty, now);
+    out[line.sku] = await settle(line.sku, ref, line.qty, now, order);
   }
   return out;
 }

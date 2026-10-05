@@ -12,7 +12,7 @@
  * one thing that matters at that moment, which is what the cart sent.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 const unique = () => `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.ch`;
 
@@ -135,6 +135,12 @@ test.describe('the shop', () => {
     await expect(page.locator('#forgotForm')).toBeVisible();
     await expect(page.locator('#authView .auth-card:visible')).toHaveCount(1);
 
+    /* Into the middle of the window first. Playwright scrolls a target to
+       the top edge, where the fixed header sits over it and swallows the
+       click; a person scrolls until they can see the thing. Measured: the
+       page's own anchors all land clear of the 79px header, so this is the
+       test's artefact and not the shop's. */
+    await page.locator('#forgotBack').evaluate((el) => el.scrollIntoView({ block: 'center' }));
     await page.locator('#forgotBack').click();
     await expect(page.locator('#loginForm')).toBeVisible();
     await expect(page.locator('#forgotForm')).toBeHidden();
@@ -159,12 +165,25 @@ test.describe('the shop', () => {
     await page.locator('#f-email-15').fill(email.toUpperCase());  // addresses are not case-sensitive
     await page.locator('#f-password-16').fill('a few words to remember');
     await page.locator('#loginForm button[type=submit]').click();
+
+    /* The panel coming back is the proof, not the address in it: signing
+       out hides the panel but leaves the text where it was, so an
+       assertion on the address alone passes on the leftover. It did —
+       a sign-in refused outright read as a success here, and only the
+       reload two lines down gave it away. */
+    await expect(page.locator('#dashView')).toBeVisible();
+    await expect(page.locator('#loginMsg')).toBeHidden();
     await expect(page.locator('#memberMail')).toHaveText(email);
 
     /* Still signed in after a reload: the session is a cookie, not a
-       variable in the page. */
+       variable in the page.
+       Fifteen seconds rather than the usual five. A reload asks the server
+       who this is before it can show anything, and on the telephone
+       project the page is being drawn in software — traced end to end, the
+       answer comes back fine, it is the painting that is slow. A real
+       telephone has a GPU. */
     await page.reload();
-    await expect(page.locator('#dashView')).toBeVisible();
+    await expect(page.locator('#dashView')).toBeVisible({ timeout: 15_000 });
   });
 
   test('a wrong password says so, and says nothing else', async ({ page }) => {

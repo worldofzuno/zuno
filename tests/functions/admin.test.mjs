@@ -15,10 +15,10 @@ import test from 'node:test';
 const TOKEN = 'a-long-enough-admin-key-0123456789';
 process.env.ADMIN_TOKEN = TOKEN;
 
-const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
-const { resetLimiter } = await import('../../netlify/functions/fnf.mjs');
-const gc = await import('../../netlify/functions/giftcard.mjs');
-const auth = await import('../../netlify/functions/auth.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/lib/store.mjs');
+const { resetLimiter } = await import('../../netlify/functions/lib/fnf.mjs');
+const gc = await import('../../netlify/functions/lib/giftcard.mjs');
+const auth = await import('../../netlify/functions/lib/auth.mjs');
 const mod = await import('../../netlify/functions/admin.mjs');
 const handler = mod.default;
 
@@ -440,4 +440,39 @@ test('the despatch mail carries the address and the tracking, escaped', () => {
   assert.ok(html.includes('3013 Bern'));
   assert.equal(html.includes('<script>alert(1)</script>'), false);
   assert.ok(mod.shippedMailText(order).includes('99.00.123456.78901234'));
+});
+
+/* ------------------------------------------------------ tracking link --- */
+
+test('a Swiss Post number becomes a link, and nothing else does', () => {
+  const code = '99.00.123456.78901234';
+  const url = mod.trackingUrl('Die Post', code);
+  assert.equal(url, `https://www.post.ch/swisspost-tracking?formattedParcelCodes=${encodeURIComponent(code)}`);
+  assert.equal(mod.trackingUrl('Swiss Post', code), url, 'however it was typed');
+  assert.equal(mod.trackingUrl('schweizerische post', code), url);
+
+  /* A link that guesses is worse than a number the customer pastes into a
+     search box themselves. */
+  assert.equal(mod.trackingUrl('DHL', code), null);
+  assert.equal(mod.trackingUrl('', code), null);
+  assert.equal(mod.trackingUrl('Die Post', ''), null);
+  assert.equal(mod.trackingUrl('Die Post', null), null);
+});
+
+test('the despatch mail carries the link, in both halves', () => {
+  const order = {
+    ref: 'AB12CD34', name: 'A Kundin', email: 'kundin@example.ch',
+    address: { line1: 'Waldhoeheweg 30', line2: null, postal_code: '3013', city: 'Bern', country: 'CH' },
+    items: [{ name: 'ZUNO Castano — 200 g', grind: 'Whole Beans', qty: 1 }],
+    shipped: { at: '2026-10-05T10:00:00.000Z', carrier: 'Die Post', tracking: '99.00.123456.78901234' },
+  };
+  const html = mod.shippedMailHtml(order);
+  assert.ok(html.includes('post.ch/swisspost-tracking?formattedParcelCodes=99.00.123456.78901234'));
+  assert.ok(mod.shippedMailText(order).includes('post.ch/swisspost-tracking'));
+
+  /* An unknown carrier still gets its number, just not a guessed link. */
+  const other = { ...order, shipped: { ...order.shipped, carrier: 'DHL' } };
+  const plain = mod.shippedMailHtml(other);
+  assert.ok(plain.includes('99.00.123456.78901234'));
+  assert.equal(/swisspost-tracking/.test(plain), false);
 });

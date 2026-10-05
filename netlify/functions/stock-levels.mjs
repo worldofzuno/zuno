@@ -13,7 +13,7 @@
  * costs a clear error at the till rather than an oversold bag.
  */
 
-import { levels, TRACKED } from './stock.mjs';
+import { levels, TRACKED } from './lib/stock.mjs';
 
 export default async function handler(req) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {

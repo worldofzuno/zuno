@@ -77,7 +77,7 @@ export carries each size's record with its holds and its settled sales.
 
 | file | what it does |
 | --- | --- |
-| `netlify/functions/stock.mjs` | the ledger: hold, settle, release, per cart and per size |
+| `netlify/functions/lib/stock.mjs` | the ledger: hold, settle, release, per cart and per size |
 | `netlify/functions/stock-levels.mjs` | the public count the page reads |
 | `create-checkout-session.mjs` | holds the cart, answers `409 out-of-stock` |
 | `stripe-webhook.mjs` | settles on paid, releases on expired or failed |
@@ -86,3 +86,11 @@ export carries each size's record with its holds and its settled sales.
 Twenty-five tests cover the ledger (`tests/functions/stock.test.mjs`), among them five
 checkouts racing for three bags, a hold nobody ever resolved, a replayed
 webhook, and a payment that lands after its hold expired.
+
+## What a sale records
+
+Each settled sale is kept under the hold reference with the quantity, the
+time, and **the Checkout Session it belonged to**. The order number is what
+answers "which order took the last bag"; the hold reference answers nothing.
+Sales from before this was recorded have no `order` field, which reads as
+absent rather than as an order called null.

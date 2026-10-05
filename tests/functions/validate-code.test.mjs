@@ -21,7 +21,7 @@ process.env.FNF_CODES = JSON.stringify([
   { code: 'CAPPED', maxRedemptions: 2 },
 ]);
 
-const { resetLimiter } = await import('../../netlify/functions/fnf.mjs');
+const { resetLimiter } = await import('../../netlify/functions/lib/fnf.mjs');
 const mod = await import('../../netlify/functions/validate-code.mjs');
 const { check } = mod;
 const handler = mod.default;
@@ -196,8 +196,8 @@ test('a client guessing repeatedly is slowed down', async () => {
 
 /* --------------------------------------------------------- gift cards */
 
-const { useMemoryStore } = await import('../../netlify/functions/store.mjs');
-const gc = await import('../../netlify/functions/giftcard.mjs');
+const { useMemoryStore } = await import('../../netlify/functions/lib/store.mjs');
+const gc = await import('../../netlify/functions/lib/giftcard.mjs');
 
 test('a gift card answers with its balance, and says it is a gift card', async () => {
   useMemoryStore();

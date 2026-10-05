@@ -273,9 +273,11 @@ export async function alarm(kind, detail, { now = Date.now() } = {}) {
  * and beige text on a white rectangle is the one failure this must not
  * have.
  *
- * It lives beside `send` rather than in a module of its own because every
- * file in netlify/functions is published as an endpoint, and one more inert
- * URL to explain is a worse trade than one slightly wider mailer.
+ * It lives beside `send` rather than in a module of its own. The original
+ * reason was that every file in netlify/functions was published as an
+ * endpoint, so a second file meant a second inert URL; that stopped being
+ * true when the libraries moved into lib/. It stays because the frame and
+ * the sending are one subject, and splitting them now would be churn.
  *
  * Contrast on the card, measured: ink 15.5:1, dim 7.6:1, gold headings
  * 14.3:1. On the gift-card panel: ink 13.1:1, dim 6.5:1, gold 12.2:1. All

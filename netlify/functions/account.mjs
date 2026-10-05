@@ -19,9 +19,9 @@ import {
   noteFailure, noteSuccess, startSession, sessionAccount, endSession,
   publicAccount, readCookie, setCookie, clearCookie, looksLikeEmail, normaliseEmail,
   changePassword, deleteAccount, startReset, finishReset, sweepResets,
-} from './auth.mjs';
-import { allow } from './fnf.mjs';
-import { send, mailLayout, mailHeading, mailText, mailLink, esc, siteUrl, replyAddress } from './mailer.mjs';
+} from './lib/auth.mjs';
+import { allow } from './lib/fnf.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc, siteUrl, replyAddress } from './lib/mailer.mjs';
 
 const json = (status, obj, cookie) =>
   new Response(JSON.stringify(obj), {

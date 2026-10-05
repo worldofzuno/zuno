@@ -13,9 +13,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore } = await import('../../netlify/functions/store.mjs');
-const gift = await import('../../netlify/functions/giftcard.mjs');
-const stock = await import('../../netlify/functions/stock.mjs');
+const { useMemoryStore } = await import('../../netlify/functions/lib/store.mjs');
+const gift = await import('../../netlify/functions/lib/giftcard.mjs');
+const stock = await import('../../netlify/functions/lib/stock.mjs');
 const admin = await import('../../netlify/functions/admin.mjs');
 const mod = await import('../../netlify/functions/backup.mjs');
 
@@ -69,7 +69,7 @@ test('the mail says what is owed without opening the file', async () => {
 
 test('a backup carries no password derivation', async () => {
   useMemoryStore();
-  const auth = await import('../../netlify/functions/auth.mjs');
+  const auth = await import('../../netlify/functions/lib/auth.mjs');
   await auth.createAccount({ name: 'A Kundin', email: 'kundin@example.ch', password: 'a decent long passphrase' });
   const data = await admin.takeBackup();
   assert.equal(data.accounts.length, 1);
