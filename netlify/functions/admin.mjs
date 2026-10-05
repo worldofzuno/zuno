@@ -30,7 +30,7 @@ import {
   normaliseEmail, looksLikeEmail, readCookie,
 } from './lib/auth.mjs';
 import { allow } from './lib/fnf.mjs';
-import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './lib/mailer.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, fromAddress } from './lib/mailer.mjs';
 import Stripe from 'stripe';
 
 const COOKIE = 'zuno_admin';
@@ -314,7 +314,7 @@ export function shippedMailText(order) {
     'Delivery inside Switzerland and Liechtenstein takes 1-3 business days',
     'from today. Something not right? Just reply to this mail.',
     '',
-    `ZUNO — ${replyAddress()}`,
+    `ZUNO — ${fromAddress()}`,
   ].filter((l) => l !== null).join('\n');
 }
 

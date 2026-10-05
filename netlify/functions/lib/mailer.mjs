@@ -43,9 +43,25 @@ const bare = (from) => {
   return (m ? m[1] : from).trim();
 };
 
-/** Where a reply goes. The sending address unless something says otherwise,
-    so there is one mailbox to watch rather than two. */
-export const replyAddress = () => process.env.MAIL_REPLY_TO || bare(FROM());
+/**
+ * The address the shop writes under, bare. This is what a mail *shows*:
+ * the footer, the signature at the end of the plain text. It is the brand's
+ * address and it matches the From, which is what a reader checks when they
+ * wonder whether a mail is really from the shop.
+ */
+export const fromAddress = () => bare(FROM());
+
+/**
+ * Where a reply actually goes. The sending address unless `MAIL_REPLY_TO`
+ * says otherwise, so there is one mailbox to watch rather than two.
+ *
+ * The two are separate because they can need to differ: info@ is the
+ * address on the Impressum and on the packaging, and it is the right thing
+ * to show, but until the domain has an MX record it cannot receive. A
+ * Reply-To pointing somewhere that works means the Reply button reaches a
+ * person, which is the path almost everybody takes.
+ */
+export const replyAddress = () => process.env.MAIL_REPLY_TO || fromAddress();
 
 /** Where shop-side notices go: new orders, and anything needing a human. */
 export const shopInbox = () => process.env.MAIL_TO || null;
@@ -239,7 +255,7 @@ export async function alarm(kind, detail, { now = Date.now() } = {}) {
       'The function log has the full entry. Nothing retries by itself —',
       'if this was a mail to a customer, it has to be sent by hand.',
       '',
-      `ZUNO — ${replyAddress()}`,
+      `ZUNO — ${fromAddress()}`,
     ].join('\n'),
   });
 }
@@ -363,7 +379,7 @@ ${b}
         <hr style="border:0;border-top:1px solid ${P.line};margin:0 0 16px;">
         <p style="margin:0;font-size:12px;color:${P.dim};line-height:1.7;">
           ZUNO &mdash; Worldofzuno, Bahng&auml;ssli 16, 3172 Niederwangen bei Bern<br>
-          ${mailLink(`mailto:${replyAddress()}`, esc(replyAddress()))} &middot;
+          ${mailLink(`mailto:${fromAddress()}`, esc(fromAddress()))} &middot;
           ${mailLink(siteUrl(), esc(siteUrl().replace(/^https?:\/\//, '')))}
         </p>
       </td></tr>

@@ -88,11 +88,27 @@ of it, so the reader sees a name rather than a mailbox. The address is the
 part that changes; the name is the brand and belongs in one place. A full
 `Name <addr>` pair is taken as written.
 
-Every mail carries a `Reply-To`, defaulting to the sending address, so there
-is one mailbox to watch rather than two. `MAIL_REPLY_TO` overrides it.
+Every mail carries a `Reply-To`. It defaults to the sending address, which
+is right as soon as that address can receive.
 
-**Whatever stands in `MAIL_FROM` must be a mailbox somebody reads.** Nothing
-in the code can check that.
+**Today it does not.** `worldofzuno.com` has no MX record, so nothing can be
+delivered to `info@` at all — a reply would bounce. So two addresses, and
+they are deliberately different things:
+
+| | |
+| --- | --- |
+| `fromAddress()` | what a mail **shows**: the From, the footer, the signature. The brand's address, the one on the Impressum, the one a reader checks against the sender. |
+| `replyAddress()` | where a reply **goes**. `MAIL_REPLY_TO` when set. |
+
+The private address it forwards to never appears in a mail — there is a
+test for that. What is still broken: anybody who copies `info@` out of the
+footer, or off the Impressum, gets a bounce. The fix for that is an MX
+record — GoDaddy's forwarding, or a real mailbox — not this. This only
+covers the Reply button, which is the path almost everybody takes.
+
+**Whatever stands in `MAIL_FROM` must be an address the brand is willing to
+show.** Whether it can receive is a separate question, and the code cannot
+check either one.
 
 ## Staying out of the junk folder
 
