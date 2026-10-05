@@ -21,25 +21,42 @@ current provider is the smaller and safer change.
 
 ## The two records
 
-At whoever hosts the DNS for `worldofzuno.com`:
+The domain is registered at **GoDaddy**, and its DNS is there too — the
+Resend records that authenticate the shop's mail already sit in that zone.
 
-| Host | Type | Value |
-| --- | --- | --- |
-| `www` | CNAME | `worldofzuno.netlify.app` |
-| `@` (the bare domain) | A | `75.2.60.5` |
+GoDaddy: sign in → **My Products** → the domain → **DNS** → **DNS Records**.
 
-If the provider offers **ALIAS**, **ANAME** or a **flattened CNAME**, use that
-for the bare domain instead of the A record and point it at
-`apex-loadbalancer.netlify.com`. It survives Netlify changing its load
-balancer; a pinned IP does not.
+| Host | Type | Value | TTL |
+| --- | --- | --- | --- |
+| `@` | A | `75.2.60.5` | 600 seconds while switching |
+| `www` | CNAME | `worldofzuno.netlify.app` | 600 seconds while switching |
 
-Netlify recommends making **`www.worldofzuno.com` the primary** and letting
-the bare domain redirect to it, because an apex served through third-party
-DNS cannot be given the same routing. Either works; `www` is the faster one.
+**Edit the records that are already there; do not add a second one.** A
+fresh GoDaddy domain comes with an `@` A record pointing at their parked
+page and a `www` CNAME beside it. GoDaddy will happily keep two A records
+for `@` and answer with them in turn, so half of all visitors would land on
+the parking page. One `@`, one `www`.
+
+**Turn off Forwarding** if it is on (same page, further down). Domain
+forwarding works by inserting GoDaddy's own records, which overrides
+whatever is set above it.
+
+GoDaddy offers no **ALIAS**, **ANAME** or flattened CNAME, so the bare domain
+has to be the A record. That pins Netlify's load-balancer IP, which is the
+one thing to re-check if the site ever goes dark for no other reason.
+
+Netlify recommends making `www` the primary for exactly that reason. The
+bare domain is what the brand prints, so it is the primary here and `www`
+redirects to it — Netlify does that redirect itself once both records
+resolve. The cost is one extra hop through their load balancer, which for a
+shop this size is not worth the uglier address.
 
 Then in Netlify: **Project configuration → Domain management → Add a domain**,
-enter the domain, and let it verify. The certificate is issued automatically
-once the records resolve — usually minutes, occasionally a day.
+enter `worldofzuno.com`, and let it verify. The certificate is issued
+automatically once the records resolve — usually minutes, occasionally a day.
+
+**Do not let GoDaddy's "connect my domain" wizard do this.** It offers to
+point the domain at a GoDaddy site builder, which replaces both records.
 
 ## Afterwards
 
