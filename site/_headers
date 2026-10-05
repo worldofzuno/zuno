@@ -23,8 +23,24 @@
 # week in which the old one is shown once while the new one is fetched —
 # so a returning visitor pays nothing for 230 KB of pictures, and a changed
 # picture is never more than a visit behind.
+#
+# Cross-origin, overriding the same-origin above, and this one is load-bearing:
+# the ZUNO wordmark in every mail the shop sends is fetched from here by a
+# mail client, which is not an origin on worldofzuno.com. Apple Mail renders
+# with WebKit, WebKit enforces the policy, and same-origin turned the logo
+# into a broken-image placeholder in the first order confirmation that went
+# out on the real domain. These are public brand assets meant to be shown
+# elsewhere; the policy protects nothing here that is worth a blank logo.
 /img/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cross-Origin-Resource-Policy: cross-origin
+
+# Same reason, one file: the preview picture social sites and chat apps show
+# for a shared link. They mostly fetch it server-side, where the policy does
+# not apply, but the ones that render it in a browser are the ones that would
+# show a hole.
+/og-image.jpg
+  Cross-Origin-Resource-Policy: cross-origin
 
 # The library filenames carry their version, so a new one is a new URL.
 /js/*

@@ -15,8 +15,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { send, alarm, shopInbox, chosenProvider, replyAddress, siteUrl, mailLayout } =
-  await import('../../netlify/functions/mailer.mjs');
+const { send, alarm, shopInbox, chosenProvider, replyAddress, siteUrl,
+  mailLayout, mailHeading, mailText } = await import('../../netlify/functions/mailer.mjs');
 const { useMemoryStore, resetStore } = await import('../../netlify/functions/store.mjs');
 
 const ENV = ['RESEND_API_KEY', 'POSTMARK_SERVER_TOKEN', 'MAIL_PROVIDER', 'MAIL_FROM', 'MAIL_TO',
@@ -290,10 +290,35 @@ test('the frame carries the real wordmark, from wherever the shop is', () => {
 
 test('the frame uses the shop palette, not an approximation of it', () => {
   clearEnv();
-  const html = mailLayout({ title: 'T', blocks: ['<p>Body</p>'] });
-  assert.ok(html.includes('#ede4d3'), "the site's own beige");
-  assert.ok(html.includes('#1e3932'), 'the deep green');
-  assert.ok(html.includes('#f8d99b'), 'the gold');
+  const html = mailLayout({
+    title: 'T',
+    blocks: [mailHeading('When') + mailText('Body') + mailText('Quieter', { dim: true })],
+  });
+  assert.ok(html.includes('#ede4d3'), "the site's own beige, as the ink");
+  assert.ok(html.includes('#f8d99b'), 'the gold, for headings and links');
+  assert.ok(html.includes('#000000'), 'the black ground');
   assert.equal(/#f4f1ea/.test(html), false, 'the invented grey-beige is gone');
+  assert.equal(/color:#1e3932/.test(html), false,
+    'the deep green is a surface on black, never something to read');
+});
+
+/* iOS Mail inverted the light version: olive ground, white-on-black card,
+   none of it ours, and the color-scheme metas did not stop it. A dark mail
+   has nothing for a dark mode to do to it. */
+test('the mail is dark, and says so in the ways a client reads', () => {
+  clearEnv();
+  const html = mailLayout({ title: 'T', blocks: ['<p>Body</p>'] });
+  assert.ok(html.includes('name="color-scheme" content="dark"'));
+  assert.ok(html.includes('name="supported-color-schemes" content="dark"'));
+  assert.ok(/<body bgcolor="#000000"/.test(html), 'the ground, for Outlook too');
+
+  /* Every surface carries bgcolor as well as the style. Outlook's Word
+     engine drops the CSS background and keeps the text colour, and beige
+     on white is the one failure this must not have. */
+  const surfaces = html.match(/<(?:table|td|body)\b[^>]*background:#[0-9a-f]{6}/gi) || [];
+  assert.ok(surfaces.length >= 5, `expected the frame's surfaces, found ${surfaces.length}`);
+  for (const s of surfaces) {
+    assert.ok(/bgcolor="#[0-9a-f]{6}"/i.test(s), `no bgcolor beside the style: ${s.slice(0, 90)}`);
+  }
   clearEnv();
 });
