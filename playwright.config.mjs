@@ -25,13 +25,48 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{
-    name: 'chromium',
-    use: {
-      ...devices['Desktop Chrome'],
-      launchOptions: { executablePath: process.env.PW_CHROMIUM || undefined },
+  /* The same walkthroughs twice. Most people buy coffee on a telephone,
+     and a desktop window says nothing about a burger menu that will not
+     close or a drawer that covers the button under it. Pixel 5 rather than
+     an iPhone because its default engine is Chromium, which is the one
+     browser on this machine; what is being tested is the layout and the
+     touch handling, not WebKit. */
+  projects: [
+    {
+      name: 'desktop',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { executablePath: process.env.PW_CHROMIUM || undefined },
+      },
     },
-  }],
+    {
+      name: 'phone',
+      use: {
+        ...devices['Pixel 5'],
+        /* Pixel 5 asks for 2.75 device pixels per CSS pixel. There is no
+           GPU here, so the cell field behind the page is drawn in
+           software, and at that density the page stops answering clicks
+           inside ten seconds — measured: 2.75x times out, 1x loads in
+           5.8s, and with reduced motion 0.26s. A real telephone has a GPU
+           and does not have this problem. Density changes nothing about
+           the layout, which is what these walkthroughs are for, so it is
+           turned down rather than the animation turned off: the page under
+           test stays the page. */
+        deviceScaleFactor: 1,
+        /* And the motion the page itself offers to turn off. Under a
+           software renderer the hero entrance never settles: Playwright
+           waits for an element to hold still for two frames, each frame
+           takes hundreds of milliseconds, and every tap times out. With
+           reduced motion the same walkthrough runs in 0.26s instead of
+           5.8s. It is a setting real people have on, the page already
+           honours it, and the layout — which is what this project is for
+           — is identical either way. The desktop project keeps the
+           animations, so both paths are walked. */
+        reducedMotion: 'reduce',
+        launchOptions: { executablePath: process.env.PW_CHROMIUM || undefined },
+      },
+    },
+  ],
   webServer: {
     command: 'node tests/browser/serve.mjs 8820',
     url: 'http://127.0.0.1:8820/.netlify/functions/stock-levels',

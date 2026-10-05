@@ -7,7 +7,7 @@ in a junk folder.
 
 ## One frame
 
-`mailLayout` in `netlify/functions/mailer.mjs`. Every mail the shop sends
+`mailLayout` in `netlify/functions/lib/mailer.mjs`. Every mail the shop sends
 goes through it, so there is one place to change and no mail that looks
 like a different company's.
 
@@ -135,6 +135,18 @@ What we cannot fix from here: the domain is days old and has no sending
 reputation. That comes from sending real mail that people do not mark as
 spam. Marking the first few **Not junk** in your own mailbox genuinely
 helps, and so does adding the sender to your contacts.
+
+## Following the parcel
+
+The despatch mail turns the tracking number into a link when the carrier is
+Swiss Post, which publishes a deep link into Track & Trace taking the
+barcode exactly as printed on the label — no account, no API. Any other
+carrier gets the number as plain text: a link that guesses where a parcel
+is would be worse than one the customer pastes into a search box.
+
+`trackingUrl(carrier, tracking)` in `admin.mjs` is the whole of it, and the
+plain-text half of the mail prints the address on its own line, because an
+address inside a sentence is one a mail client wraps in the middle.
 
 ## When one does not go out
 

@@ -35,10 +35,10 @@
  */
 
 import Stripe from 'stripe';
-import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './fnf.mjs';
-import * as gift from './giftcard.mjs';
-import { sessionAccount, readCookie } from './auth.mjs';
-import * as stock from './stock.mjs';
+import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './lib/fnf.mjs';
+import * as gift from './lib/giftcard.mjs';
+import { sessionAccount, readCookie } from './lib/auth.mjs';
+import * as stock from './lib/stock.mjs';
 
 /* ------------------------------------------------------------------ config */
 

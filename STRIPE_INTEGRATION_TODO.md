@@ -166,7 +166,7 @@ Treat `FNF_CODES` as a secret: it *is* the code.
   than refused. A few extra bags of coffee is a smaller problem than a shop
   that turns away its own family. If you would rather it failed closed, the
   decision is one line in `exhausted()` in
-  [netlify/functions/fnf.mjs](netlify/functions/fnf.mjs).
+  [netlify/functions/lib/fnf.mjs](netlify/functions/lib/fnf.mjs).
 
 ### Rate limiting
 
@@ -251,11 +251,11 @@ is unused, so a future issue date can carry one without a rebuild.
 New files:
 
 ```
-netlify/functions/fnf.mjs               code parsing, matching, rate limit, redemption count
+netlify/functions/lib/fnf.mjs               code parsing, matching, rate limit, redemption count
 netlify/functions/validate-code.mjs     POST endpoint the cart calls
-netlify/functions/store.mjs             Netlify Blobs, with conditional writes
-netlify/functions/giftcard.mjs          the gift card ledger: hold, settle, release
-netlify/functions/mailer.mjs            send, through whichever provider has a key
+netlify/functions/lib/store.mjs             Netlify Blobs, with conditional writes
+netlify/functions/lib/giftcard.mjs          the gift card ledger: hold, settle, release
+netlify/functions/lib/mailer.mjs            send, through whichever provider has a key
 ```
 
 Each has a `.test.mjs` under `tests/functions/`. They live outside the
@@ -357,6 +357,10 @@ gift card.
 ---
 
 ## Next steps
+
+Going live has a document of its own now: [LIVE.md](LIVE.md) — what to
+create in live mode, the ten variables, the order, and the one thing to fix
+before any of it (the 15% code currently works on gift cards).
 
 - Set the environment variables above in Netlify, then redeploy.
 - Create the live-mode products, prices and coupon; swap the four price ids.

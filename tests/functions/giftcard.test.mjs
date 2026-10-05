@@ -12,8 +12,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
-const gc = await import('../../netlify/functions/giftcard.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/lib/store.mjs');
+const gc = await import('../../netlify/functions/lib/giftcard.mjs');
 
 const quiet = async (fn) => {
   const real = console.error;

@@ -341,13 +341,24 @@ button, input, textarea, select { font-family: inherit; }
 /* Collapses on grid-template-rows rather than height: the row goes 0fr to
    1fr on the compositor, so opening the menu no longer reflows the page
    below it on every frame — and nothing has to measure scrollHeight. */
+/* visibility, not only opacity and a zero track. Collapsed, the panel is
+   invisible and nought pixels tall, but its six links keep their place in
+   the tab order: pressing Tab from the burger used to land on "Shop",
+   inside a menu nobody can see. Measured on both the telephone and the
+   desktop layout, because the panel is in the document at every width.
+   visibility is inherited and not focusable, which fixes it without
+   touching the animation — the delay on the way out lets the collapse
+   finish before the panel goes, and on the way in it flips at once. */
 .menu {
-  display: grid; grid-template-rows: 0fr; opacity: 0;
+  display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden;
   background: rgba(0, 0, 0, 0.96);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition: grid-template-rows var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium);
+  transition: grid-template-rows var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium), visibility 0s linear var(--control);
 }
-.menu.is-open { grid-template-rows: 1fr; opacity: 1; }
+.menu.is-open {
+  grid-template-rows: 1fr; opacity: 1; visibility: visible;
+  transition: grid-template-rows var(--control) var(--ease-premium), opacity var(--control) var(--ease-premium), visibility 0s;
+}
 /* The clipping has to sit on the direct grid child — that is .rail here,
    not the ul. A grid item keeps min-height:auto and refuses to shrink
    below its content, which leaves the 0fr track at full height. */

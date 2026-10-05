@@ -27,7 +27,7 @@ rather than pretending.
 
 ```bash
 npm run test:functions      # node --test, the functions
-npm run test:browser        # playwright, the shop in a browser
+npm run test:browser        # playwright, the shop in a browser and on a phone
 python3 tools/build-headers.py   # regenerate the CSP hashes in site/_headers
 ```
 
@@ -35,6 +35,11 @@ Both suites and the header check run on every push and pull request
 (`.github/workflows/checks.yml`). The browser run needs a Chromium; set
 `PW_CHROMIUM` to one that is already on the machine, or let
 `npx playwright install chromium` fetch it.
+
+The browser run has two projects. `desktop` walks the shop in a desktop
+window with the animations on; `phone` walks the same ground in a telephone
+window, plus the things that only exist there — the burger menu, sideways
+scroll, thumb-sized targets. Add `--project=phone` to run one of them.
 
 `site/_headers` pins the inline script and style by SHA-256. Edit either and
 regenerate, or the browser refuses to run them — the live page loads as
@@ -50,6 +55,7 @@ unstyled text with a dead cart while every local check still passes.
 | [STOCK.md](STOCK.md) | how a size runs out without two people buying the last bag |
 | [MAIL.md](MAIL.md) | the eight mails: the frame, the sender, the junk folder |
 | [DOMAIN.md](DOMAIN.md) | putting the shop on worldofzuno.com |
+| [LIVE.md](LIVE.md) | switching Stripe from the sandbox to live |
 | [SEO.md](SEO.md) | what search engines are told |
 
 ## Secrets

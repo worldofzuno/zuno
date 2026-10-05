@@ -29,8 +29,8 @@
  */
 
 import { takeBackup, tokenMatches, tokenProblem } from './admin.mjs';
-import { send, alarm, shopInbox } from './mailer.mjs';
-import { mutate } from './store.mjs';
+import { send, alarm, shopInbox } from './lib/mailer.mjs';
+import { mutate } from './lib/store.mjs';
 
 /* Monday at 04:17 UTC. Not on the hour: every scheduler in the world fires
    at :00, and the quiet minutes are the ones that run on time. */

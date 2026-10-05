@@ -11,9 +11,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore } = await import('../../netlify/functions/store.mjs');
-const { resetLimiter } = await import('../../netlify/functions/fnf.mjs');
-const auth = await import('../../netlify/functions/auth.mjs');
+const { useMemoryStore } = await import('../../netlify/functions/lib/store.mjs');
+const { resetLimiter } = await import('../../netlify/functions/lib/fnf.mjs');
+const auth = await import('../../netlify/functions/lib/auth.mjs');
 const handler = (await import('../../netlify/functions/account.mjs')).default;
 
 const PW = 'a decent long passphrase';
@@ -455,7 +455,7 @@ test('an invented token opens nothing', async () => {
 test('the store never holds a usable link', async () => {
   await registered();
   const token = await linkFromLog(() => call({ action: 'forgot', email: 'kundin@example.ch' }));
-  const st = await (await import('../../netlify/functions/store.mjs')).store();
+  const st = await (await import('../../netlify/functions/lib/store.mjs')).store();
   const keys = await st.list('reset/');
   assert.equal(keys.length, 1);
   assert.equal(keys[0].includes(token), false, 'only the hash is stored, as with a session');

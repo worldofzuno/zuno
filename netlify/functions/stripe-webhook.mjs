@@ -16,11 +16,11 @@
  */
 
 import Stripe from 'stripe';
-import * as gift from './giftcard.mjs';
-import { store } from './store.mjs';
-import { send, alarm, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './mailer.mjs';
-import { recordOrder } from './auth.mjs';
-import * as stock from './stock.mjs';
+import * as gift from './lib/giftcard.mjs';
+import { store } from './lib/store.mjs';
+import { send, alarm, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './lib/mailer.mjs';
+import { recordOrder } from './lib/auth.mjs';
+import * as stock from './lib/stock.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -289,7 +289,7 @@ async function settleStock(session) {
   const ref = (session.metadata || {}).stock_ref;
   if (!ref) return null;
   try {
-    const out = await stock.settleCart(cartLines(session), ref);
+    const out = await stock.settleCart(cartLines(session), ref, Date.now(), session.id);
     const said = Object.entries(out).map(([sku, r]) => `${sku}=${r}`).join(' ');
     if (said) console.log(`[stock:settled] ${session.id} ${said}`);
     return out;

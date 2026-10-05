@@ -22,15 +22,15 @@
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { store } from './store.mjs';
-import * as gift from './giftcard.mjs';
-import * as stock from './stock.mjs';
+import { store } from './lib/store.mjs';
+import * as gift from './lib/giftcard.mjs';
+import * as stock from './lib/stock.mjs';
 import {
   allAccounts, findAccount, endAllSessions, keyForEmail, keyForId,
   normaliseEmail, looksLikeEmail, readCookie,
-} from './auth.mjs';
-import { allow } from './fnf.mjs';
-import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './mailer.mjs';
+} from './lib/auth.mjs';
+import { allow } from './lib/fnf.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './lib/mailer.mjs';
 import Stripe from 'stripe';
 
 const COOKIE = 'zuno_admin';
@@ -238,15 +238,39 @@ export async function recentOrders(limit = 25, client = null) {
 /* The one mail the shop sends by hand, so it is the one most worth making
    hard to get wrong: it refuses to go twice, and it refuses to go for an
    order that has nothing in a parcel. */
+/**
+ * Where a customer can follow the parcel, or null when we cannot say.
+ *
+ * Swiss Post publishes a deep link into Track & Trace that takes the
+ * barcode as it is printed on the label, so a tracking number we already
+ * have is a working link with no account and no API behind it. Only for
+ * carriers we recognise: a link that guesses is worse than a number the
+ * customer pastes into a search box themselves.
+ *
+ * https://www.swisspost.ch/post-startseite/post-privatkunden/post-versenden/post-versenden-track-and-trace.htm
+ */
+export function trackingUrl(carrier, tracking) {
+  const code = String(tracking || '').trim();
+  if (!code) return null;
+  /* "Die Post", "Swiss Post", "Schweizerische Post", "post" — the one
+     carrier this shop ships with. Anything else gets the plain number. */
+  if (!/\bpost\b/i.test(String(carrier || ''))) return null;
+  return `https://www.post.ch/swisspost-tracking?formattedParcelCodes=${encodeURIComponent(code)}`;
+}
+
 export function shippedMailHtml(order) {
   const P = PALETTE;
   const where = order.address ? [order.name, order.address.line1, order.address.line2,
     `${order.address.postal_code || ''} ${order.address.city || ''}`.trim(), order.address.country]
     .filter(Boolean).map(esc).join('<br>') : null;
 
-  const track = order.shipped && order.shipped.tracking
+  const url = order.shipped ? trackingUrl(order.shipped.carrier, order.shipped.tracking) : null;
+  const number = order.shipped && order.shipped.tracking
+    ? `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;letter-spacing:0.04em;">${esc(order.shipped.tracking)}</span>`
+    : null;
+  const track = number
     ? `        ${mailHeading('Tracking')}
-        <p style="margin:0 0 4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;letter-spacing:0.04em;color:${P.ink};">${esc(order.shipped.tracking)}</p>
+        <p style="margin:0 0 4px;color:${P.ink};">${url ? mailLink(url, number) : number}</p>
         ${order.shipped.carrier ? mailText(esc(order.shipped.carrier), { dim: true }) : ''}`
     : null;
 
@@ -283,6 +307,9 @@ export function shippedMailText(order) {
     order.shipped && order.shipped.tracking
       ? `\nTracking: ${order.shipped.tracking}${order.shipped.carrier ? ` (${order.shipped.carrier})` : ''}`
       : null,
+    /* The link on its own line: in plain text an address inside a sentence
+       is one a mail client wraps in the middle and nobody can click. */
+    order.shipped ? trackingUrl(order.shipped.carrier, order.shipped.tracking) : null,
     '',
     'Delivery inside Switzerland and Liechtenstein takes 1-3 business days',
     'from today. Something not right? Just reply to this mail.',

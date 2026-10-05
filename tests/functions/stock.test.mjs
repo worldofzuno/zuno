@@ -13,8 +13,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
-const st = await import('../../netlify/functions/stock.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/lib/store.mjs');
+const st = await import('../../netlify/functions/lib/stock.mjs');
 
 const quiet = async (fn) => {
   const real = console.error;
@@ -247,4 +247,45 @@ test('a whole number typed as a string is still a whole number', async () => {
   useMemoryStore();
   assert.deepEqual(await st.setQty('castano-200g', '12'), { ok: true, qty: 12 });
   assert.equal(await left(), 12);
+});
+
+/* ------------------------------------------------- which order took it --- */
+
+/**
+ * The ledger used to record only `ref`, the internal hold reference, which
+ * answers nothing when somebody asks which order took the last bag. The
+ * gift card ledger had the same hole and it was closed there first.
+ */
+test('a sale records the order it belonged to', async () => {
+  await fresh(10);
+  await st.hold('castano-200g', 'pre_abc', 2);
+  assert.equal(await st.settle('castano-200g', 'pre_abc', 2, Date.now(), 'cs_test_ORDER01'), 'settled');
+
+  const rec = await st.read('castano-200g');
+  assert.equal(rec.sold.pre_abc.qty, 2);
+  assert.equal(rec.sold.pre_abc.order, 'cs_test_ORDER01');
+});
+
+test('a sale with no order recorded says nothing rather than null', async () => {
+  await fresh(10);
+  await st.hold('castano-200g', 'pre_def', 1);
+  await st.settle('castano-200g', 'pre_def', 1);
+
+  const rec = await st.read('castano-200g');
+  assert.equal('order' in rec.sold.pre_def, false,
+    'an entry without one reads as absent, not as an order called null');
+});
+
+test('the whole cart carries the same order number', async () => {
+  useMemoryStore();
+  await st.setQty('castano-200g', 10);
+  await st.setQty('castano-500g', 10);
+  const lines = [{ sku: 'castano-200g', qty: 1 }, { sku: 'castano-500g', qty: 2 }];
+  await st.holdCart(lines, 'pre_cart');
+  await st.settleCart(lines, 'pre_cart', Date.now(), 'cs_test_CART01');
+
+  for (const sku of ['castano-200g', 'castano-500g']) {
+    const rec = await st.read(sku);
+    assert.equal(rec.sold.pre_cart.order, 'cs_test_CART01', `${sku} knows its order`);
+  }
 });

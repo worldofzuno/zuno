@@ -14,18 +14,21 @@
  */
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../site/', import.meta.url));
 const FUNCTIONS = new URL('../../netlify/functions/', import.meta.url);
 
-/* Only the files that are endpoints. The rest of that folder is modules
-   the endpoints import — which Netlify also publishes, and which answer
-   502 there; here they are simply not routed. */
-const ENDPOINTS = ['account', 'admin', 'checkout-status', 'create-checkout-session',
-  'stock-levels', 'stripe-webhook', 'validate-code'];
+/* Read rather than listed, because the folder already answers the
+   question: Netlify publishes every .mjs directly inside it as a function
+   and nothing from a subdirectory, which is exactly why the shared modules
+   sit in lib/. A list here would be a second copy of that rule, free to
+   drift from it. */
+const ENDPOINTS = (await readdir(FUNCTIONS))
+  .filter((f) => f.endsWith('.mjs'))
+  .map((f) => f.slice(0, -4));
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',

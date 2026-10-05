@@ -16,8 +16,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 const { send, alarm, shopInbox, chosenProvider, replyAddress, siteUrl,
-  mailLayout, mailHeading, mailText } = await import('../../netlify/functions/mailer.mjs');
-const { useMemoryStore, resetStore } = await import('../../netlify/functions/store.mjs');
+  mailLayout, mailHeading, mailText } = await import('../../netlify/functions/lib/mailer.mjs');
+const { useMemoryStore, resetStore } = await import('../../netlify/functions/lib/store.mjs');
 
 const ENV = ['RESEND_API_KEY', 'POSTMARK_SERVER_TOKEN', 'MAIL_PROVIDER', 'MAIL_FROM', 'MAIL_TO',
   'MAIL_FROM_NAME', 'MAIL_REPLY_TO', 'SITE_URL', 'URL'];

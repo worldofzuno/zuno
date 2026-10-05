@@ -14,8 +14,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, store } = await import('../../netlify/functions/store.mjs');
-const auth = await import('../../netlify/functions/auth.mjs');
+const { useMemoryStore, store } = await import('../../netlify/functions/lib/store.mjs');
+const auth = await import('../../netlify/functions/lib/auth.mjs');
 
 const PW = 'a decent long passphrase';
 

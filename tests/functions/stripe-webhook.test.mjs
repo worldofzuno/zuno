@@ -310,8 +310,8 @@ test('an endpoint that is down does not lose the order or retry the payment', as
 
 /* ---------------------------------------------------------- gift cards */
 
-const { useMemoryStore } = await import('../../netlify/functions/store.mjs');
-const gc = await import('../../netlify/functions/giftcard.mjs');
+const { useMemoryStore } = await import('../../netlify/functions/lib/store.mjs');
+const gc = await import('../../netlify/functions/lib/giftcard.mjs');
 
 const GIFT_LINE = (amount, qty = 1) => ({
   description: 'ZUNO Gift Card',
@@ -342,7 +342,7 @@ test('buying a gift card mints one worth what was paid', async () => {
   await captureLog(() => mod.handleEvent(
     { type: 'checkout.session.completed', data: { object: { id: session.id } } }, s));
 
-  const codes = await (await (await import('../../netlify/functions/store.mjs')).store()).list('gift/');
+  const codes = await (await (await import('../../netlify/functions/lib/store.mjs')).store()).list('gift/');
   assert.equal(codes.length, 1);
   const card = await gc.load(codes[0].replace('gift/', ''));
   assert.equal(card.issued, 5000);
@@ -357,7 +357,7 @@ test('a discounted gift card is worth what was paid, not what it says', async ()
   await captureLog(() => mod.handleEvent(
     { type: 'checkout.session.completed', data: { object: { id: session.id } } }, stub(session)));
 
-  const st = await (await import('../../netlify/functions/store.mjs')).store();
+  const st = await (await import('../../netlify/functions/lib/store.mjs')).store();
   const card = await gc.load((await st.list('gift/'))[0].replace('gift/', ''));
   assert.equal(card.issued, 4250);
 });
@@ -368,7 +368,7 @@ test('three cards on one line become three cards', async () => {
   await captureLog(() => mod.handleEvent(
     { type: 'checkout.session.completed', data: { object: { id: session.id } } }, stub(session)));
 
-  const st = await (await import('../../netlify/functions/store.mjs')).store();
+  const st = await (await import('../../netlify/functions/lib/store.mjs')).store();
   const keys = await st.list('gift/');
   assert.equal(keys.length, 3);
   for (const k of keys) assert.equal((await st.read(k)).value.issued, 2500);
@@ -382,7 +382,7 @@ test('a replayed event does not mint a second card', async () => {
   await captureLog(() => mod.handleEvent(ev, s));
   await captureLog(() => mod.handleEvent(ev, s));
 
-  const st = await (await import('../../netlify/functions/store.mjs')).store();
+  const st = await (await import('../../netlify/functions/lib/store.mjs')).store();
   assert.equal((await st.list('gift/')).length, 1, 'a redelivery must not make money');
 });
 
@@ -391,7 +391,7 @@ test('an order with no gift card mints nothing', async () => {
   const s = stub({ ...SESSION, id: 'cs_coffee_only' });
   await captureLog(() => mod.handleEvent(
     { type: 'checkout.session.completed', data: { object: { id: 'cs_coffee_only' } } }, s));
-  const st = await (await import('../../netlify/functions/store.mjs')).store();
+  const st = await (await import('../../netlify/functions/lib/store.mjs')).store();
   assert.deepEqual(await st.list('gift/'), []);
 });
 
@@ -457,7 +457,7 @@ test('an unpaid session neither mints nor debits', async () => {
   const r = await captureLog(() => mod.handleEvent(
     { type: 'checkout.session.completed', data: { object: { id: session.id } } }, stub(session)));
   assert.equal(r[0], 'pending');
-  const st = await (await import('../../netlify/functions/store.mjs')).store();
+  const st = await (await import('../../netlify/functions/lib/store.mjs')).store();
   assert.deepEqual(await st.list('gift/'), []);
 });
 
@@ -590,7 +590,7 @@ test('the mail is one document, and the only thing it loads is the wordmark', ()
  * The shop found out when the customer wrote in.
  */
 test('a refused order confirmation raises an alarm at the shop', async () => {
-  const { useMemoryStore, resetStore } = await import('../../netlify/functions/store.mjs');
+  const { useMemoryStore, resetStore } = await import('../../netlify/functions/lib/store.mjs');
   useMemoryStore();
   const realFetch = global.fetch;
   const sent = [];
@@ -624,7 +624,7 @@ test('a refused order confirmation raises an alarm at the shop', async () => {
 });
 
 test('with no provider at all, no alarm is raised per order', async () => {
-  const { useMemoryStore, resetStore } = await import('../../netlify/functions/store.mjs');
+  const { useMemoryStore, resetStore } = await import('../../netlify/functions/lib/store.mjs');
   useMemoryStore();
   process.env.MAIL_TO = 'info@worldofzuno.com';
   const real = console.error;
