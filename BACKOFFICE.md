@@ -28,6 +28,18 @@ page carries a `noindex` meta, and `_headers` sends `X-Robots-Tag` for
 
 ## What you can do
 
+**See the orders and send them.** Paid orders come straight from Stripe,
+newest first, with what was bought, where it goes and whether it has
+already left. Marking one sent writes the customer a despatch mail with the
+tracking number if you entered one. It goes **once**: the record is written
+before the mail, and a second press is refused rather than telling somebody
+twice that the same parcel left. An order with nothing to put in a box — a
+gift card — is never offered the button, because the card went by mail at
+purchase.
+
+If the mail cannot be sent, the message says so plainly instead of claiming
+the customer was told.
+
 **Look a gift card up** by code, however it was typed. You see the balance,
 what was issued, what was spent, what is held by a checkout in flight, who
 bought it, and every spend with its date and the order it went to. Spends

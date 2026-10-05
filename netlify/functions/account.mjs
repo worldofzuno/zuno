@@ -21,7 +21,7 @@ import {
   changePassword, deleteAccount, startReset, finishReset, sweepResets,
 } from './auth.mjs';
 import { allow } from './fnf.mjs';
-import { send } from './mailer.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc } from './mailer.mjs';
 
 const json = (status, obj, cookie) =>
   new Response(JSON.stringify(obj), {
@@ -110,18 +110,27 @@ async function signUp(body) {
     await burnTime();
     const existing = await findAccount(email);
     if (existing) {
+      const body = [
+        'Someone tried to create a ZUNO account with this address.',
+        '',
+        'You already have one, so nothing has changed and no new account was made.',
+        'If that was you, just sign in instead. If it was not, you can ignore this',
+        'message — your account is untouched.',
+      ];
       await send({
         to: email,
         subject: 'Your ZUNO account',
-        text: [
-          'Someone tried to create a ZUNO account with this address.',
-          '',
-          'You already have one, so nothing has changed and no new account was made.',
-          'If that was you, just sign in instead. If it was not, you can ignore this',
-          'message — your account is untouched.',
-          '',
-          'ZUNO — info@worldofzuno.com',
-        ].join('\n'),
+        text: body.join('\n') + '\n\nZUNO — info@worldofzuno.com',
+        html: mailLayout({
+          title: 'Your ZUNO account',
+          preheader: 'Nothing has changed — you already have an account.',
+          blocks: [
+            `        ${mailHeading('Your account')}
+        ${mailText('Someone tried to create a ZUNO account with this address.', { top: false })}
+        ${mailText('You already have one, so nothing has changed and no new account was made. If that was you, just ' + mailLink('https://worldofzuno.com/#account', 'sign in') + ' instead.')}
+        ${mailText('If it was not you, this message needs no answer — your account is untouched.', { dim: true })}`,
+          ],
+        }),
       });
     }
     return json(200, { created: true, signedIn: false, checkInbox: true });
@@ -139,6 +148,15 @@ async function signUp(body) {
       '',
       'ZUNO — info@worldofzuno.com',
     ].join('\n'),
+    html: mailLayout({
+      title: 'Welcome to ZUNO',
+      preheader: 'Your account is ready.',
+      blocks: [
+        `        <p style="margin:0 0 6px;font-size:19px;color:#16150e;font-weight:600;">Welcome to ZUNO.</p>
+        ${mailText(`Hello ${esc(made.account.name)}, your account is ready.`, { dim: true, top: false })}`,
+        `        ${mailText('Your orders are listed under ' + mailLink('https://worldofzuno.com/#account', 'your account') + ', your address fills itself in at checkout, and a gift card balance is one field away.', { top: false })}`,
+      ],
+    }),
   });
   return json(200, {
     created: true,
@@ -181,10 +199,7 @@ async function deleteOwnAccount(token, body) {
   }
   if (!r.ok) return json(400, { error: 'That did not work.' });
 
-  await send({
-    to: account.email,
-    subject: 'Your ZUNO account has been deleted',
-    text: [
+  const goneText = [
       `Hello ${account.name},`,
       '',
       'Your ZUNO account has been deleted, along with every session that was',
@@ -195,7 +210,20 @@ async function deleteOwnAccount(token, body) {
       'the account, the password and the order list shown on the website.',
       '',
       'ZUNO — info@worldofzuno.com',
-    ].join('\n'),
+    ].join('\n');
+  await send({
+    to: account.email,
+    subject: 'Your ZUNO account has been deleted',
+    text: goneText,
+    html: mailLayout({
+      title: 'Your ZUNO account has been deleted',
+      preheader: 'The account is gone. Your past orders are kept, as the law requires.',
+      blocks: [
+        `        ${mailHeading('Account deleted')}
+        ${mailText(`Hello ${esc(account.name)}, your ZUNO account has been deleted, along with every session that was signed in to it. You can order again at any time without one.`, { top: false })}`,
+        `        ${mailText('Your past orders themselves are not deleted: Swiss accounting law requires us to keep transaction records for ten years. What is gone is the account, the password and the order list shown on the website.', { dim: true, top: false })}`,
+      ],
+    }),
   });
 
   return json(200, { deleted: true, signedIn: false }, clearCookie());
@@ -272,10 +300,7 @@ async function askForReset(body, base) {
   if (!started) { await burnTime(); return json(200, said); }
 
   const link = `${base}/?reset=${encodeURIComponent(started.token)}#account`;
-  await send({
-    to: started.account.email,
-    subject: 'Reset your ZUNO password',
-    text: [
+  const resetText = [
       `Hello ${started.account.name},`,
       '',
       'You asked to set a new password. Open this link within the hour:',
@@ -287,7 +312,29 @@ async function askForReset(body, base) {
       'use it without this mail.',
       '',
       'ZUNO — info@worldofzuno.com',
-    ].join('\n'),
+    ].join('\n');
+  await send({
+    to: started.account.email,
+    subject: 'Reset your ZUNO password',
+    text: resetText,
+    html: mailLayout({
+      title: 'Reset your ZUNO password',
+      preheader: 'One link, one hour, one use.',
+      blocks: [
+        `        ${mailHeading('New password')}
+        ${mailText(`Hello ${esc(started.account.name)}, you asked to set a new password.`, { top: false })}`,
+        /* A button, because a raw link in a password mail is what a phishing
+           mail looks like — and the link is printed underneath anyway, for
+           anyone who would rather read where it goes than trust a button. */
+        `        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+          <td style="background:#f8d99b;border-radius:999px;">
+            <a href="${esc(link)}" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:600;color:#16150e;text-decoration:none;">Choose a new password</a>
+          </td></tr></table>
+        ${mailText('The link works once and expires in an hour.', { dim: true })}
+        <p style="margin:0;font-size:12px;color:#55513f;word-break:break-all;line-height:1.6;">${esc(link)}</p>`,
+        `        ${mailText('If you did not ask for this, nothing has happened: your password stays as it is until the link is used, and nobody can use it without this mail.', { dim: true, top: false })}`,
+      ],
+    }),
   });
   return json(200, said);
 }

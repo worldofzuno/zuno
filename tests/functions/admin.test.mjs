@@ -338,3 +338,106 @@ test('guessing is still slowed down', async () => {
   }
   assert.equal((await call({ action: 'login', token: 'guess-more' }, { ip: '6.6.6.6' })).status, 429);
 });
+
+/* ---------------------------------------------------------- fulfilment --- */
+
+/* Orders are read from Stripe, so these hand the module a Stripe that
+   answers from a fixture. What is being checked is not Stripe but the two
+   things that are ours: that a parcel is announced once and only once, and
+   that an order with nothing in a box does not get a despatch mail. */
+const PAID = {
+  id: 'cs_test_abcdefghij1234567890',
+  payment_status: 'paid',
+  created: 1791140265,
+  amount_total: 2190,
+  currency: 'chf',
+  livemode: false,
+  customer_details: { email: 'kundin@example.ch', name: 'Anna Kundin' },
+  collected_information: {
+    shipping_details: {
+      name: 'Anna Kundin',
+      address: { line1: '30 Waldhoeheweg', line2: null, postal_code: '3013', city: 'Bern', country: 'CH' },
+    },
+  },
+  metadata: { lines: JSON.stringify([['castano-200g', 1, 'Whole Beans']]) },
+};
+
+const GIFT_ONLY = {
+  ...PAID,
+  id: 'cs_test_giftonly12345678',
+  amount_total: 2500,
+  collected_information: {},
+  metadata: { lines: JSON.stringify([['gift-25', 1, null]]) },
+};
+
+/** A Stripe that answers from a fixture, handed in the way the rest of the
+    codebase hands one in. */
+const fakeStripe = (session) => ({
+  checkout: {
+    sessions: {
+      list: async () => ({ data: [session], has_more: false }),
+      retrieve: async (id) => (id === session.id ? session : null),
+    },
+  },
+});
+
+test('an order shows what has to go in a parcel, and where', async () => {
+  useMemoryStore();
+  const [order] = await mod.recentOrders(5, fakeStripe(PAID));
+  assert.equal(order.ref, 'J1234567890'.slice(-8).toUpperCase());
+  assert.equal(order.total, '21.90');
+  assert.equal(order.needsParcel, true);
+  assert.equal(order.address.city, 'Bern');
+  assert.deepEqual(order.lines, [{ sku: 'castano-200g', qty: 1, grind: 'Whole Beans' }]);
+  assert.equal(order.shipped, null, 'nothing has gone out yet');
+});
+
+test('marking an order sent tells the customer once', async () => {
+  useMemoryStore();
+  const first = await mod.markShipped(PAID.id,
+    { carrier: 'Die Post', tracking: '99.00.123456.78901234', client: fakeStripe(PAID) });
+  assert.equal(first.ok, true);
+  assert.equal(first.order.shipped.tracking, '99.00.123456.78901234');
+
+  const second = await mod.markShipped(PAID.id, { client: fakeStripe(PAID) });
+  assert.equal(second.ok, false);
+  assert.equal(second.reason, 'already', 'a second press must not send a second mail');
+  assert.equal(second.shipped.tracking, '99.00.123456.78901234', 'and the first record stands');
+
+  const [order] = await mod.recentOrders(5, fakeStripe(PAID));
+  assert.ok(order.shipped, 'the list shows it as gone');
+});
+
+test('a gift card gets no parcel and no despatch mail', async () => {
+  useMemoryStore();
+  const r = await mod.markShipped(GIFT_ONLY.id, { client: fakeStripe(GIFT_ONLY) });
+  assert.equal(r.ok, true);
+  assert.equal(r.order.needsParcel, false);
+  assert.equal(r.mailed, false);
+  assert.equal(r.reason, 'nothing-to-ship',
+    'the card went by mail at purchase; nobody should wait for a box');
+});
+
+test('an unpaid order cannot be marked sent', async () => {
+  useMemoryStore();
+  const r = await mod.markShipped(PAID.id, { client: fakeStripe({ ...PAID, payment_status: 'unpaid' }) });
+  assert.deepEqual([r.ok, r.reason], [false, 'not-paid']);
+});
+
+test('the despatch mail carries the address and the tracking, escaped', () => {
+  const order = mod.orderView({
+    ...PAID,
+    collected_information: {
+      shipping_details: {
+        name: '<script>alert(1)</script>',
+        address: { line1: '30 Waldhoeheweg', postal_code: '3013', city: 'Bern', country: 'CH' },
+      },
+    },
+  }, { at: new Date().toISOString(), carrier: 'Die Post', tracking: '99.00.123456.78901234' });
+
+  const html = mod.shippedMailHtml(order);
+  assert.ok(html.includes('99.00.123456.78901234'));
+  assert.ok(html.includes('3013 Bern'));
+  assert.equal(html.includes('<script>alert(1)</script>'), false);
+  assert.ok(mod.shippedMailText(order).includes('99.00.123456.78901234'));
+});

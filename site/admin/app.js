@@ -416,3 +416,101 @@ call({ action: 'me' }).then(function (r) {
   show(ok);
   if (ok) paintMode();
 })['catch'](function () { show(false); });
+
+/* -------------------------------------------------------------- orders */
+
+/* The one screen that costs a customer something when it is wrong: pressing
+   "sent" writes them a mail. So the button disables itself on the first
+   press, the server refuses a second one anyway, and an order with nothing
+   to put in a box is never offered the button at all. */
+function renderOrders(orders, host) {
+  host.innerHTML = '';
+  if (!orders.length) { host.append(el('p', 'hint', 'No paid orders yet.')); return; }
+
+  orders.forEach(function (o) {
+    var rec = el('div', 'rec');
+
+    var dl = el('dl');
+    var what = o.lines.map(function (l) {
+      return l.qty + ' × ' + l.sku + (l.grind ? ' (' + l.grind + ')' : '');
+    }).join(', ') || '—';
+    var where = o.address
+      ? [o.name, o.address.line1, (o.address.postal_code || '') + ' ' + (o.address.city || ''), o.address.country]
+        .filter(Boolean).join(', ')
+      : 'nothing to ship';
+    [
+      ['Order', o.ref],
+      ['When', (o.at || '').slice(0, 16).replace('T', ' ')],
+      ['Total', o.currency + ' ' + o.total],
+      ['What', what],
+      ['Where', where],
+      ['Email', o.email || '—'],
+      ['Mode', o.livemode ? 'live' : 'test'],
+    ].forEach(function (r) { dl.append(el('dt', null, r[0]), el('dd', null, r[1])); });
+    rec.append(dl);
+
+    if (o.shipped) {
+      var tag = el('p');
+      tag.append(el('span', 'tag is-ok', 'Sent ' + String(o.shipped.at).slice(0, 10)));
+      if (o.shipped.tracking) tag.append(document.createTextNode(' ' + o.shipped.tracking +
+        (o.shipped.carrier ? ' · ' + o.shipped.carrier : '')));
+      rec.append(tag);
+    } else if (!o.needsParcel) {
+      rec.append(el('p', 'hint', 'Delivered by email at purchase — nothing to send.'));
+    } else {
+      var form = el('form', 'row row--fields');
+      var f1 = el('span', 'field');
+      var l1 = el('label', null, 'Tracking (optional)');
+      var i1 = el('input');
+      i1.name = 'tracking'; i1.placeholder = '99.00.123456.78901234'; i1.autocomplete = 'off';
+      i1.id = 'trk-' + o.ref; l1.htmlFor = i1.id;
+      f1.append(l1, i1);
+
+      var f2 = el('span', 'field');
+      var l2 = el('label', null, 'Carrier');
+      var i2 = el('input');
+      i2.name = 'carrier'; i2.placeholder = 'Die Post'; i2.autocomplete = 'off';
+      i2.id = 'car-' + o.ref; l2.htmlFor = i2.id;
+      f2.append(l2, i2);
+
+      var btn = el('button', 'btn', 'Mark as sent');
+      btn.type = 'submit';
+      form.append(f1, f2, btn);
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        busy(btn, 'Sending…', function () {
+          return call({
+            action: 'order-ship', session: o.session,
+            tracking: i1.value.trim() || null, carrier: i2.value.trim() || null,
+          }).then(function (r) {
+            if (r.status !== 200) {
+              say($('orderMsg'), (r.body && r.body.error) || 'That did not work.', 'bad');
+              return;
+            }
+            say($('orderMsg'), 'Order ' + o.ref + ' marked as sent' +
+              (r.body.mailed ? ' — the customer has been told.' : ' (no mail went out).'), 'ok');
+            loadOrders();
+          });
+        });
+      });
+      rec.append(form);
+    }
+
+    host.append(rec);
+  });
+}
+
+function loadOrders() {
+  var host = $('ordersOut');
+  return busy($('loadOrders'), 'Loading…', function () {
+    return call({ action: 'orders-list' }).then(function (r) {
+      if (r.status !== 200) {
+        say($('orderMsg'), (r.body && r.body.error) || 'That did not work.', 'bad');
+        return;
+      }
+      renderOrders(r.body.orders, host);
+    })['catch'](function () { say($('orderMsg'), 'Could not reach the server.', 'bad'); });
+  });
+}
+
+$('loadOrders').addEventListener('click', loadOrders);
