@@ -30,7 +30,7 @@ import {
   normaliseEmail, looksLikeEmail, readCookie,
 } from './auth.mjs';
 import { allow } from './fnf.mjs';
-import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE } from './mailer.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './mailer.mjs';
 import Stripe from 'stripe';
 
 const COOKIE = 'zuno_admin';
@@ -259,8 +259,12 @@ export function shippedMailHtml(order) {
       `        ${mailHeading('On its way to')}
         ${mailText(where || '&mdash;', { top: false })}`,
       track,
-      `        ${mailText('Delivery inside Switzerland and Liechtenstein takes 1&ndash;3 business days from today.', { top: false })}
-        ${mailText(`Something not right? Reply to this mail, or see ${mailLink('https://worldofzuno.com/#shipping', 'shipping &amp; returns')}.`, { dim: true })}`,
+      /* The same heading the order confirmation uses over the same promise.
+         It also closes a hole: without it the block floats a full block's
+         gap below the carrier with nothing to attach itself to. */
+      `        ${mailHeading('When')}
+        ${mailText('Delivery inside Switzerland and Liechtenstein takes 1&ndash;3 business days from today.', { top: false })}
+        ${mailText(`Something not right? Reply to this mail, or see ${mailLink(`${siteUrl()}/#shipping`, 'shipping &amp; returns')}.`, { dim: true })}`,
     ],
   });
 }
@@ -283,7 +287,7 @@ export function shippedMailText(order) {
     'Delivery inside Switzerland and Liechtenstein takes 1-3 business days',
     'from today. Something not right? Just reply to this mail.',
     '',
-    'ZUNO — info@worldofzuno.com',
+    `ZUNO — ${replyAddress()}`,
   ].filter((l) => l !== null).join('\n');
 }
 
@@ -328,7 +332,6 @@ export async function markShipped(sessionId, { carrier = null, tracking = null, 
       subject: `Your ZUNO order ${order.ref} is on its way`,
       text: shippedMailText(order),
       html: shippedMailHtml(order),
-      replyTo: 'info@worldofzuno.com',
     });
     mailed = r.sent;
     if (!r.sent) console.error(`[order:shipped-mail-unsent] ${order.ref}: ${r.error}`);

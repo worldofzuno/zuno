@@ -21,7 +21,7 @@ import {
   changePassword, deleteAccount, startReset, finishReset, sweepResets,
 } from './auth.mjs';
 import { allow } from './fnf.mjs';
-import { send, mailLayout, mailHeading, mailText, mailLink, esc } from './mailer.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc, siteUrl, replyAddress } from './mailer.mjs';
 
 const json = (status, obj, cookie) =>
   new Response(JSON.stringify(obj), {
@@ -120,14 +120,14 @@ async function signUp(body) {
       await send({
         to: email,
         subject: 'Your ZUNO account',
-        text: body.join('\n') + '\n\nZUNO — info@worldofzuno.com',
+        text: body.join('\n') + `\n\nZUNO — ${replyAddress()}`,
         html: mailLayout({
           title: 'Your ZUNO account',
           preheader: 'Nothing has changed — you already have an account.',
           blocks: [
             `        ${mailHeading('Your account')}
         ${mailText('Someone tried to create a ZUNO account with this address.', { top: false })}
-        ${mailText('You already have one, so nothing has changed and no new account was made. If that was you, just ' + mailLink('https://worldofzuno.com/#account', 'sign in') + ' instead.')}
+        ${mailText('You already have one, so nothing has changed and no new account was made. If that was you, just ' + mailLink(`${siteUrl()}/#account`, 'sign in') + ' instead.')}
         ${mailText('If it was not you, this message needs no answer — your account is untouched.', { dim: true })}`,
           ],
         }),
@@ -144,9 +144,9 @@ async function signUp(body) {
       `Hello ${made.account.name},`,
       '',
       'Your ZUNO account is ready. You can see your orders any time at',
-      'https://worldofzuno.com/#account',
+      `${siteUrl()}/#account`,
       '',
-      'ZUNO — info@worldofzuno.com',
+      `ZUNO — ${replyAddress()}`,
     ].join('\n'),
     html: mailLayout({
       title: 'Welcome to ZUNO',
@@ -154,7 +154,7 @@ async function signUp(body) {
       blocks: [
         `        <p style="margin:0 0 6px;font-size:19px;color:#16150e;font-weight:600;">Welcome to ZUNO.</p>
         ${mailText(`Hello ${esc(made.account.name)}, your account is ready.`, { dim: true, top: false })}`,
-        `        ${mailText('Your orders are listed under ' + mailLink('https://worldofzuno.com/#account', 'your account') + ', your address fills itself in at checkout, and a gift card balance is one field away.', { top: false })}`,
+        `        ${mailText('Your orders are listed under ' + mailLink(`${siteUrl()}/#account`, 'your account') + ', your address fills itself in at checkout, and a gift card balance is one field away.', { top: false })}`,
       ],
     }),
   });
@@ -209,7 +209,7 @@ async function deleteOwnAccount(token, body) {
       'requires us to keep transaction records for ten years. What is gone is',
       'the account, the password and the order list shown on the website.',
       '',
-      'ZUNO — info@worldofzuno.com',
+      `ZUNO — ${replyAddress()}`,
     ].join('\n');
   await send({
     to: account.email,
@@ -273,7 +273,7 @@ async function signIn(body) {
     configured, so a deploy preview mails a link into itself instead of into
     production. */
 function origin(req) {
-  try { return new URL(req.url).origin; } catch { return 'https://worldofzuno.com'; }
+  try { return new URL(req.url).origin; } catch { return siteUrl(); }
 }
 
 /**
@@ -311,7 +311,7 @@ async function askForReset(body, base) {
       'your password is unchanged until the link is used, and nobody else can',
       'use it without this mail.',
       '',
-      'ZUNO — info@worldofzuno.com',
+      `ZUNO — ${replyAddress()}`,
     ].join('\n');
   await send({
     to: started.account.email,

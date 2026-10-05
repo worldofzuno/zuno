@@ -18,7 +18,7 @@
 import Stripe from 'stripe';
 import * as gift from './giftcard.mjs';
 import { store } from './store.mjs';
-import { send, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE } from './mailer.mjs';
+import { send, alarm, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './mailer.mjs';
 import { recordOrder } from './auth.mjs';
 import * as stock from './stock.mjs';
 
@@ -238,7 +238,8 @@ async function issueGifts(session, order) {
     const { value } = await s.read(key);
     const codes = (value && value.codes) || [];
     if (!value || value.done !== true) {
-      console.error(`[gift:issue-incomplete] ${session.id} was claimed but never finished`);
+      await alarm('gift card may not have been issued',
+        `${session.id} was claimed but never finished; ${codes.length} code(s) exist`);
     }
     return codes;
   }
@@ -261,9 +262,12 @@ async function issueGifts(session, order) {
       (await s.read(key)).etag);
     console.log(`[gift:issued] ${session.id} ${minted.map((m) => m.code).join(', ')}`);
   } catch (e) {
-    /* Loud, because the customer has paid for a card that may not exist. The
-       codes already minted are in the log above and in the store. */
-    console.error(`[gift:issue-failed] ${session.id}: ${e && e.message}`);
+    /* Loud, because the customer has paid for a card that may not exist,
+       and nothing retries this: the claim key is already taken, so a
+       redelivery would find it claimed and mint nothing. The codes that did
+       get minted are in the store. */
+    await alarm('gift card not issued',
+      `${session.id}: ${e && e.message}; ${minted.length} of them were minted first`);
   }
   return minted;
 }
@@ -340,6 +344,10 @@ async function fileUnderAccount(session, order) {
        entry that did not land is worth reporting and not worth a redelivery
        of everything else. */
     console.error(`[order:file-failed] ${order.session} under ${id}: ${e && e.message}`);
+    /* Stripe still has the payment, so no money is lost — but the order
+       will not appear under the customer's account until it is filed. */
+    await alarm('order not filed to an account',
+      `order ${order.session.slice(-8).toUpperCase()} under ${id}: ${e && e.message}`);
     return false;
   }
 }
@@ -393,7 +401,7 @@ ${row('Shipping', order.shipping === '0.00' ? 'Free' : `${cur} ${esc(order.shipp
 ${row('Total', `${cur} ${esc(order.total)}`, { strong: true })}
         </table>`,
 
-      cards ? `        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${P.gold};border-radius:10px;background:#fffdf7;">
+      cards ? `        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${P.panel}" style="border:1px solid ${P.gold};border-radius:10px;background:${P.panel};">
           <tr><td style="padding:16px 18px 10px;">
             ${mailHeading(`Your gift card${(order.giftCards || []).length > 1 ? 's' : ''}`)}
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cards}</table>
@@ -410,8 +418,8 @@ ${row('Total', `${cur} ${esc(order.total)}`, { strong: true })}
       ships
         ? `        ${mailHeading('When')}
         ${mailText('We pack within one business day. Delivery inside Switzerland and Liechtenstein takes 1&ndash;3 business days, and you get a second mail the moment your parcel is on its way.', { top: false })}
-        ${mailText(`${mailLink('https://worldofzuno.com/#shipping', 'Shipping &amp; returns')} &middot; ${mailLink('https://worldofzuno.com/#account', 'Your orders')}`, { dim: true })}`
-        : `        ${mailText(`${mailLink('https://worldofzuno.com/#shipping', 'Shipping &amp; returns')} &middot; ${mailLink('https://worldofzuno.com/#account', 'Your orders')}`, { dim: true, top: false })}`,
+        ${mailText(`${mailLink(`${siteUrl()}/#shipping`, 'Shipping &amp; returns')} &middot; ${mailLink(`${siteUrl()}/#account`, 'Your orders')}`, { dim: true })}`
+        : `        ${mailText(`${mailLink(`${siteUrl()}/#shipping`, 'Shipping &amp; returns')} &middot; ${mailLink(`${siteUrl()}/#account`, 'Your orders')}`, { dim: true, top: false })}`,
     ],
   });
 }
@@ -445,7 +453,7 @@ export function orderMailText(order) {
     where ? 'Shipping to:\n' + where : 'Nothing to ship — delivered by email.',
     '',
     'ZUNO — Worldofzuno, Bahngässli 16, 3172 Niederwangen bei Bern',
-    'info@worldofzuno.com',
+    replyAddress(),
   ].filter((l) => l !== null).join('\n');
 }
 
@@ -468,9 +476,19 @@ async function mailOrder(order) {
          function log see — and it is what gets read out if a mail ever has
          to be reconstructed by hand. */
       html: orderMailHtml(order),
-      replyTo: 'info@worldofzuno.com',
     });
-    if (!r.sent) console.error(`[order:customer-mail-unsent] ${order.session}: ${r.error}`);
+    /* `via: 'log'` means no provider is configured at all, which is a
+       state the whole shop is in rather than something that went wrong
+       with this order — learning it one alarm per order would be no way
+       to learn it. A provider that tried and refused is the real failure,
+       and nothing retries it: Stripe will not redeliver a 200, and asking
+       it to would re-run the gift cards and the stock as well. */
+    if (!r.sent && r.via !== 'log') {
+      await alarm('order confirmation not sent',
+        `order ${ref} to ${order.email}: ${r.error}`);
+    } else if (!r.sent) {
+      console.error(`[order:customer-mail-unsent] ${order.session}: ${r.error}`);
+    }
   }
 
   const inbox = shopInbox();
@@ -481,6 +499,8 @@ async function mailOrder(order) {
       text: `${summarise(order)}\n\n${text}`,
       replyTo: order.email || undefined,
     });
+    /* No alarm here: the alarm goes to this same inbox, so a shop copy
+       that could not be delivered is an alarm that cannot be either. */
     if (!r.sent) console.error(`[order:shop-mail-unsent] ${order.session}: ${r.error}`);
   }
 }
