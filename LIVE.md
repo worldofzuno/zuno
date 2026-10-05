@@ -10,30 +10,38 @@ Read it once before starting. The dangerous state is not "not yet live", it
 is "live keys with test price ids", which takes real money for a charge
 Stripe cannot complete.
 
-## Before anything: one thing to fix
+## The 15% code must not reach a gift card
 
-**The 15% code works on gift cards.** `zuno-15` has no product restriction,
-and the checkout offers the promotion-code field to any cart without a
-voucher code — including a cart holding a gift card. Someone buys a CHF 100
-card, types ZUNO15, pays CHF 85 and receives CHF 100 of credit. There is no
-redemption limit on either the coupon or the code.
+`zuno-15` had no product restriction, and the checkout offers the
+promotion-code field to any cart without a voucher code — including one
+holding a gift card. Someone buys a CHF 100 card, types ZUNO15, pays CHF 85
+and receives CHF 100 of credit, with no redemption limit on either the
+coupon or the code.
 
-In the sandbox that costs nothing. Live it is a loss per card, repeatable.
-A coupon's `applies_to` can only be set when the coupon is created, so the
-live coupon must be created with it from the start:
+**Fixed in the sandbox on 2026-10-05**, which is also the recipe for live.
+A coupon's `applies_to` can only be set when the coupon is created, and
+Stripe will not have two active promotion codes with the same string, so it
+took four steps in this order:
 
 ```
-POST /v1/coupons
-  id=zuno-15
-  name=ZUNO 15%
-  percent_off=15
-  duration=once
-  applies_to[products][0]=<the live 200 g product>
-  applies_to[products][1]=<the live 500 g product>
+POST   /v1/coupons                  id=zuno-15-coffee
+                                    name=ZUNO 15%  percent_off=15  duration=once
+                                    applies_to[products][0]=<the 200 g product>
+                                    applies_to[products][1]=<the 500 g product>
+DELETE /v1/coupons/zuno-15          # frees the string ZUNO15
+POST   /v1/promotion_codes          promotion[type]=coupon
+                                    promotion[coupon]=zuno-15-coffee
+                                    code=ZUNO15
+GET    /v1/coupons/zuno-15-coffee   # applies_to is there, or it was not set
 ```
 
-Stripe then applies the 15% to the coffee lines only, so a mixed cart still
-works the way a customer would expect.
+Deleting the old coupon leaves its promotion code in place but inactive, so
+the history stays readable. Stripe then applies the 15% to the coffee lines
+only, and a mixed cart still works the way a customer would expect.
+
+Do the same in live mode. The last line is not optional: `applies_to` is
+the one field that cannot be added afterwards, so if it is missing the
+coupon has to be built again from the start.
 
 ## What has to exist in live mode
 

@@ -21,7 +21,7 @@ import {
   changePassword, deleteAccount, startReset, finishReset, sweepResets,
 } from './lib/auth.mjs';
 import { allow } from './lib/fnf.mjs';
-import { send, mailLayout, mailHeading, mailText, mailLink, esc, siteUrl, replyAddress } from './lib/mailer.mjs';
+import { send, mailLayout, mailHeading, mailText, mailLink, esc, siteUrl, fromAddress } from './lib/mailer.mjs';
 
 const json = (status, obj, cookie) =>
   new Response(JSON.stringify(obj), {
@@ -120,7 +120,7 @@ async function signUp(body) {
       await send({
         to: email,
         subject: 'Your ZUNO account',
-        text: body.join('\n') + `\n\nZUNO — ${replyAddress()}`,
+        text: body.join('\n') + `\n\nZUNO — ${fromAddress()}`,
         html: mailLayout({
           title: 'Your ZUNO account',
           preheader: 'Nothing has changed — you already have an account.',
@@ -146,7 +146,7 @@ async function signUp(body) {
       'Your ZUNO account is ready. You can see your orders any time at',
       `${siteUrl()}/#account`,
       '',
-      `ZUNO — ${replyAddress()}`,
+      `ZUNO — ${fromAddress()}`,
     ].join('\n'),
     html: mailLayout({
       title: 'Welcome to ZUNO',
@@ -209,7 +209,7 @@ async function deleteOwnAccount(token, body) {
       'requires us to keep transaction records for ten years. What is gone is',
       'the account, the password and the order list shown on the website.',
       '',
-      `ZUNO — ${replyAddress()}`,
+      `ZUNO — ${fromAddress()}`,
     ].join('\n');
   await send({
     to: account.email,
@@ -311,7 +311,7 @@ async function askForReset(body, base) {
       'your password is unchanged until the link is used, and nobody else can',
       'use it without this mail.',
       '',
-      `ZUNO — ${replyAddress()}`,
+      `ZUNO — ${fromAddress()}`,
     ].join('\n');
   await send({
     to: started.account.email,

@@ -18,7 +18,7 @@
 import Stripe from 'stripe';
 import * as gift from './lib/giftcard.mjs';
 import { store } from './lib/store.mjs';
-import { send, alarm, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, replyAddress } from './lib/mailer.mjs';
+import { send, alarm, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, fromAddress } from './lib/mailer.mjs';
 import { recordOrder } from './lib/auth.mjs';
 import * as stock from './lib/stock.mjs';
 
@@ -453,7 +453,7 @@ export function orderMailText(order) {
     where ? 'Shipping to:\n' + where : 'Nothing to ship — delivered by email.',
     '',
     'ZUNO — Worldofzuno, Bahngässli 16, 3172 Niederwangen bei Bern',
-    replyAddress(),
+    fromAddress(),
   ].filter((l) => l !== null).join('\n');
 }
 

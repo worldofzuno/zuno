@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { send, alarm, shopInbox, chosenProvider, replyAddress, siteUrl,
+const { send, alarm, shopInbox, chosenProvider, replyAddress, fromAddress, siteUrl,
   mailLayout, mailHeading, mailText } = await import('../../netlify/functions/lib/mailer.mjs');
 const { useMemoryStore, resetStore } = await import('../../netlify/functions/lib/store.mjs');
 
@@ -234,6 +234,31 @@ test('a bare address still arrives as ZUNO', async () => {
   await quiet(() => send(MSG));
   assert.equal(calls[0].body.from, 'Someone Else <hallo@worldofzuno.com>',
     'a pair written out in full is left alone');
+  clearEnv();
+});
+
+/* info@ is the address on the Impressum and on the packaging, and until
+   the domain has an MX record it cannot receive. What a mail shows and
+   where a reply lands therefore have to be allowed to differ. */
+test('what the mail shows and where a reply lands are two things', async () => {
+  clearEnv();
+  process.env.MAIL_FROM = 'info@worldofzuno.com';
+  process.env.MAIL_REPLY_TO = 'somewhere-that-works@example.com';
+
+  assert.equal(fromAddress(), 'info@worldofzuno.com');
+  assert.equal(replyAddress(), 'somewhere-that-works@example.com');
+
+  const html = mailLayout({ title: 'T', blocks: [mailText('Body')] });
+  assert.ok(html.includes('info@worldofzuno.com'), 'the footer shows the brand address');
+  assert.equal(/somewhere-that-works/.test(html), false,
+    'and never the private one it quietly forwards to');
+
+  process.env.RESEND_API_KEY = 're_test_key';
+  const calls = stubFetch();
+  await quiet(() => send(MSG));
+  assert.equal(calls[0].body.from, 'ZUNO <info@worldofzuno.com>');
+  assert.equal(calls[0].body.reply_to, 'somewhere-that-works@example.com',
+    'the Reply button is the path almost everybody takes');
   clearEnv();
 });
 
