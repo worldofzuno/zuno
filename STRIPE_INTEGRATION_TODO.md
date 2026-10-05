@@ -361,7 +361,8 @@ gift card.
 - Set the environment variables above in Netlify, then redeploy.
 - Create the live-mode products, prices and coupon; swap the four price ids.
 - Point a live webhook endpoint at `/.netlify/functions/stripe-webhook` and
-  set its signing secret.
+  set its signing secret. The address it should carry depends on whether the
+  custom domain is attached yet — see [DOMAIN.md](DOMAIN.md).
 - Choose an `ORDER_NOTIFY_URL`, or enable Stripe's own payment-notification
   email, so a paid order reaches a person rather than only a log.
 - Pull `main` forward — it is behind this branch.

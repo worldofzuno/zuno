@@ -32,6 +32,37 @@ jobs:
       - name: node --test tests/functions
         run: npm run test:functions
 
+  browser:
+    name: The shop in a browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # --with-deps because a bare runner has none of the libraries Chromium
+      # links against. Only chromium: the shop is one page and three forms,
+      # and two more engines would triple the minutes for the same answer.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: playwright test
+        run: npm run test:browser
+
+      # Only on a failure, and only then: a trace is several megabytes and
+      # worth keeping exactly when something needs looking at.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trace
+          path: test-results/
+          retention-days: 7
+
   headers:
     name: CSP headers are current
     runs-on: ubuntu-latest
