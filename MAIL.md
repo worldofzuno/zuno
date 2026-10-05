@@ -11,21 +11,33 @@ in a junk folder.
 goes through it, so there is one place to change and no mail that looks
 like a different company's.
 
-Mail clients are a museum: tables for layout, every style on the element
-that uses it, no stylesheet, no web font. What that leaves is the palette
-and the wordmark, and both are the site's own:
+Mail clients are a museum. Tables for layout, every style on the element
+that uses it, no stylesheet and no web font.
+
+The mail is **dark, like the site**. It was light to begin with, on the
+theory that a client's own dark mode would wreck a near-black mail. What
+actually happened: iOS Mail wrecked the light one. The olive-brown ground
+and white-on-black card it produced were nobody's design — they were
+Apple's arithmetic on ours, and the `color-scheme: light` metas did not
+stop it. A dark mail is left alone, because there is nothing for a dark
+mode to do to it, so it reads the same in both.
 
 | | |
 | --- | --- |
-| Paper | `#ede4d3` — the site's `--beige`, the same value, not an approximation |
-| Card | `#ffffff` on the paper |
-| Band | `#000000`, with the gold wordmark |
-| Ink | `#16150e` · dim `#55513f` |
-| Headings | `#1e3932`, the deep green, uppercase and letterspaced |
-| Gold | `#f8d99b` |
+| Ground | `#000000` |
+| Card | `#0d0c0a` — a hair off black, so it is a card and not a hole |
+| Ink | `#ede4d3`, the site's `--beige` · dim `#a7a194` |
+| Headings and links | `#f8d99b`, the gold |
+| Gift-card panel | `#15211d` with a gold border — on black the deep green is a surface, not something to read |
+| Hairlines | `#2b2823` |
 
-Measured on the white card: ink 17.9:1, dim 8.0:1, green headings 12.5:1.
-Gold on the black band is 14.5:1. All clear of AA.
+Contrast on the card, measured: ink 15.5:1, dim 7.6:1, gold 14.3:1. On the
+panel: ink 13.1:1, dim 6.5:1, gold 12.2:1. All clear of AA.
+
+Every surface carries the old `bgcolor` attribute as well as the CSS
+background. Outlook's Word engine drops the background and keeps the text
+colour, and beige on a white rectangle is the one failure this must not
+have.
 
 ### The wordmark
 
@@ -40,9 +52,18 @@ carrying the full original into every message.
 
 It is loaded from the shop, not attached. The address comes from
 `siteUrl()`, which reads Netlify's own `URL` — so the day the custom domain
-is attached, the mails follow it with no deploy of their own. With images
-blocked the alt text is styled gold and letterspaced, so a blocked mail
-still says ZUNO.
+was attached, the mails followed it with no deploy of their own. With
+images blocked the alt text is styled gold and letterspaced, so a blocked
+mail still says ZUNO.
+
+**`/img/*` must stay `Cross-Origin-Resource-Policy: cross-origin`.** The
+site sends `same-origin` everywhere else, and that header applies to the
+images too unless the rule overrides it. A mail client is not an origin on
+worldofzuno.com; Apple Mail renders with WebKit, WebKit enforces the
+policy, and the first order confirmation on the real domain arrived with a
+broken-image placeholder where the logo should be. The rule lives in
+`tools/build-headers.py`, which generates `site/_headers` — edit the
+generator, never the output, or CI fails.
 
 To regenerate it after a logo change:
 

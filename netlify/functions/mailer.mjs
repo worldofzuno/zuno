@@ -259,31 +259,48 @@ export async function alarm(kind, detail, { now = Date.now() } = {}) {
  * halo, and it carries alt text styled to look right on its own: a mail
  * with images off still shows ZUNO in gold, letterspaced.
  *
- * The palette is the shop's own: black, the gold, the deep green and the
- * warm beige the site uses for paper (#ede4d3 — the same value, not an
- * approximation of it). Dark text on light ground rather than the site's
- * black, because a mail client's own dark mode inverts what it likes and a
- * near-black mail is the one that comes out illegible.
+ * The mail is dark, like the site. It used to be dark text on warm paper,
+ * on the theory that a client's own dark mode would invert a near-black
+ * mail into something illegible. What actually happened: iOS Mail inverted
+ * the light one. The olive-brown ground and white-on-black card that came
+ * out were nobody's design — they were Apple's arithmetic on ours, and the
+ * `color-scheme: light` metas did not stop it. A dark mail is left alone,
+ * because there is nothing for a dark mode to do to it. So it reads the
+ * same in both modes, and it reads as ZUNO.
+ *
+ * Every surface carries the old `bgcolor` attribute as well as the style.
+ * Outlook's Word engine ignores a CSS background and honours the attribute,
+ * and beige text on a white rectangle is the one failure this must not
+ * have.
  *
  * It lives beside `send` rather than in a module of its own because every
  * file in netlify/functions is published as an endpoint, and one more inert
  * URL to explain is a worse trade than one slightly wider mailer.
  *
- * Contrast on the white card, measured: ink 17.9:1, dim 8.0:1, green
- * headings 12.5:1. On the black band, gold is 14.5:1. All clear of AA.
+ * Contrast on the card, measured: ink 15.5:1, dim 7.6:1, gold headings
+ * 14.3:1. On the gift-card panel: ink 13.1:1, dim 6.5:1, gold 12.2:1. All
+ * clear of AA, body and large alike.
  */
 export const PALETTE = {
-  ink: '#16150e', dim: '#55513f', gold: '#f8d99b', green: '#1e3932',
-  /* The site's --beige, as the ground the card sits on. */
-  paper: '#ede4d3',
-  card: '#ffffff',
-  /* A warmer white for the panel that has to stand out from the card
-     without becoming a second colour. */
-  panel: '#fdf8ee',
-  /* The beige, a shade down: a rule that belongs to the paper rather than
-     a grey borrowed from somewhere else. */
-  line: '#ded3bd',
+  /* The site's own: black ground, the gold, the beige it writes in. */
+  bg: '#000000',
   band: '#000000',
+  /* A hair off black, so the card is a card and not a hole. */
+  card: '#0d0c0a',
+  /* The site's --beige, as the ink. */
+  ink: '#ede4d3',
+  /* The beige at the opacity the site uses for secondary copy, mixed down
+     against the card rather than left transparent — a mail client cannot be
+     relied on for rgba(). */
+  dim: '#a7a194',
+  gold: '#f8d99b',
+  /* On black the deep green is a surface, not a colour to write in: it is
+     the gift-card panel, and headings are gold instead. */
+  green: '#1e3932',
+  panel: '#15211d',
+  line: '#2b2823',
+  /* Kept so nothing that still asks for `paper` breaks; it is the ground. */
+  paper: '#000000',
 };
 
 /** Everything a customer typed is escaped. A mail assembled from what
@@ -294,9 +311,10 @@ export const esc = (v) => String(v === null || v === undefined ? '' : v)
 
 const P = PALETTE;
 
-/** A small caps heading over a block, in the deep green. */
+/** A small caps heading over a block, in the gold. On black the deep green
+    is a surface rather than something to read. */
 export const mailHeading = (text) =>
-  `<p style="margin:0 0 6px;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:${P.green};font-weight:600;">${text}</p>`;
+  `<p style="margin:0 0 6px;font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:${P.gold};font-weight:600;">${text}</p>`;
 
 /** Body copy at the size the rest of the mail uses. */
 export const mailText = (html, opts = {}) =>
@@ -305,11 +323,11 @@ export const mailText = (html, opts = {}) =>
 /** A link that looks like one in every client, including the ones that
     refuse to colour anchors. */
 export const mailLink = (href, text) =>
-  `<a href="${esc(href)}" style="color:${P.green};text-decoration:underline;">${text}</a>`;
+  `<a href="${esc(href)}" style="color:${P.gold};text-decoration:underline;">${text}</a>`;
 
 /**
- * Wraps blocks in the frame: wordmark band, white card on warm paper, and
- * the footer with the address the law wants on a commercial mail.
+ * Wraps blocks in the frame: the wordmark, the card, and the footer with
+ * the address the law wants on a commercial mail.
  *
  * `preheader` is the line a client shows beside the subject before anything
  * is opened. Left out, clients improvise from the first words, which is how
@@ -320,26 +338,26 @@ export function mailLayout({ title, preheader = '', blocks = [] }) {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
 <title>${esc(title)}</title>
 </head>
-<body style="margin:0;padding:0;background:${P.paper};">
+<body bgcolor="${P.bg}" style="margin:0;padding:0;background:${P.bg};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${P.paper}" style="background:${P.paper};">
-  <tr><td align="center" style="padding:28px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${P.bg}" style="background:${P.bg};">
+  <tr><td align="center" bgcolor="${P.bg}" style="background:${P.bg};padding:28px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${P.card}" style="max-width:560px;background:${P.card};border:1px solid ${P.line};border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
 
-      <tr><td bgcolor="${P.band}" style="background:${P.band};padding:20px 28px;line-height:22px;">
+      <tr><td bgcolor="${P.band}" style="background:${P.band};padding:22px 28px 20px;line-height:22px;border-bottom:1px solid ${P.line};">
         <img src="${siteUrl()}/img/zuno-wordmark-mail.png" width="140" alt="ZUNO"
              style="display:block;width:140px;max-width:140px;height:auto;border:0;outline:none;text-decoration:none;color:${P.gold};font-size:17px;font-weight:600;letter-spacing:0.32em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
       </td></tr>
 ${blocks.filter(Boolean).map((b, i) => `
-      <tr><td style="padding:${i === 0 ? '28px' : '22px'} 28px 0;">
+      <tr><td bgcolor="${P.card}" style="background:${P.card};padding:${i === 0 ? '28px' : '22px'} 28px 0;">
 ${b}
       </td></tr>`).join('')}
 
-      <tr><td style="padding:26px 28px 28px;">
+      <tr><td bgcolor="${P.card}" style="background:${P.card};padding:26px 28px 28px;">
         <hr style="border:0;border-top:1px solid ${P.line};margin:0 0 16px;">
         <p style="margin:0;font-size:12px;color:${P.dim};line-height:1.7;">
           ZUNO &mdash; Worldofzuno, Bahng&auml;ssli 16, 3172 Niederwangen bei Bern<br>
