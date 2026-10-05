@@ -209,3 +209,33 @@ test('the F&F prices come from the environment and are reported missing', () => 
     'castano-500g': 'price_fnf_500',
   });
 });
+
+/* Whitespace is noise; a hyphen is a character.
+   This pair is easy to "tidy up" into one rule, and the tidying would be a
+   bug: FAMILY-26 and FAMILY26 are two codes a shop can configure
+   separately, and stripping hyphens at match time would quietly merge them
+   and leave one unreachable. A gift card is the opposite case — its
+   hyphens are formatting we insert into a code generated without them —
+   and the two normalisers differ on purpose. */
+test('a voucher code forgives typing, but a hyphen is part of the code', () => {
+  const list = parseCodes(JSON.stringify([{ code: 'ZUNO-FAM-C4GAD' }]));
+
+  for (const typed of ['ZUNO-FAM-C4GAD', 'zuno-fam-c4gad', '  ZUNO-FAM-C4GAD  ',
+    'ZUNO -FAM- C4GAD', '\tzuno-fam-c4gad\n']) {
+    assert.equal(matchCode(typed, list).ok, true, `${JSON.stringify(typed)} should be accepted`);
+  }
+
+  for (const typed of ['ZUNO FAM C4GAD', 'ZUNOFAMC4GAD', 'zuno_fam_c4gad']) {
+    assert.equal(matchCode(typed, list).ok, false,
+      `${JSON.stringify(typed)} is a different code, not the same one typed loosely`);
+  }
+});
+
+test('two codes that differ only by a hyphen stay two codes', () => {
+  const list = parseCodes(JSON.stringify([{ code: 'FAMILY-26' }, { code: 'FAMILY26' }]));
+  assert.equal(list.length, 2);
+  assert.equal(matchCode('FAMILY-26', list).ok, true);
+  assert.equal(matchCode('FAMILY26', list).ok, true);
+  assert.notEqual(list[0].code, list[1].code,
+    'merging them would make one of them unreachable, on a code that costs money');
+});
