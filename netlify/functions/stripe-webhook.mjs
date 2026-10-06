@@ -696,7 +696,9 @@ export async function handleRefund(charge, stripe) {
 async function tellTheShop(ref, charge, session, lines) {
   const inbox = shopInbox();
   if (!inbox) return;
-  const money = `${(charge.currency || 'chf').toUpperCase()} ${francs(charge.amount_refunded || 0)}`;
+  /* francs() already says CHF. Putting the currency in front of it gave
+     "Refunded CHF CHF 76.80" in the first real refund that went out. */
+  const money = francs(charge.amount_refunded || 0);
   await send({
     to: inbox,
     subject: `Refunded ${money} — order ${ref}`,
