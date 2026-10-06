@@ -890,3 +890,57 @@ test('a second delivery of a nothing-total order changes nothing', async () => {
   assert.equal(second, 'duplicate');
   assert.equal(gcard.available(await gcard.load(card.code)), 3900, 'debited once');
 });
+
+/* ----------------------------------- a part refund, and then the rest ---
+
+   The refund record used to be claimed with create-once semantics before
+   anyone looked at what kind of refund it was. So the goodwill five francs
+   took the slot, and the refund that gave back the whole lot a week later
+   answered "duplicate": the bags stayed sold, the card bought in that
+   order stayed spendable and the credit redeemed against it stayed gone.
+   Buy a card, ask for five francs back, then ask for the rest. */
+
+test('a part refund does not block the refund that completes it', async () => {
+  freshStore();
+  await stk.setQty('castano-200g', 10);
+  await stk.holdCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund');
+  await stk.settleCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund', Date.now(), SOLD.id);
+
+  const spent = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  await gcard.hold(spent.code, 'pre_part', 1000);
+  await gcard.settle(spent.code, 'pre_part', 0, Date.now(), SOLD.id);
+
+  const minted = await gcard.issue({ amount: 2500, issuedFor: SOLD.id });
+  const s = await theStore();
+  await s.create(`issued/${SOLD.id}`, { codes: [{ code: minted.code, amount: 2500 }], done: true });
+
+  const session = {
+    ...SOLD,
+    metadata: { ...SOLD.metadata, gift_code: spent.code, gift_hold: '1000', gift_ref: 'pre_part' },
+  };
+
+  /* five francs as a gesture */
+  const [part] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 500 }), refundStub(session)));
+  assert.equal(part, 'refunded-part');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 9, 'nothing reversed yet');
+  assert.equal(gcard.available(await gcard.load(minted.code)), 2500);
+
+  /* and the same delivery again still changes nothing */
+  const [again] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 500 }), refundStub(session)));
+  assert.equal(again, 'duplicate', 'a redelivery is still a redelivery');
+
+  /* then the rest of it */
+  const [whole] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 2190 }), refundStub(session)));
+  assert.equal(whole, 'refunded');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 10, 'the bag came back');
+  assert.equal((await gcard.load(minted.code)).voided, true, 'the card it bought is dead');
+  assert.equal(gcard.available(await gcard.load(spent.code)), 5000, 'and the credit came back');
+
+  /* once it is whole, further deliveries are duplicates again */
+  const [after] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 2190 }), refundStub(session)));
+  assert.equal(after, 'duplicate');
+});

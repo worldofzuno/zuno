@@ -17,7 +17,7 @@
 
 import Stripe from 'stripe';
 import * as gift from './lib/giftcard.mjs';
-import { store } from './lib/store.mjs';
+import { store, mutate } from './lib/store.mjs';
 import { send, alarm, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, fromAddress } from './lib/mailer.mjs';
 import { recordOrder } from './lib/auth.mjs';
 import * as stock from './lib/stock.mjs';
@@ -620,17 +620,35 @@ export async function handleRefund(charge, stripe) {
   });
   const ref = full.id.slice(-8).toUpperCase();
 
-  /* Once only, because Stripe redelivers. The record is also what the back
-     office reads to stop offering the despatch button. */
+  /* The record carries how far the refund has got, because Stripe
+     redelivers and because a refund can arrive in instalments. It used to
+     be claimed once and for all before anyone looked at what kind of
+     refund it was, so five francs of goodwill took the slot and the refund
+     that gave back the whole order a week later read as a duplicate: bags
+     stayed sold, a card bought in that order stayed spendable, redeemed
+     credit stayed gone.
+     Nothing more to do when it is already whole, or when this delivery
+     says no more went back than the record already knows — which is both a
+     redelivery of the same refund and a delivery that arrives out of
+     order. The record is also what the back office reads to stop offering
+     the despatch button. */
   const s = await store();
-  const claimed = await s.create(refundKey(full.id), {
-    at: new Date().toISOString(),
-    charge: charge.id,
-    amount: charge.amount_refunded || 0,
-    currency: (charge.currency || 'chf').toUpperCase(),
-    whole,
+  const refunded = charge.amount_refunded || 0;
+  let fresh = false;
+  await mutate(refundKey(full.id), (cur) => {
+    if (cur && (cur.whole === true || (cur.amount || 0) >= refunded)) return null;
+    fresh = true;
+    return {
+      at: new Date().toISOString(),
+      charge: charge.id,
+      amount: refunded,
+      currency: (charge.currency || 'chf').toUpperCase(),
+      whole,
+      /* When it came back in instalments, keep the day the first one did. */
+      ...(cur ? { firstAt: cur.firstAt || cur.at } : {}),
+    };
   });
-  if (!claimed) return 'duplicate';
+  if (!fresh) return 'duplicate';
 
   if (!whole) {
     console.log(`[order:refunded-part] ${full.id} ${charge.amount_refunded}/${charge.amount}`);
