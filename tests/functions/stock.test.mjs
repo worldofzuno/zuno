@@ -362,3 +362,28 @@ test('an abandoned hold is gone within 35 minutes', async () => {
     'the hold outlives the session, so a payment in the last minute still finds it');
   assert.ok(st.HOLD_TTL_MS <= 40 * 60 * 1000);
 });
+
+/* A shelf nobody can read is not an unlimited shelf. The endpoint used to
+   answer `null` for every size when the store was unreachable, which is
+   the same answer as "no limit set" — so a shop whose store had fallen
+   over offered everything. */
+test('stock-levels says it does not know rather than saying no limit', async () => {
+  const { resetStore } = await import('../../netlify/functions/lib/store.mjs');
+  const levelsEndpoint = (await import('../../netlify/functions/stock-levels.mjs')).default;
+  resetStore();
+  process.env.NETLIFY = 'true';
+  const real = { log: console.log, error: console.error, warn: console.warn };
+  console.log = console.error = console.warn = () => {};
+  try {
+    const res = await levelsEndpoint(new Request('https://worldofzuno.com/.netlify/functions/stock-levels'));
+    const body = await res.json();
+    assert.notEqual(res.status, 200, 'an unknown shelf is not a successful answer');
+    assert.equal(Object.prototype.hasOwnProperty.call(body, 'castano-200g'), false,
+      'and it must not claim a limit it could not read');
+  } finally {
+    Object.assign(console, real);
+    delete process.env.NETLIFY;
+    resetStore();
+    useMemoryStore();
+  }
+});

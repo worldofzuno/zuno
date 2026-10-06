@@ -13,7 +13,7 @@
  * costs a clear error at the till rather than an oversold bag.
  */
 
-import { levels, TRACKED } from './lib/stock.mjs';
+import { levels } from './lib/stock.mjs';
 
 export default async function handler(req) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -24,10 +24,16 @@ export default async function handler(req) {
   try {
     body = await levels();
   } catch (e) {
-    /* A shop that cannot read its shelf must still sell. Unknown is reported
-       as no limit, which is how the page behaves with no stock configured. */
+    /* A shelf nobody can read is not an unlimited shelf. This used to answer
+       `null` for every size, which is the same answer as "no limit set" — so
+       a shop whose store had fallen over offered everything, including the
+       sizes it had none of. Saying nothing is the honest answer: the page
+       leaves its counts as they were, and the checkout refuses for itself. */
     console.error('stock-levels failed:', e && e.message);
-    body = Object.fromEntries(TRACKED.map((sku) => [sku, null]));
+    return new Response(JSON.stringify({ error: 'unknown' }), {
+      status: 503,
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+    });
   }
 
   return new Response(JSON.stringify(body), {
