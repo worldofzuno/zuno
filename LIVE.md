@@ -135,6 +135,56 @@ the Dashboard avoids that entirely.
 
 `FNF_CODES`, `ADMIN_TOKEN`, `MAIL_*` and `RESEND_API_KEY` do not change.
 
+### Scope and the secret flag — do this while you are in there
+
+Every one of the sixteen variables is currently scoped to **builds,
+functions, post-processing and runtime**, and none is marked as containing
+a secret value. Nothing here needs any of them at build time: the build
+command is `echo`, because `site/` is already finished. What that scope
+does mean is that a `postinstall` script in any dependency — the tree holds
+`next`, `three` and `@playwright/test` — runs with the Stripe secret key,
+the Resend key, both signing secrets and the admin token in its
+environment, and that their values are readable in plain text in the
+Netlify UI and can be printed into a build log.
+
+Set every variable to **functions and runtime** only, and tick **contains
+secret values** on these five:
+
+| | |
+| --- | --- |
+| `STRIPE_SECRET_KEY` | the shop's money |
+| `STRIPE_WEBHOOK_SECRET` | lets somebody forge an order |
+| `RESEND_API_KEY` | lets somebody send mail as ZUNO |
+| `RESEND_WEBHOOK_SECRET` | lets somebody forge a bounce |
+| `ADMIN_TOKEN` | the back office |
+
+In the Dashboard: **Site configuration → Environment variables**, then for
+each one **Options → Edit**, untick the scopes, tick the secret box, save.
+Two minutes for all sixteen.
+
+With the CLI it is one line each, and `--secret` only on the five:
+
+```
+netlify env:set STRIPE_SECRET_KEY "sk_live_…" --scope functions,runtime --secret
+netlify env:set STRIPE_PRICE_CASTANO_200G "price_…" --scope functions,runtime
+```
+
+A secret value cannot be read back afterwards, which is the point — so set
+it from the value you have in hand, not from a copy you intend to fetch
+later.
+
+**Do it at the same time as the rotation.** The three secrets that have
+been handled loosely so far (`ADMIN_TOKEN`, `RESEND_API_KEY`,
+`RESEND_WEBHOOK_SECRET`) are being replaced anyway, and a new value typed
+into a correctly scoped, secret-flagged variable is one step rather than
+two. The live Stripe key has never existed yet, so it starts out right.
+
+Not done from here on purpose: Netlify's API cannot change an existing
+variable, only delete it and create it again, so doing this through the
+API would take the live shop's credentials away for as long as the two
+calls take, and would mean writing secret values back from somewhere they
+should never have been kept.
+
 ## The order, and why
 
 1. **Create everything in live mode first.** Nothing in the shop reads it
