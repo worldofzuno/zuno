@@ -40,7 +40,13 @@ import * as stock from './lib/stock.mjs';
 const notifyUrl = () => process.env.ORDER_NOTIFY_URL;
 
 /** Events worth acting on. Everything else is acknowledged and dropped. */
+export const refundKey = (session) => `refund/${session}`;
+
+/** Events worth acting on. charge.refunded is not a session event and is
+    branched on before the rest; it is listed here so the endpoint's four —
+    now five — subscriptions and this set stay one list. */
 const HANDLED = new Set([
+  'charge.refunded',
   'checkout.session.completed',
   'checkout.session.async_payment_succeeded',
   'checkout.session.async_payment_failed',
@@ -127,11 +133,31 @@ export function summarise(order) {
  * downstream should treat a repeated session id as the same order.
  */
 const seen = new Set();
-function firstTime(id) {
+
+/**
+ * Whether this order's confirmation still needs sending.
+ *
+ * It used to be the in-memory set alone, which caught a retry reaching a
+ * warm instance and nothing else: a cold start, a second instance, or the
+ * back office replaying an order would all send a second "thank you for
+ * your order". The set stays as the cheap first answer; the store is the
+ * one that holds across instances, written with create-once semantics so
+ * two at the same moment cannot both win.
+ */
+async function firstTime(id) {
   if (seen.has(id)) return false;
   seen.add(id);
   if (seen.size > 500) seen.delete(seen.values().next().value);
-  return true;
+  try {
+    const s = await store();
+    return await s.create(`mailed/${id}`, { at: new Date().toISOString() });
+  } catch (e) {
+    /* A store that cannot be read is not a reason to leave a paying
+       customer with no confirmation. Erring towards sending is the right
+       way round: a second mail is an annoyance, no mail is a lost order. */
+    console.error(`[order:mailed-guard-unavailable] ${id}: ${e && e.message}`);
+    return true;
+  }
 }
 
 async function notify(kind, order) {
@@ -552,7 +578,141 @@ export default async function handler(req) {
  * that matters most, a paid order, is otherwise only reachable by calling
  * Stripe for real.
  */
+/**
+ * The money went back. Everything the order moved has to move back with it.
+ *
+ * Without this a refund is invisible to the shop: the order still reads as
+ * paid in the back office and could be packed and posted, the bags stay
+ * counted as sold, a gift card bought in that order stays spendable — buy
+ * a card, keep the code, ask for the money back — and credit redeemed
+ * against the order stays gone, so the customer is refunded their money
+ * and not their voucher.
+ *
+ * A **partial** refund changes nothing by itself. Which line it belongs to
+ * is not in the event, and guessing would be worse than saying so: it is
+ * recorded, the shop is told, and a person decides.
+ */
+export async function handleRefund(charge, stripe) {
+  const whole = (charge.amount_refunded || 0) >= (charge.amount || 0);
+  const pi = typeof charge.payment_intent === 'string'
+    ? charge.payment_intent : (charge.payment_intent || {}).id;
+
+  if (!pi) {
+    await alarm('refund could not be matched to an order', `charge ${charge.id} has no payment intent`);
+    return 'refund-unmatched';
+  }
+
+  const found = await stripe.checkout.sessions.list({ payment_intent: pi, limit: 1 });
+  const session = (found.data || [])[0];
+  if (!session) {
+    /* A refund for something that did not come through the shop — a
+       payment made in the Stripe dashboard, say. Worth saying out loud
+       rather than silently doing nothing. */
+    await alarm('refund could not be matched to an order',
+      `charge ${charge.id}, payment intent ${pi}: no checkout session`);
+    return 'refund-unmatched';
+  }
+
+  const full = await stripe.checkout.sessions.retrieve(session.id, {
+    expand: ['line_items.data.price.product'],
+  });
+  const ref = full.id.slice(-8).toUpperCase();
+
+  /* Once only, because Stripe redelivers. The record is also what the back
+     office reads to stop offering the despatch button. */
+  const s = await store();
+  const claimed = await s.create(refundKey(full.id), {
+    at: new Date().toISOString(),
+    charge: charge.id,
+    amount: charge.amount_refunded || 0,
+    currency: (charge.currency || 'chf').toUpperCase(),
+    whole,
+  });
+  if (!claimed) return 'duplicate';
+
+  if (!whole) {
+    console.log(`[order:refunded-part] ${full.id} ${charge.amount_refunded}/${charge.amount}`);
+    await tellTheShop(ref, charge, full, ['Part of the money went back.',
+      'Nothing was reversed automatically — which line it belongs to is not in the event.',
+      'The stock, the gift cards and the order itself are untouched; decide by hand.']);
+    return 'refunded-part';
+  }
+
+  const undone = [];
+
+  /* The bags. */
+  try {
+    const sref = (full.metadata || {}).stock_ref;
+    if (sref) {
+      const out = await stock.unsettleCart(cartLines(full), sref);
+      for (const [sku, r] of Object.entries(out)) {
+        if (r.outcome === 'returned') undone.push(`${r.qty} x ${sku} back on the shelf`);
+      }
+    }
+  } catch (e) {
+    await alarm('refund could not return the stock', `${ref}: ${e && e.message}`);
+  }
+
+  /* Credit the customer redeemed against this order. */
+  try {
+    const g = giftMeta(full);
+    if (g) {
+      const r = await gift.unsettle(g.code, full.id, 'refunded');
+      if (r.outcome === 'reversed') undone.push(`${francs(r.amount)} back on ${g.code}`);
+    }
+  } catch (e) {
+    await alarm('refund could not restore a gift card balance', `${ref}: ${e && e.message}`);
+  }
+
+  /* Cards bought in this order. Anything already spent off them is gone —
+     the shop cannot take back coffee somebody already drank — so that part
+     is reported rather than quietly swallowed. */
+  try {
+    const { value } = await s.read(`issued/${full.id}`);
+    for (const minted of (value && value.codes) || []) {
+      const card = await gift.load(minted.code);
+      const used = card ? gift.spent(card) : 0;
+      await gift.setVoided(minted.code, true, `order ${ref} was refunded`);
+      undone.push(used > 0
+        ? `${minted.code} voided, but ${francs(used)} of it had already been spent`
+        : `${minted.code} voided`);
+      if (used > 0) {
+        await alarm('a refunded gift card had already been spent',
+          `${ref}: ${minted.code}, ${francs(used)} gone`);
+      }
+    }
+  } catch (e) {
+    await alarm('refund could not void a gift card', `${ref}: ${e && e.message}`);
+  }
+
+  console.log(`[order:refunded] ${full.id} ${undone.join('; ') || 'nothing to undo'}`);
+  await tellTheShop(ref, charge, full, undone.length
+    ? ['The money went back, and so did this:', ...undone]
+    : ['The money went back. There was nothing to undo.']);
+  return 'refunded';
+}
+
+/** The shop hears about every refund, whatever was or was not reversed. */
+async function tellTheShop(ref, charge, session, lines) {
+  const inbox = shopInbox();
+  if (!inbox) return;
+  const money = `${(charge.currency || 'chf').toUpperCase()} ${francs(charge.amount_refunded || 0)}`;
+  await send({
+    to: inbox,
+    subject: `Refunded ${money} — order ${ref}`,
+    text: [
+      `Order ${ref} was refunded ${money}.`,
+      '',
+      ...lines,
+      '',
+      `Customer: ${(session.customer_details || {}).email || 'unknown'}`,
+      `Stripe charge: ${charge.id}`,
+    ].join('\n'),
+  });
+}
+
 export async function handleEvent(event, stripe) {
+  if (event.type === 'charge.refunded') return handleRefund(event.data.object, stripe);
   if (!HANDLED.has(event.type)) return 'ignored';
 
   /* The event carries a Checkout Session without its line items, and the
@@ -594,7 +754,7 @@ export async function handleEvent(event, stripe) {
   order.giftCards = await issueGifts(full, order);
   await fileUnderAccount(full, order);
 
-  if (!firstTime(full.id)) return 'duplicate';
+  if (!(await firstTime(full.id))) return 'duplicate';
   await notify('paid', order);
   await mailOrder(order);
   return 'paid';

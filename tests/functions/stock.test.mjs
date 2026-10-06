@@ -289,3 +289,49 @@ test('the whole cart carries the same order number', async () => {
     assert.equal(rec.sold.pre_cart.order, 'cs_test_CART01', `${sku} knows its order`);
   }
 });
+
+/* ------------------------------------------- when an order is refunded --- */
+
+test('a refunded order puts the bags back', async () => {
+  await fresh(10);
+  await st.hold('castano-200g', 'pre_ref', 3);
+  await st.settle('castano-200g', 'pre_ref', 3, Date.now(), 'cs_order');
+  assert.equal(await left(), 7);
+
+  const r = await st.unsettle('castano-200g', 'pre_ref');
+  assert.equal(r.outcome, 'returned');
+  assert.equal(r.qty, 3);
+  assert.equal(await left(), 10);
+});
+
+test('the return is written down, and happens once', async () => {
+  await fresh(10);
+  await st.hold('castano-200g', 'pre_ref', 2);
+  await st.settle('castano-200g', 'pre_ref', 2);
+
+  assert.equal((await st.unsettle('castano-200g', 'pre_ref')).outcome, 'returned');
+  assert.equal((await st.unsettle('castano-200g', 'pre_ref')).outcome, 'already');
+  assert.equal(await left(), 10, 'not 12');
+
+  const rec = await st.read('castano-200g');
+  assert.equal(rec.sold.pre_ref.qty, 2, 'the sale is still readable');
+  assert.equal(rec.sold.pre_ref.reversed.reason, 'refunded');
+});
+
+test('an untracked size has nothing to give back', async () => {
+  useMemoryStore();
+  assert.equal((await st.unsettle('castano-200g', 'pre_x')).outcome, 'untracked');
+});
+
+test('the whole cart comes back together', async () => {
+  useMemoryStore();
+  await st.setQty('castano-200g', 10);
+  await st.setQty('castano-500g', 10);
+  const lines = [{ sku: 'castano-200g', qty: 1 }, { sku: 'castano-500g', qty: 2 }];
+  await st.holdCart(lines, 'pre_cart');
+  await st.settleCart(lines, 'pre_cart', Date.now(), 'cs_order');
+  await st.unsettleCart(lines, 'pre_cart');
+
+  assert.equal(await left('castano-200g'), 10);
+  assert.equal(await left('castano-500g'), 10);
+});

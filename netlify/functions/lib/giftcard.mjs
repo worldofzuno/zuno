@@ -80,7 +80,13 @@ export const keyFor = (code) => `gift/${normalise(code)}`;
 
 const sum = (rows) => Object.values(rows || {}).reduce((t, r) => t + (r.amount || 0), 0);
 
-export const spent = (card) => sum(card && card.spends);
+/* A reversed spend is history, not money gone: the order was refunded and
+   the credit went back on the card. It stays in the ledger so the movement
+   can be read, and it stops counting here. */
+export const spent = (card) =>
+  Object.values((card && card.spends) || {})
+    .filter((v) => !v.reversed)
+    .reduce((t, v) => t + (v.amount || 0), 0);
 
 /** Holds still standing. An old one is ignored rather than deleted, so the
     record keeps saying what happened. */
@@ -277,6 +283,43 @@ export async function settle(code, sessionId, fallbackAmount = 0, now = Date.now
     const spend = { amount, at: now };
     if (typeof order === 'string' && order) spend.order = order;
     return { ...card, holds, spends: { ...(card.spends || {}), [sessionId]: spend } };
+  });
+
+  return { outcome, amount };
+}
+
+/**
+ * Takes a spend back, because the order it paid for was refunded.
+ *
+ * The customer paid partly with the card and has now had the money
+ * returned; the credit has to come back with it, or the refund is only
+ * half a refund. Recorded as a reversal rather than by deleting the spend,
+ * so the history still shows that it happened — a balance that moves with
+ * no entry behind it is a balance nobody can audit.
+ *
+ * Idempotent: a second call finds the spend already reversed and does
+ * nothing, because Stripe will redeliver a refund event it did not get a
+ * 2xx for.
+ */
+export async function unsettle(code, sessionId, reason = 'refunded', now = Date.now()) {
+  let outcome = 'none';
+  let amount = 0;
+
+  await mutate(keyFor(code), (card) => {
+    if (!card) { outcome = 'unknown'; return null; }
+    const spend = (card.spends || {})[sessionId];
+    if (!spend) { outcome = 'no-spend'; return null; }
+    if (spend.reversed) { outcome = 'already'; amount = spend.amount; return null; }
+
+    amount = spend.amount;
+    outcome = 'reversed';
+    return {
+      ...card,
+      spends: {
+        ...card.spends,
+        [sessionId]: { ...spend, reversed: { at: now, reason } },
+      },
+    };
   });
 
   return { outcome, amount };

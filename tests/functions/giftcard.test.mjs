@@ -292,3 +292,50 @@ test('test and live cards are distinguishable', async () => {
   assert.equal(t.livemode, false);
   assert.equal(l.livemode, true);
 });
+
+/* ------------------------------------------- when an order is refunded --- */
+
+test('a refunded order gives the credit back', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_bought' });
+  await gc.hold(card.code, 'cs_order', 2000);
+  await gc.settle(card.code, 'cs_order', 0, Date.now(), 'cs_order');
+  assert.equal(gc.available(await gc.load(card.code)), 3000, 'spent, as it should be');
+
+  const r = await gc.unsettle(card.code, 'cs_order');
+  assert.equal(r.outcome, 'reversed');
+  assert.equal(r.amount, 2000);
+  assert.equal(gc.available(await gc.load(card.code)), 5000, 'and back again');
+});
+
+test('the reversal is written down, not erased', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_bought' });
+  await gc.hold(card.code, 'cs_order', 2000);
+  await gc.settle(card.code, 'cs_order', 0, Date.now(), 'cs_order');
+  await gc.unsettle(card.code, 'cs_order', 'refunded');
+
+  const after = await gc.load(card.code);
+  const spend = after.spends.cs_order;
+  assert.equal(spend.amount, 2000, 'the spend is still there to read');
+  assert.equal(spend.reversed.reason, 'refunded');
+  assert.ok(spend.reversed.at, 'and when');
+});
+
+test('reversing twice is reversing once, because Stripe redelivers', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_bought' });
+  await gc.hold(card.code, 'cs_order', 2000);
+  await gc.settle(card.code, 'cs_order', 0, Date.now(), 'cs_order');
+
+  assert.equal((await gc.unsettle(card.code, 'cs_order')).outcome, 'reversed');
+  assert.equal((await gc.unsettle(card.code, 'cs_order')).outcome, 'already');
+  assert.equal(gc.available(await gc.load(card.code)), 5000, 'not 7000');
+});
+
+test('there is nothing to reverse on an order that never spent anything', async () => {
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_bought' });
+  assert.equal((await gc.unsettle(card.code, 'cs_nothing')).outcome, 'no-spend');
+  assert.equal((await gc.unsettle('ZG-0000-0000-0000', 'cs_x')).outcome, 'unknown');
+});

@@ -40,6 +40,21 @@ purchase.
 If the mail cannot be sent, the message says so plainly instead of claiming
 the customer was told.
 
+**A refunded order says so** and is offered no despatch button — and the
+server refuses one anyway, because hiding a button is not a safeguard. A
+full refund has already put the bags back on the shelf, voided any gift
+card bought in that order and returned any credit spent on it. A **part**
+refund reverses nothing: which line it belongs to is not in what Stripe
+sends, so it is shown as a part refund and left to you.
+
+**Run an order through again.** Stripe gives up redelivering a webhook
+after about three days. After that the money is taken, the order is in
+this list, and nothing in the shop ever happened — no confirmation, no
+gift card, no stock movement. This button is the way back, and it runs the
+same code the webhook runs rather than a second idea of what an order
+means. Safe to press twice: an order that already went through answers
+"already" and sends nothing.
+
 **Look a gift card up** by code, however it was typed. You see the balance,
 what was issued, what was spent, what is held by a checkout in flight, who
 bought it, and every spend with its date and the order it went to. Spends

@@ -168,6 +168,46 @@ export async function settle(sku, ref, fallbackQty = 0, now = Date.now(), order 
   return outcome;
 }
 
+/**
+ * Puts the bags back on the shelf, because the order was refunded.
+ *
+ * The goods are presumed to be coming back; a refund for something kept is
+ * a decision somebody makes by hand afterwards, by typing a new number on
+ * the Stock card. Like its opposite it is recorded rather than erased, and
+ * it is idempotent, because Stripe redelivers.
+ */
+export async function unsettle(sku, ref, reason = 'refunded', now = Date.now()) {
+  let outcome = 'none';
+  let qty = 0;
+
+  await mutate(keyFor(sku), (cur) => {
+    if (!cur || typeof cur.qty !== 'number') { outcome = 'untracked'; return null; }
+    const sale = (cur.sold || {})[ref];
+    if (!sale) { outcome = 'no-sale'; return null; }
+    if (sale.reversed) { outcome = 'already'; qty = sale.qty; return null; }
+
+    qty = sale.qty;
+    outcome = 'returned';
+    return {
+      ...cur,
+      qty: cur.qty + qty,
+      sold: { ...cur.sold, [ref]: { ...sale, reversed: { at: now, reason } } },
+      updatedAt: new Date(now).toISOString(),
+    };
+  });
+
+  return { outcome, qty };
+}
+
+export async function unsettleCart(lines, ref, reason = 'refunded', now = Date.now()) {
+  const out = {};
+  for (const line of lines) {
+    if (!TRACKED.includes(line.sku)) continue;
+    out[line.sku] = await unsettle(line.sku, ref, reason, now);
+  }
+  return out;
+}
+
 export async function release(sku, ref) {
   let outcome = 'none';
   await mutate(keyFor(sku), (cur) => {

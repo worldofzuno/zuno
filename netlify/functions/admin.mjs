@@ -30,6 +30,7 @@ import {
   normaliseEmail, looksLikeEmail, readCookie,
 } from './lib/auth.mjs';
 import { allow } from './lib/fnf.mjs';
+import { handleEvent, refundKey } from './stripe-webhook.mjs';
 import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, fromAddress } from './lib/mailer.mjs';
 import Stripe from 'stripe';
 
@@ -201,7 +202,7 @@ function linesOf(session) {
 const SHIPPABLE = new Set(['castano-200g', 'castano-500g']);
 
 /** What the back office shows for one order. */
-export function orderView(session, shipped = null) {
+export function orderView(session, shipped = null, refunded = null) {
   const lines = linesOf(session);
   const info = session.collected_information || {};
   const ship = info.shipping_details || session.shipping_details || null;
@@ -219,6 +220,12 @@ export function orderView(session, shipped = null) {
     needsParcel,
     livemode: session.livemode === true,
     shipped: shipped ? { at: shipped.at, carrier: shipped.carrier || null, tracking: shipped.tracking || null } : null,
+    /* A refunded order must not look like one waiting to be packed. The
+       figure is what actually went back, which for a partial refund is
+       less than the total — the difference is the point. */
+    refunded: refunded
+      ? { at: refunded.at, amount: ((refunded.amount || 0) / 100).toFixed(2), whole: refunded.whole !== false }
+      : null,
   };
 }
 
@@ -229,8 +236,9 @@ export async function recentOrders(limit = 25, client = null) {
   const s = await store();
   const out = [];
   for (const session of paid) {
-    const { value } = await s.read(shipKey(session.id));
-    out.push(orderView(session, value));
+    const shipped = (await s.read(shipKey(session.id))).value;
+    const refunded = (await s.read(refundKey(session.id))).value;
+    out.push(orderView(session, shipped, refunded));
   }
   return out;
 }
@@ -330,6 +338,10 @@ export async function markShipped(sessionId, { carrier = null, tracking = null, 
   if (!session || session.payment_status !== 'paid') return { ok: false, reason: 'not-paid' };
 
   const s = await store();
+  /* Checked here and not only hidden in the page: the button is gone from
+     the screen, and this is what stops a parcel going out against an order
+     whose money has already been given back. */
+  if ((await s.read(refundKey(sessionId))).value) return { ok: false, reason: 'refunded' };
   const existing = await s.read(shipKey(sessionId));
   if (existing.value) return { ok: false, reason: 'already', shipped: existing.value };
 
@@ -516,14 +528,43 @@ async function act(action, body) {
     if (!id.startsWith('cs_')) return json(400, { error: 'That is not an order.' });
     const r = await markShipped(id, { carrier: body.carrier, tracking: body.tracking });
     if (!r.ok) {
-      return json(r.reason === 'already' ? 409 : 400, {
-        error: r.reason === 'already'
-          ? 'That order is already marked as sent — the customer has been told once.'
-          : 'That order is not paid.',
-        shipped: r.shipped || null,
-      });
+      const said = {
+        already: 'That order is already marked as sent — the customer has been told once.',
+        refunded: 'That order was refunded. Nothing should go in a parcel.',
+      }[r.reason] || 'That order is not paid.';
+      return json(r.reason === 'already' ? 409 : 400, { error: said, shipped: r.shipped || null });
     }
     return json(200, { order: r.order, mailed: r.mailed, reason: r.reason || null });
+  }
+
+  /**
+   * Runs an order through again.
+   *
+   * Stripe gives up redelivering a webhook after about three days. After
+   * that the money is taken, the order is in Stripe and in the list below,
+   * and nothing in the shop ever happened: no confirmation, no gift card,
+   * no stock movement. This is the way back, and it is the same code the
+   * webhook runs — not a second implementation of what an order means.
+   *
+   * Safe to press twice. Settling and minting were always idempotent, and
+   * the confirmation is now guarded by a record in the store rather than
+   * by a set in memory, so a replay of an order that did go through sends
+   * nothing and answers "already".
+   */
+  if (action === 'order-replay') {
+    const id = typeof body.session === 'string' ? body.session : '';
+    if (!id.startsWith('cs_')) return json(400, { error: 'That is not an order.' });
+    try {
+      const outcome = await handleEvent(
+        { type: 'checkout.session.completed', data: { object: { id } } },
+        stripe()
+      );
+      console.log(`[order:replayed] ${id} -> ${outcome}`);
+      return json(200, { outcome, order: id.slice(-8).toUpperCase() });
+    } catch (e) {
+      console.error(`[order:replay-failed] ${id}: ${e && e.message}`);
+      return json(502, { error: 'Stripe would not answer for that order.' });
+    }
   }
 
   if (action === 'export') return json(200, await takeBackup());

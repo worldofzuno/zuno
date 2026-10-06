@@ -476,3 +476,39 @@ test('the despatch mail carries the link, in both halves', () => {
   assert.ok(plain.includes('99.00.123456.78901234'));
   assert.equal(/swisspost-tracking/.test(plain), false);
 });
+
+/* ------------------------------------------- a refunded order in the list --- */
+
+test('a refunded order says so, and is refused a parcel', async () => {
+  useMemoryStore();
+  const s = await store();
+  await s.create(mod.refundKey ? mod.refundKey(PAID.id) : `refund/${PAID.id}`,
+    { at: '2026-10-06T09:00:00.000Z', charge: 'ch_1', amount: 2190, whole: true });
+
+  const [order] = await mod.recentOrders(5, fakeStripe(PAID));
+  assert.ok(order.refunded, 'the list carries it');
+  assert.equal(order.refunded.amount, '21.90');
+  assert.equal(order.refunded.whole, true);
+
+  /* Hiding the button is not the safeguard; this is. */
+  const r = await mod.markShipped(PAID.id, { client: fakeStripe(PAID) });
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'refunded');
+});
+
+test('a part refund is shown as a part refund', async () => {
+  useMemoryStore();
+  const s = await store();
+  await s.create(`refund/${PAID.id}`,
+    { at: '2026-10-06T09:00:00.000Z', charge: 'ch_1', amount: 500, whole: false });
+
+  const [order] = await mod.recentOrders(5, fakeStripe(PAID));
+  assert.equal(order.refunded.whole, false);
+  assert.equal(order.refunded.amount, '5.00', 'what went back, not the total');
+});
+
+test('an order nobody refunded carries nothing', async () => {
+  useMemoryStore();
+  const [order] = await mod.recentOrders(5, fakeStripe(PAID));
+  assert.equal(order.refunded, null);
+});

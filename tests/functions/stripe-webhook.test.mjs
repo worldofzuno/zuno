@@ -642,3 +642,128 @@ test('with no provider at all, no alarm is raised per order', async () => {
   assert.equal(errs.some((l) => l.startsWith('[alarm]')), false);
   assert.ok(errs.some((l) => l.includes('customer-mail-unsent')));
 });
+
+/* --------------------------------------------------- when money goes back --- */
+
+const { useMemoryStore: freshStore, store: theStore } =
+  await import('../../netlify/functions/lib/store.mjs');
+const gcard = await import('../../netlify/functions/lib/giftcard.mjs');
+const stk = await import('../../netlify/functions/lib/stock.mjs');
+
+/** Stripe, as far as a refund is concerned. */
+function refundStub(session) {
+  return {
+    checkout: {
+      sessions: {
+        list: async () => ({ data: session ? [session] : [] }),
+        retrieve: async () => session,
+      },
+    },
+  };
+}
+
+const charge = (over = {}) => ({
+  id: 'ch_1', payment_intent: 'pi_1', currency: 'chf',
+  amount: 2190, amount_refunded: 2190, ...over,
+});
+
+const refundEvent = (over) => ({ type: 'charge.refunded', data: { object: charge(over) } });
+
+/** A paid session for one 200 g bag, as the shop would have written it. */
+const SOLD = {
+  id: 'cs_test_REFUND01', object: 'checkout.session', livemode: false,
+  payment_status: 'paid', currency: 'chf', amount_total: 2190,
+  total_details: { amount_discount: 0, amount_shipping: 700, amount_tax: 0 },
+  customer_details: { email: 'kundin@example.ch', name: 'A Kundin' },
+  metadata: { lines: '[["castano-200g",1,"Whole Beans"]]', stock_ref: 'pre_refund' },
+  line_items: { data: [] },
+};
+
+test('a refund puts the bags back on the shelf', async () => {
+  freshStore();
+  await stk.setQty('castano-200g', 10);
+  await stk.holdCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund');
+  await stk.settleCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund', Date.now(), SOLD.id);
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 9);
+
+  const [out] = await captureLog(() => mod.handleEvent(refundEvent(), refundStub(SOLD)));
+  assert.equal(out, 'refunded');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 10);
+});
+
+test('a refund gives back the credit the customer had redeemed', async () => {
+  freshStore();
+  const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  await gcard.hold(card.code, 'cs_test_REFUND01', 1000);
+  await gcard.settle(card.code, 'cs_test_REFUND01', 0, Date.now(), 'cs_test_REFUND01');
+  assert.equal(gcard.available(await gcard.load(card.code)), 4000);
+
+  const session = { ...SOLD, metadata: { ...SOLD.metadata, gift_code: card.code, gift_ref: 'cs_test_REFUND01' } };
+  await captureLog(() => mod.handleEvent(refundEvent(), refundStub(session)));
+
+  assert.equal(gcard.available(await gcard.load(card.code)), 5000,
+    'refunded their money and their voucher');
+});
+
+/* Buy a card, write the code down, ask for the money back. Without this it
+   is free money, repeatable. */
+test('a gift card bought in a refunded order stops being spendable', async () => {
+  freshStore();
+  const minted = await gcard.issue({ amount: 10000, issuedFor: SOLD.id });
+  const s = await theStore();
+  await s.create(`issued/${SOLD.id}`, { codes: [{ code: minted.code, amount: 10000 }], done: true });
+  assert.equal(gcard.available(await gcard.load(minted.code)), 10000);
+
+  await captureLog(() => mod.handleEvent(refundEvent(), refundStub(SOLD)));
+
+  const after = await gcard.load(minted.code);
+  assert.equal(after.voided, true);
+  assert.equal(gcard.available(after), 0);
+  assert.ok(/refunded/i.test(after.voidReason));
+});
+
+test('a partial refund reverses nothing, and says so', async () => {
+  freshStore();
+  await stk.setQty('castano-200g', 10);
+  await stk.holdCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund');
+  await stk.settleCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 9);
+
+  const [out, lines] = await captureLog(() =>
+    mod.handleEvent(refundEvent({ amount_refunded: 500 }), refundStub(SOLD)));
+
+  assert.equal(out, 'refunded-part');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 9, 'untouched on purpose');
+  assert.ok(lines.some((l) => l.includes('refunded-part')));
+});
+
+test('a redelivered refund does not reverse twice', async () => {
+  freshStore();
+  await stk.setQty('castano-200g', 10);
+  await stk.holdCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund');
+  await stk.settleCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund');
+
+  assert.equal((await captureLog(() => mod.handleEvent(refundEvent(), refundStub(SOLD))))[0], 'refunded');
+  assert.equal((await captureLog(() => mod.handleEvent(refundEvent(), refundStub(SOLD))))[0], 'duplicate');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 10, 'not 11');
+});
+
+test('a refund with no order behind it is reported, not swallowed', async () => {
+  freshStore();
+  const real = console.error;
+  console.error = () => {};
+  try {
+    const [out] = await captureLog(() => mod.handleEvent(refundEvent(), refundStub(null)));
+    assert.equal(out, 'refund-unmatched');
+  } finally { console.error = real; }
+});
+
+test('the refund record is what the back office reads', async () => {
+  freshStore();
+  await captureLog(() => mod.handleEvent(refundEvent(), refundStub(SOLD)));
+  const { value } = await (await theStore()).read(mod.refundKey(SOLD.id));
+  assert.ok(value, 'written under refund/<session>');
+  assert.equal(value.whole, true);
+  assert.equal(value.charge, 'ch_1');
+  assert.equal(value.amount, 2190);
+});
