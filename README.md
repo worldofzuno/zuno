@@ -53,7 +53,7 @@ unstyled text with a dead cart while every local check still passes.
 | [BACKOFFICE.md](BACKOFFICE.md) | `/admin/` — orders, gift cards, accounts, stock, the backup |
 | [ACCOUNTS.md](ACCOUNTS.md) | sign-in, sessions, password reset, deletion |
 | [STOCK.md](STOCK.md) | how a size runs out without two people buying the last bag |
-| [MAIL.md](MAIL.md) | the eight mails: the frame, the sender, the junk folder |
+| [MAIL.md](MAIL.md) | the nine mails: the frame, the sender, the junk folder |
 | [DOMAIN.md](DOMAIN.md) | putting the shop on worldofzuno.com |
 | [LIVE.md](LIVE.md) | switching Stripe from the sandbox to live |
 | [SEO.md](SEO.md) | what search engines are told |
