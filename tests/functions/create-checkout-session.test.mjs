@@ -24,6 +24,7 @@ process.env.FNF_CODES = JSON.stringify([{ code: 'FAMILY26' }]);
 
 const { parseCart, parseCode, parseGift, subtotalRappen, physicalSubtotal, hasPhysical,
   shippingOption, sessionParams, build } = await import('../../netlify/functions/create-checkout-session.mjs');
+const cs = await import('../../netlify/functions/create-checkout-session.mjs');
 const { FNF_CATALOGUE } = await import('../../netlify/functions/lib/fnf.mjs');
 const { useMemoryStore } = await import('../../netlify/functions/lib/store.mjs');
 const gc = await import('../../netlify/functions/lib/giftcard.mjs');
@@ -643,4 +644,63 @@ test('the checkout client does not pin a version older than its parameters', () 
   }
   assert.equal(pinned[1], sdk && sdk[1],
     'a pinned version that is not the SDK\'s own accepts a different set of parameters');
+});
+
+/* ------------------------------------------- Stripe's smallest charge ---
+
+   Stripe will not take less than CHF 0.50. A gift card a few rappen short
+   of the cart used to produce exactly that: 59.80 of coffee with free
+   postage, a 59.50 card, and Stripe asked for 0.30 — which it refuses, so
+   the customer could not pay at all while their balance and the bags sat
+   reserved. The credit is trimmed instead, and the rappen stay on the
+   card. */
+
+test('the credit asked for never leaves an amount Stripe cannot charge', () => {
+  const { creditToAsk } = cs;
+  /* 59.80 payable, a 59.50 card, no postage: ask for 59.30 so 0.50 is left */
+  assert.equal(creditToAsk(5980, 5950, 0), 5930);
+  /* a card that covers everything still covers everything */
+  assert.equal(creditToAsk(5980, 10000, 0), 5980);
+  assert.equal(creditToAsk(1100, 5000, 0), 1100);
+  /* postage is the rest of the bill, so it keeps the total chargeable */
+  assert.equal(creditToAsk(1490, 1450, 700), 1450);
+  /* comfortably short of the cart: nothing to trim */
+  assert.equal(creditToAsk(1100, 20, 0), 20);
+  /* exactly 50 rappen short is already fine */
+  assert.equal(creditToAsk(5980, 5930, 0), 5930);
+  /* and 49 is not */
+  assert.equal(creditToAsk(5980, 5931, 0), 5930);
+});
+
+test('a card a few rappen short still gets the customer through the till', async () => {
+  const stripe = fakeStripe();
+  useMemoryStore();
+  const card = await gc.issue({ amount: 5950, issuedFor: 'cs_elsewhere' });
+
+  const r = await build(stripe, { items: [{ sku: 'castano-500g', qty: 2 }], gift: card.code }, ORIGIN);
+  assert.equal(r.status, 200);
+
+  const coupon = stripe.made.coupons[0];
+  const session = stripe.made.sessions[0];
+  const postage = session.shipping_options[0].shipping_rate_data.fixed_amount.amount;
+  assert.equal(postage, 0, '59.80 is over the free-postage threshold');
+  assert.equal(coupon.amount_off, 5930, 'trimmed by 20 rappen');
+  assert.equal(5980 - coupon.amount_off + postage, 50, 'Stripe is asked for its minimum, not 0.30');
+
+  /* and the 20 rappen are still the customer's */
+  assert.equal(gc.available(await gc.load(card.code)), 20);
+});
+
+test('a card that covers the lot is allowed to cover the lot', async () => {
+  const stripe = fakeStripe();
+  useMemoryStore();
+  const card = await gc.issue({ amount: 10000, issuedFor: 'cs_elsewhere' });
+
+  const r = await build(stripe, { items: [{ sku: 'castano-500g', qty: 2 }], gift: card.code }, ORIGIN);
+  assert.equal(r.status, 200);
+  const coupon = stripe.made.coupons[0];
+  const session = stripe.made.sessions[0];
+  assert.equal(coupon.amount_off, 5980);
+  assert.equal(session.shipping_options[0].shipping_rate_data.fixed_amount.amount, 0);
+  /* nothing left to charge, which lib/session.mjs now knows how to read */
 });

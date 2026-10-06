@@ -81,6 +81,19 @@ const GIFT_MIN = 1500;    // CHF 15.00 — below the smallest bag is a card that
 const GIFT_MAX = 20000;   // CHF 200.00
 const GIFT_PRODUCT = () => process.env.STRIPE_PRODUCT_GIFT;
 
+/**
+ * The smallest amount Stripe will charge in CHF.
+ *
+ * It matters because a gift card is applied as a coupon for the amount it
+ * can cover, and a card a few rappen short of the cart leaves a remainder
+ * Stripe refuses: 59.80 of coffee with free postage against a 59.50 card
+ * asked for 0.30 and the customer could not pay at all, while their
+ * balance and the bags stayed reserved for the day. Either the card covers
+ * the whole total — which is fine, Stripe then asks for no payment at all
+ * — or it leaves at least this much to charge.
+ */
+const STRIPE_MIN_RAPPEN = 50;
+
 const GRINDS = ['Whole Beans', 'Pre-Ground'];
 const MAX_QTY = 20;                 // per line; a shop this size has no reason for more
 const SHIPPING_RAPPEN = 700;        // CHF 7.00 flat
@@ -207,6 +220,29 @@ export function shippingOption(subtotal, alwaysFree = false) {
       },
     },
   };
+}
+
+/**
+ * How much credit to reserve, so that what is left is chargeable.
+ *
+ * Returns the smaller of what the cart needs and what the card holds —
+ * except when that would leave a remainder between a rappen and 49, in
+ * which case it asks for less and leaves Stripe its minimum. It cannot ask
+ * for more: a card thirty rappen short of the cart has not got the thirty
+ * rappen, so trimming is the only direction available. The rappen it does
+ * not use stay on the card.
+ *
+ * @param payable  what the coffee on this order costs, in rappen
+ * @param balance  what the card can spend right now
+ * @param postage  what will be charged for shipping, which is part of the
+ *                 bill and so part of what keeps the total chargeable
+ */
+export function creditToAsk(payable, balance, postage, min = STRIPE_MIN_RAPPEN) {
+  const cover = Math.min(payable, Math.max(0, balance));
+  const rest = payable - cover + postage;
+  if (rest === 0 || rest >= min) return cover;
+  const trimmed = cover - (min - rest);
+  return trimmed > 0 ? trimmed : 0;
 }
 
 /** Which Price a line points at. A voucher price exists for coffee only, so a
@@ -441,7 +477,8 @@ export async function build(stripe, body, origin, opts = {}) {
       const payable = physicalSubtotal(lines, fnfPriceById, fnfCatalogue);
       const card = await gift.load(giftCode);
       if (!card) return json(400, { error: 'That gift card is not valid.', reason: 'unknown' });
-      if (gift.available(card) <= 0) {
+      const balance = gift.available(card);
+      if (balance <= 0) {
         return json(400, { error: 'That gift card is empty.', reason: 'empty' });
       }
       if (payable <= 0) {
@@ -455,9 +492,28 @@ export async function build(stripe, body, origin, opts = {}) {
          coupon has to exist before the session can carry it. So: reserve
          against a reference of our own, then let the webhook settle it. */
       holdRef = `pre_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-      const res = await gift.hold(card.code, holdRef, payable);
+
+      /* Postage is read off the same rule that will be put on the session,
+         rather than worked out a second time here. */
+      const postage = shippingOption(shippingBasis, !!fnf)
+        .shipping_rate_data.fixed_amount.amount;
+      const res = await gift.hold(card.code, holdRef, creditToAsk(payable, balance, postage));
       if (!res.ok) return json(400, { error: 'That gift card is empty.', reason: res.reason });
       held = res.amount;
+
+      /* The balance above was read before the hold, and somebody else's
+         order may have landed in between — so the amount actually held can
+         be smaller than the one asked for, and land in the gap after all.
+         Rare, and it resolves itself on a second try. */
+      const rest = payable - held + postage;
+      if (rest > 0 && rest < STRIPE_MIN_RAPPEN) {
+        await gift.release(card.code, holdRef);
+        held = 0;
+        return json(409, {
+          error: 'That gift card was being used somewhere else just now. Please try again.',
+          reason: 'retry',
+        });
+      }
       heldCard = card.code;
 
       /* Restricted to the coffee products on this order, which is what stops
