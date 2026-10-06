@@ -99,7 +99,12 @@ checkout.session.completed
 checkout.session.async_payment_succeeded
 checkout.session.async_payment_failed
 checkout.session.expired
+charge.refunded
 ```
+
+`charge.refunded` is the one that stops a refund being invisible: without
+it a refunded order still reads as paid, the bags stay counted as sold,
+and a gift card bought in that order stays spendable.
 
 Its signing secret is **not** the test one. Each endpoint has its own.
 
@@ -120,6 +125,9 @@ the next deploy.
 | `STRIPE_PRICE_GIFT_100` | the live CHF 100 price |
 | `STRIPE_PRODUCT_GIFT` | the live gift card product |
 | `STRIPE_WEBHOOK_SECRET` | the live endpoint's `whsec_…` |
+
+`RESEND_WEBHOOK_SECRET` is Resend's, not Stripe's, and does not change
+when Stripe does.
 
 Netlify's API cannot update a variable that already exists — it answers 422
 whatever the value — so each one is deleted and created again. Doing it in

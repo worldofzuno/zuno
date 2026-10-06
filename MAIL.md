@@ -22,11 +22,21 @@ Monday backup included — the one copy of the gift card ledger that is
 supposed to leave Netlify. The domain has no MX record, so there was
 nowhere for any of it to land.
 
-**`sent: true` means Resend accepted the message, not that it arrived.** A
-bounce happens afterwards and nothing here sees it, which is why this ran
-for two days without an alarm. Resend can post a webhook on
-`email.bounced`; wiring that to `alarm()` would close the gap and has not
-been done.
+**`sent: true` means Resend accepted the message, not that it arrived.**
+The bounce happens minutes later. That is why this ran for two days with
+every log line reading fine.
+
+`mail-events.mjs` closes it: Resend posts `email.bounced`,
+`email.complained` and `email.failed` to it, and each one raises the same
+alarm as the rest of the silent failures. Delivery and opens are not
+subscribed — a mail that worked is not news, and an open is a tracking
+pixel this shop does not use.
+
+The endpoint is public and its job is to raise alarms, so it verifies
+Svix's signature before believing anything: `id.timestamp.body`,
+HMAC-SHA256 under `RESEND_WEBHOOK_SECRET`, within five minutes. Unsigned,
+mis-signed, re-bodied and stale deliveries are all refused, and six tests
+fail if that check is removed.
 
 ## One frame
 

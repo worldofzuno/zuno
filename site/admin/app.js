@@ -449,7 +449,21 @@ function renderOrders(orders, host) {
     ].forEach(function (r) { dl.append(el('dt', null, r[0]), el('dd', null, r[1])); });
     rec.append(dl);
 
-    if (o.shipped) {
+    /* A refunded order must not read like one waiting to be packed, so it
+       says so first and is offered no button. The server refuses it too —
+       this is the part that stops somebody acting on it, not the part that
+       stops the system. */
+    if (o.refunded) {
+      var ref = el('p');
+      ref.append(el('span', 'tag is-bad',
+        (o.refunded.whole ? 'Refunded ' : 'Part refunded ') + String(o.refunded.at).slice(0, 10)));
+      ref.append(document.createTextNode(' ' + o.currency + ' ' + o.refunded.amount + ' went back'));
+      rec.append(ref);
+      if (!o.refunded.whole) {
+        rec.append(el('p', 'hint',
+          'Only part of it. Nothing was reversed automatically — the stock and any gift card are as they were.'));
+      }
+    } else if (o.shipped) {
       var tag = el('p');
       tag.append(el('span', 'tag is-ok', 'Sent ' + String(o.shipped.at).slice(0, 10)));
       if (o.shipped.tracking) tag.append(document.createTextNode(' ' + o.shipped.tracking +
@@ -495,6 +509,32 @@ function renderOrders(orders, host) {
       });
       rec.append(form);
     }
+
+    /* Every order gets this, including one already sent: what it fixes is
+       a webhook that never arrived, and that is only visible by its
+       absence. Pressing it on an order that went through normally does
+       nothing and says so. */
+    var again = el('button', 'btn btn--quiet', 'Run through again');
+    again.type = 'button';
+    again.title = 'For an order Stripe took but the shop never processed — no mail, no gift card, no stock movement.';
+    again.addEventListener('click', function () {
+      busy(again, 'Running…', function () {
+        return call({ action: 'order-replay', session: o.session }).then(function (r) {
+          if (r.status !== 200) {
+            say($('orderMsg'), (r.body && r.body.error) || 'That did not work.', 'bad');
+            return;
+          }
+          var said = {
+            paid: 'Order ' + o.ref + ' has now been processed — the customer has been told.',
+            duplicate: 'Order ' + o.ref + ' had already gone through. Nothing was sent twice.',
+            pending: 'Stripe still says that one is not paid.',
+          }[r.body.outcome] || ('Order ' + o.ref + ': ' + r.body.outcome);
+          say($('orderMsg'), said, r.body.outcome === 'paid' ? 'ok' : null);
+          loadOrders();
+        });
+      });
+    });
+    rec.append(el('p').appendChild(again).parentNode);
 
     host.append(rec);
   });
