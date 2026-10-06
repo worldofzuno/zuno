@@ -737,3 +737,18 @@ test('guessing codes at the checkout is limited too', async () => {
   const other = await tryCheckout('198.51.100.8', { items: [] });
   assert.notEqual(other.status, 429);
 });
+
+/* ------------------------------------------------------ one currency ---
+
+   Adaptive Pricing is on by default on the Stripe account: it can present
+   and settle a session in the customer's own currency. Every amount in
+   this shop is whole rappen of CHF — the balances, the ledger, the
+   coupons, the francs() in the mails — so a session that settled in
+   another currency would be a quiet mess. Pinned on the session, not just
+   turned off in the Dashboard, so a change there cannot bring it back. */
+
+test('a session is always in francs', () => {
+  const lines = parseCart({ items: [{ sku: 'castano-200g', qty: 1 }] });
+  const p = sessionParams(lines, 1490, ORIGIN);
+  assert.deepEqual(p.adaptive_pricing, { enabled: false });
+});

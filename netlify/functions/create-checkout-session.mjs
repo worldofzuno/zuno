@@ -294,6 +294,14 @@ export function sessionParams(lines, subtotal, origin, opts = {}) {
     /* The prices carry tax_behavior "inclusive" — CHF 14.90 is what the shelf
        says, VAT and all — so Stripe must not add tax on top. */
     automatic_tax: { enabled: false },
+    /* Every amount in this shop is whole rappen of CHF: the gift card
+       ledger, the coupon standing for a balance, the figures in the mails.
+       Adaptive Pricing, which is on by default on the account, can present
+       and settle a session in the customer's own currency instead — and a
+       CHF coupon does not belong to a session in euros. Pinned here rather
+       than only switched off in the Dashboard, so a change there cannot
+       quietly bring it back. */
+    adaptive_pricing: { enabled: false },
     submit_type: 'auto',
     origin_context: 'web',
     integration_identifier: 'hosted_web_0001',
