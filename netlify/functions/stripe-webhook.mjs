@@ -659,8 +659,20 @@ export async function handleRefund(charge, stripe) {
   try {
     const g = giftMeta(full);
     if (g) {
-      const r = await gift.unsettle(g.code, full.id, 'refunded');
-      if (r.outcome === 'reversed') undone.push(`${francs(r.amount)} back on ${g.code}`);
+      /* By the hold reference, which is what the spend is keyed by —
+         settleGift above books it under `g.ref`, because the balance had
+         to be reserved before Stripe had issued a session id to name. The
+         session id was passed here instead, found no such spend, and gave
+         the customer their money back without their voucher. */
+      const r = await gift.unsettle(g.code, g.ref, 'refunded');
+      if (r.outcome === 'reversed') {
+        undone.push(`${francs(r.amount)} back on ${g.code}`);
+      } else if (r.outcome !== 'already') {
+        /* The customer is owed credit that did not go back, and this is
+           the only chance anyone has of hearing about it. */
+        await alarm('refund could not restore a gift card balance',
+          `${ref}: ${g.code} (${g.ref}) answered "${r.outcome}"`);
+      }
     }
   } catch (e) {
     await alarm('refund could not restore a gift card balance', `${ref}: ${e && e.message}`);

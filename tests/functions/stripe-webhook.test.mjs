@@ -691,18 +691,48 @@ test('a refund puts the bags back on the shelf', async () => {
   assert.equal(stk.availableQty(await stk.read('castano-200g')), 10);
 });
 
+/* The hold reference is NOT the session id — the checkout has to reserve
+   the balance before Stripe has given it a session to name, so the ledger
+   is keyed by a reference of our own, `pre_…`. This test used to pass a
+   ref that was the session id, which is the one shape production never
+   produces, and so it passed while a real refund restored nothing. */
 test('a refund gives back the credit the customer had redeemed', async () => {
   freshStore();
   const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
-  await gcard.hold(card.code, 'cs_test_REFUND01', 1000);
-  await gcard.settle(card.code, 'cs_test_REFUND01', 0, Date.now(), 'cs_test_REFUND01');
-  assert.equal(gcard.available(await gcard.load(card.code)), 4000);
+  await gcard.hold(card.code, 'pre_mg9k2x_7f3a', 2000);
+  await gcard.settle(card.code, 'pre_mg9k2x_7f3a', 0, Date.now(), 'cs_test_REFUND01');
+  assert.equal(gcard.available(await gcard.load(card.code)), 3000);
 
-  const session = { ...SOLD, metadata: { ...SOLD.metadata, gift_code: card.code, gift_ref: 'cs_test_REFUND01' } };
+  const session = {
+    ...SOLD,
+    metadata: { ...SOLD.metadata, gift_code: card.code, gift_hold: '2000', gift_ref: 'pre_mg9k2x_7f3a' },
+  };
   await captureLog(() => mod.handleEvent(refundEvent(), refundStub(session)));
 
   assert.equal(gcard.available(await gcard.load(card.code)), 5000,
     'refunded their money and their voucher');
+});
+
+/* A reversal that does not happen must not be silent: the shop owes that
+   customer the credit and nobody would ever find out. */
+test('credit that cannot be given back raises an alarm', async () => {
+  freshStore();
+  const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  /* a refund for an order the card was never actually spent against */
+  const session = {
+    ...SOLD,
+    metadata: { ...SOLD.metadata, gift_code: card.code, gift_hold: '2000', gift_ref: 'pre_never_spent' },
+  };
+  const real = console.error;
+  const errs = [];
+  console.error = (...a) => errs.push(a.join(' '));
+  try {
+    await captureLog(() => mod.handleEvent(refundEvent(), refundStub(session)));
+  } finally {
+    console.error = real;
+  }
+  assert.ok(errs.some((l) => /alarm/i.test(l) && /gift card/i.test(l)),
+    'the shop hears about a reversal that did not happen');
 });
 
 /* Buy a card, write the code down, ask for the money back. Without this it
