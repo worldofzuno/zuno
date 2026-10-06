@@ -339,3 +339,18 @@ test('there is nothing to reverse on an order that never spent anything', async 
   assert.equal((await gc.unsettle(card.code, 'cs_nothing')).outcome, 'no-spend');
   assert.equal((await gc.unsettle('ZG-0000-0000-0000', 'cs_x')).outcome, 'unknown');
 });
+
+/* The same clock on the balance: an abandoned checkout must not freeze
+   somebody's gift card for a day. */
+test('a balance reserved by an abandoned checkout comes back within 35 minutes', async () => {
+  useMemoryStore();
+  const t0 = Date.now();
+  const card = await gc.issue({ amount: 5000, issuedFor: 'cs_elsewhere', now: t0 });
+  await gc.hold(card.code, 'pre_abandoned', 5000, t0);
+  const held = await gc.load(card.code);
+
+  assert.equal(gc.available(held, t0), 0);
+  assert.equal(gc.available(held, t0 + 29 * 60 * 1000), 0, 'while the session is open');
+  assert.equal(gc.available(held, t0 + 35 * 60 * 1000 + 1000), 5000, 'and back soon after');
+  assert.ok(gc.HOLD_TTL_MS > 30 * 60 * 1000 && gc.HOLD_TTL_MS <= 40 * 60 * 1000);
+});

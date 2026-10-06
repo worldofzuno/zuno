@@ -704,3 +704,36 @@ test('a card that covers the lot is allowed to cover the lot', async () => {
   assert.equal(session.shipping_options[0].shipping_rate_data.fixed_amount.amount, 0);
   /* nothing left to charge, which lib/session.mjs now knows how to read */
 });
+
+/* ------------------------------------------- the door, not just the code ---
+
+   validate-code allows ten attempts a minute per address. This endpoint
+   allowed any number, and it checks the same voucher codes — so the limit
+   next door was worth nothing, and every call also reserved stock and
+   created a Stripe coupon. */
+
+const { resetLimiter } = await import('../../netlify/functions/lib/fnf.mjs');
+
+const tryCheckout = (ip, body = { items: [] }) =>
+  cs.default(new Request('https://worldofzuno.com/.netlify/functions/create-checkout-session', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+    body: JSON.stringify(body),
+  }));
+
+test('guessing codes at the checkout is limited too', async () => {
+  resetLimiter();
+  const seen = [];
+  for (let i = 0; i < 12; i++) {
+    const r = await tryCheckout('198.51.100.7', { items: [], code: 'NOPE' + i });
+    seen.push(r.status);
+  }
+  assert.equal(seen.filter((s) => s === 429).length > 0, true,
+    'twelve attempts in a row must not all be answered');
+  assert.equal(seen[seen.length - 1], 429);
+  assert.equal(seen[0], 400, 'and the first one still gets a real answer');
+
+  /* somebody else is not locked out by them */
+  const other = await tryCheckout('198.51.100.8', { items: [] });
+  assert.notEqual(other.status, 429);
+});

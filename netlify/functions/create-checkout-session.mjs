@@ -35,7 +35,7 @@
  */
 
 import Stripe from 'stripe';
-import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './lib/fnf.mjs';
+import { codes, matchCode, exhausted, allow, FNF_CATALOGUE, fnfConfigured } from './lib/fnf.mjs';
 import * as gift from './lib/giftcard.mjs';
 import { sessionAccount, readCookie } from './lib/auth.mjs';
 import * as stock from './lib/stock.mjs';
@@ -257,16 +257,25 @@ function priceIdFor(line, fnfCode) {
  * @param subtotal in rappen, at the REGULAR prices of the physical lines —
  *                 this decides shipping
  * @param origin   this site, for the return pages
- * @param opts     { fnfCode, coupon } — a validated voucher code, and the id
- *                 of a single-use coupon standing for a gift card balance
+ * @param opts     { fnfCode, coupon, now } — a validated voucher code, the id
+ *                 of a single-use coupon standing for a gift card balance,
+ *                 and the clock, so the expiry is testable
  */
 export function sessionParams(lines, subtotal, origin, opts = {}) {
-  const { fnfCode = null, coupon = null } = typeof opts === 'string' ? { fnfCode: opts } : opts;
+  const { fnfCode = null, coupon = null, now = Date.now() } =
+    typeof opts === 'string' ? { fnfCode: opts } : opts;
   const ships = hasPhysical(lines);
 
   const params = {
     mode: 'payment',
     ui_mode: 'hosted_page',
+    /* Thirty minutes, which is the least Stripe permits. Until this was
+       set a session lived for 24 hours, and so did everything it had
+       reserved: six started-and-abandoned checkouts emptied a shelf of six
+       for a day, costing nothing and showing nowhere. A customer who walks
+       away now costs the shop half an hour, and one who is still typing
+       their card number has longer than they need. */
+    expires_at: Math.floor(now / 1000) + 30 * 60,
     line_items: lines.map((l) => (l.sku === CUSTOM_GIFT
       ? {
         /* The only inline amount on this page, and the only one the customer
@@ -337,6 +346,21 @@ const json = (status, obj) =>
 
 export default async function handler(req) {
   if (req.method !== 'POST') return json(405, { error: 'POST only' });
+
+  /* Before anything else, because every call past this point reserves
+     stock, reads a voucher code and may create a Stripe coupon. The limit
+     next door on validate-code was worth nothing while the same codes
+     could be tried here without one. Ten in five minutes: starting a
+     checkout is a rarer thing than mistyping a code, so the window is
+     longer than the code fields' minute. Like theirs it lives in the
+     function instance and blunts one client rather than a distributed
+     attempt — the shorter reservation is what actually protects the shelf. */
+  const ip = req.headers.get('x-nf-client-connection-ip')
+    || req.headers.get('x-forwarded-for')
+    || 'anonymous';
+  if (!allow('checkout:' + ip, Date.now(), 10, 5 * 60_000)) {
+    return json(429, { error: 'Too many attempts. Please wait a moment.', reason: 'rate' });
+  }
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return json(500, { error: 'checkout is not configured' });
@@ -552,8 +576,8 @@ export async function build(stripe, body, origin, opts = {}) {
       stockRef = null;
       /* holdCart already gave back the lines it had taken. What it knows
          nothing about is the gift card held a few lines above, and leaving
-         that standing would freeze a customer's balance for a day over an
-         order that never happened. */
+         that standing would freeze a customer's balance for half an hour
+         over an order that never happened. */
       if (held > 0 && heldCard && holdRef) {
         try {
           await gift.release(heldCard, holdRef);
@@ -589,7 +613,7 @@ export async function build(stripe, body, origin, opts = {}) {
     return json(200, { url: session.url });
   } catch (e) {
     /* A hold taken for a session that never came into being must go back, or
-       the balance stays frozen for a day for nothing. */
+       the balance stays frozen for half an hour for nothing. */
     if (held > 0 && heldCard && holdRef) {
       try {
         await gift.release(heldCard, holdRef);

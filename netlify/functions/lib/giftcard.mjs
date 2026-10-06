@@ -36,8 +36,14 @@ const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 const BODY_LEN = 12;
 const PREFIX = 'ZG';
 
-/** Stripe sessions expire after 24 hours; a little past that is safe. */
-export const HOLD_TTL_MS = 26 * 60 * 60 * 1000;
+/**
+ * The checkout asks Stripe to expire its session after 30 minutes, which
+ * is the shortest Stripe allows. This sits a little past that, so a
+ * payment landing in the session's last minute still finds its hold —
+ * and so an abandoned checkout stops reserving somebody's balance within
+ * the hour rather than for the rest of the day.
+ */
+export const HOLD_TTL_MS = 35 * 60 * 1000;
 
 /* ----------------------------------------------------------- the code --- */
 
