@@ -767,3 +767,23 @@ test('the refund record is what the back office reads', async () => {
   assert.equal(value.charge, 'ch_1');
   assert.equal(value.amount, 2190);
 });
+
+test('the refund mail says the amount once', async () => {
+  freshStore();
+  const sent = [];
+  const realFetch = global.fetch;
+  global.fetch = async (url, init) => { sent.push(JSON.parse(init.body)); return { ok: true, json: async () => ({ id: 'm1' }) }; };
+  process.env.RESEND_API_KEY = 're_test_key';
+  process.env.MAIL_TO = 'info@worldofzuno.com';
+  const real = console.error; console.error = () => {};
+  try {
+    await captureLog(() => mod.handleEvent(refundEvent(), refundStub(SOLD)));
+    const mail = sent.find((m) => String(m.subject).startsWith('Refunded'));
+    assert.ok(mail, 'the shop is told');
+    assert.ok(mail.subject.includes('CHF 21.90'));
+    assert.equal(/CHF\s+CHF/.test(mail.subject + mail.text), false, 'once, not twice');
+  } finally {
+    console.error = real; global.fetch = realFetch;
+    delete process.env.RESEND_API_KEY; delete process.env.MAIL_TO;
+  }
+});
