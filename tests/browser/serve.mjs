@@ -42,7 +42,12 @@ const TYPES = {
 const loaded = new Map();
 async function endpoint(name) {
   if (!loaded.has(name)) loaded.set(name, import(new URL(`${name}.mjs`, FUNCTIONS)));
-  return (await loaded.get(name)).default;
+  const fn = (await loaded.get(name)).default;
+  /* Not every file in that folder answers HTTP. An event-triggered one
+     exports an object of handlers — `{ formSubmitted }` — and has no route
+     at all; calling it as a function would be a 500 that looked like a bug
+     in the shop. */
+  return typeof fn === 'function' ? fn : null;
 }
 
 async function body(req) {
@@ -61,6 +66,7 @@ export function serve(port = 0) {
       if (!ENDPOINTS.includes(fn[1])) { res.writeHead(404).end('no such function'); return; }
       try {
         const handler = await endpoint(fn[1]);
+        if (!handler) { res.writeHead(404).end('not an HTTP endpoint'); return; }
         const request = new Request(url, {
           method: req.method,
           headers: req.headers,

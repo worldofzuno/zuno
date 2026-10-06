@@ -1,9 +1,32 @@
 # The mails
 
-Eight of them, listed in
+Nine of them, listed in
 [STRIPE_INTEGRATION_TODO.md](STRIPE_INTEGRATION_TODO.md#the-mails-the-shop-sends).
 This is about how they look, who they come from, and why one of them landed
 in a junk folder.
+
+## Where the shop's own post goes
+
+`MAIL_TO` — the copy of each order, the weekly backup, every alarm, and
+now the contact form. It is **not** the address on the Impressum. It was,
+and Resend's log showed the result:
+
+```
+info@worldofzuno.com   "New order DI7HGUH1 — CHF 76.80"      bounced
+info@worldofzuno.com   "ZUNO backup 2026-10-05 …"            bounced
+d.felice@hotmail.ch    "Your ZUNO order DI7HGUH1"            delivered
+```
+
+Customers were hearing from the shop; the shop was hearing nothing, the
+Monday backup included — the one copy of the gift card ledger that is
+supposed to leave Netlify. The domain has no MX record, so there was
+nowhere for any of it to land.
+
+**`sent: true` means Resend accepted the message, not that it arrived.** A
+bounce happens afterwards and nothing here sees it, which is why this ran
+for two days without an alarm. Resend can post a webhook on
+`email.bounced`; wiring that to `alarm()` would close the gap and has not
+been done.
 
 ## One frame
 

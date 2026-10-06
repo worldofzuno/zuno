@@ -397,6 +397,7 @@ before any of it (the 15% code currently works on gift cards).
 | customer | account deleted | what went, and what the law makes us keep |
 | shop | every paid order | one-line summary on top, the full order below |
 | shop | Mondays | the backup, with the ledger attached |
+| shop | somebody uses the contact form | the inquiry, with the sender as Reply-To |
 
 All of them use one frame (`mailLayout` in `mailer.mjs`) and all of them go
 as HTML with the plain text alongside. No stylesheet and no web font. The
