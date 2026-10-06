@@ -787,3 +787,76 @@ test('the refund mail says the amount once', async () => {
     delete process.env.RESEND_API_KEY; delete process.env.MAIL_TO;
   }
 });
+
+/* --------------------------------------------- a gift card pays it all ---
+
+   The one case that was invisible: when stored value covers the whole
+   total, Stripe asks for no payment and answers "no_payment_required".
+   The webhook used to compare against "paid" alone and drop the order on
+   the floor — no debit, no stock movement, no mail, nothing in the back
+   office, and a card that could do it again tomorrow. */
+
+const ZERO = {
+  id: 'cs_test_ZEROPAY1', object: 'checkout.session', livemode: false,
+  payment_status: 'no_payment_required', status: 'complete',
+  currency: 'chf', amount_subtotal: 1100, amount_total: 0, payment_intent: null,
+  total_details: { amount_discount: 1100, amount_shipping: 0, amount_tax: 0 },
+  customer_details: { email: 'kundin@example.ch', name: 'A Kundin' },
+  collected_information: {
+    shipping_details: {
+      name: 'A Kundin',
+      address: { line1: 'Musterweg 1', postal_code: '3000', city: 'Bern', country: 'CH' },
+    },
+  },
+  line_items: {
+    data: [{
+      description: 'ZUNO Castano — 200 g', quantity: 1, amount_total: 1100,
+      price: { product: { name: 'ZUNO Castano — 200 g', metadata: { sku: 'castano-200g' } } },
+    }],
+  },
+};
+
+test('a total of nothing is still an order', async () => {
+  freshStore();
+  const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  await gcard.hold(card.code, 'pre_zero', 1100);
+  await stk.setQty('castano-200g', 10);
+  await stk.holdCart([{ sku: 'castano-200g', qty: 1 }], 'pre_zero');
+
+  const session = {
+    ...ZERO,
+    metadata: {
+      lines: '[["castano-200g",1,"Whole Beans"]]',
+      fnf_code: 'ZUNO-FAM-C4GAD',
+      gift_code: card.code, gift_hold: '1100', gift_ref: 'pre_zero',
+      stock_ref: 'pre_zero',
+    },
+  };
+
+  const [out, lines] = await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.completed', data: { object: { id: session.id } } },
+    refundStub(session)));
+
+  assert.equal(out, 'paid', 'a gift card paying in full is a paid order');
+  assert.equal(gcard.available(await gcard.load(card.code)), 3900, 'the card was debited');
+  const shelf = await stk.read('castano-200g');
+  assert.equal(shelf.qty, 9, 'the bag left the shelf');
+  assert.equal((shelf.sold || {}).pre_zero.qty, 1);
+  assert.ok(lines.some((l) => l.startsWith('[order:paid]')), 'and it reached the log');
+});
+
+test('a second delivery of a nothing-total order changes nothing', async () => {
+  freshStore();
+  const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  await gcard.hold(card.code, 'pre_zero2', 1100);
+  const session = {
+    ...ZERO, id: 'cs_test_ZEROPAY2',
+    metadata: { lines: '[]', gift_code: card.code, gift_hold: '1100', gift_ref: 'pre_zero2' },
+  };
+  const ev = { type: 'checkout.session.completed', data: { object: { id: session.id } } };
+  const [first] = await captureLog(() => mod.handleEvent(ev, refundStub(session)));
+  const [second] = await captureLog(() => mod.handleEvent(ev, refundStub(session)));
+  assert.equal(first, 'paid');
+  assert.equal(second, 'duplicate');
+  assert.equal(gcard.available(await gcard.load(card.code)), 3900, 'debited once');
+});

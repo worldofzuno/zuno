@@ -30,6 +30,7 @@ import {
   normaliseEmail, looksLikeEmail, readCookie,
 } from './lib/auth.mjs';
 import { allow } from './lib/fnf.mjs';
+import { isPaid } from './lib/session.mjs';
 import { handleEvent, refundKey } from './stripe-webhook.mjs';
 import { send, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, fromAddress } from './lib/mailer.mjs';
 import Stripe from 'stripe';
@@ -232,7 +233,10 @@ export function orderView(session, shipped = null, refunded = null) {
 /** Recent paid orders, newest first, with what we know about despatch. */
 export async function recentOrders(limit = 25, client = null) {
   const list = await stripe(client).checkout.sessions.list({ limit: Math.min(100, Math.max(1, limit)) });
-  const paid = list.data.filter((x) => x.payment_status === 'paid');
+  /* Including the ones a gift card paid in full, which carry
+     "no_payment_required" — see lib/session.mjs. Filtering on the string
+     "paid" alone hid them from the only screen that could pack them. */
+  const paid = list.data.filter(isPaid);
   const s = await store();
   const out = [];
   for (const session of paid) {
@@ -335,7 +339,7 @@ export function shippedMailText(order) {
  */
 export async function markShipped(sessionId, { carrier = null, tracking = null, now = Date.now(), client = null } = {}) {
   const session = await stripe(client).checkout.sessions.retrieve(sessionId);
-  if (!session || session.payment_status !== 'paid') return { ok: false, reason: 'not-paid' };
+  if (!isPaid(session)) return { ok: false, reason: 'not-paid' };
 
   const s = await store();
   /* Checked here and not only hidden in the page: the button is gone from

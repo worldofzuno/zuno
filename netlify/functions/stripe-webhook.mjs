@@ -21,6 +21,7 @@ import { store } from './lib/store.mjs';
 import { send, alarm, shopInbox, mailLayout, mailHeading, mailText, mailLink, esc, PALETTE, siteUrl, fromAddress } from './lib/mailer.mjs';
 import { recordOrder } from './lib/auth.mjs';
 import * as stock from './lib/stock.mjs';
+import { isPaid } from './lib/session.mjs';
 
 /* ------------------------------------------------------------------ config */
 
@@ -93,7 +94,8 @@ export function orderFrom(session) {
   return {
     session: session.id,
     livemode: session.livemode === true,
-    paid: session.payment_status === 'paid',
+    /* See lib/session.mjs: a total of nothing is paid too. */
+    paid: isPaid(session),
     currency: (session.currency || '').toUpperCase(),
     subtotal: rappen(session.amount_subtotal),
     discount: rappen(session.total_details?.amount_discount),

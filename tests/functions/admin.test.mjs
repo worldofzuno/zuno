@@ -512,3 +512,19 @@ test('an order nobody refunded carries nothing', async () => {
   const [order] = await mod.recentOrders(5, fakeStripe(PAID));
   assert.equal(order.refunded, null);
 });
+
+/* An order a gift card paid in full carries payment_status
+   "no_payment_required". It is as paid as any other, and the back office
+   is where somebody has to see it in order to pack it. */
+test('an order paid entirely by gift card is in the list and can be sent', async () => {
+  useMemoryStore();
+  const free = { ...PAID, id: 'cs_test_FREEORDER', payment_status: 'no_payment_required', amount_total: 0 };
+
+  const [order] = await mod.recentOrders(5, fakeStripe(free));
+  assert.ok(order, 'it must not be filtered out of the list');
+  assert.equal(order.total, '0.00');
+  assert.equal(order.needsParcel, true);
+
+  const r = await mod.markShipped(free.id, { carrier: 'Die Post', tracking: '99.00.1', client: fakeStripe(free) });
+  assert.equal(r.ok, true, 'and a parcel can go out against it');
+});
