@@ -7,7 +7,7 @@ These were correct before this pass and were not touched:
 - `<title>`, `<meta name="description">`, `<link rel="canonical">`
 - Open Graph and Twitter card tags, with `og-image.jpg` (1200×630) — still
   on-brand and matching the current site, so it was kept
-- `robots.txt`, pointing at the sitemap
+- `robots.txt`, pointing at the sitemap (one `Disallow` added since — below)
 - Favicon, apple-touch-icon, `site.webmanifest`
 - `lang="en"`, exactly one `<h1>`, an `alt` on every image
 
@@ -51,6 +51,20 @@ all reading "Swiss Specialty Coffee". The canonical URL deliberately does
 ### Sitemap
 
 `lastmod` refreshed. Still one URL, on purpose.
+
+### `Disallow: /.netlify/` in robots.txt
+
+Six helper functions were moved into `netlify/functions/lib/` and so stopped
+being published. Their old URLs did not stop existing: a request to
+`/.netlify/functions/<old name>` now falls through the `/*` catch-all and
+answers **200 with the home page**. That is a set of duplicate URLs for the
+same content, which is exactly what a crawler should not be collecting, and
+nothing links to them, so disallowing the prefix costs nothing. The live
+functions are called by `fetch` from the page, never crawled, so they lose
+nothing either.
+
+Disallowing is not the same as hiding: the paths still answer. It only keeps
+them out of the index.
 
 ## The limit worth knowing about
 

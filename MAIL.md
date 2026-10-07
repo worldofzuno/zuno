@@ -153,18 +153,43 @@ message and SPF is in place through the `send` and `rsend` subdomains. Both
 are confirmed by Resend, not assumed.
 
 **DMARC is missing**, and on a young domain sending to Microsoft that is the
-single biggest remaining item. It is one TXT record at whoever hosts the
-domain's DNS:
+single biggest remaining item. It is one TXT record at GoDaddy, where the
+domain's DNS lives:
 
 ```
-Name:  _dmarc.worldofzuno.com
+Name:  _dmarc
 Type:  TXT
-Value: v=DMARC1; p=none; rua=mailto:[PLACEHOLDER: an address to send DMARC reports to]
+Value: v=DMARC1; p=none
+TTL:   1 hour
 ```
 
-`p=none` asks for nothing to be rejected — it only says the domain is
-watching, which is what a filter wants to see. Tighten it to `p=quarantine`
-later, once the reports show only your own mail going out.
+GoDaddy appends the domain itself, so the name is `_dmarc`, not
+`_dmarc.worldofzuno.com` — the same way the `send` and `rsend` CNAMEs were
+entered.
+
+**Check first whether a `_dmarc` record already exists.** Two DMARC records on
+one domain are worse than none: a receiver that finds two ignores both and
+treats the domain as having no policy at all.
+
+`p=none` asks for nothing to be rejected. It only says the domain is watching,
+and that is what a filter looks for — the presence of the record carries most
+of the benefit, which is why the short value above is the one to publish.
+DKIM already signs as `worldofzuno.com` (the key sits at the apex), so DMARC
+alignment passes on every mail Resend sends.
+
+Two follow-ups, neither urgent:
+
+- **Reports.** Add `; rua=mailto:worldofzuno@gmail.com` to the value and the
+  receiving providers will send a daily XML summary of who sent mail as
+  `worldofzuno.com`. Useful once, to confirm nothing but Resend is sending —
+  but it is a few machine-readable attachments a day in a personal inbox.
+  Do not point `rua` at `info@worldofzuno.com`: the domain has no mailbox
+  (Resend shows `Receiving: disabled`) and the reports would bounce.
+- **Tightening.** After a few weeks of mail arriving normally, change `p=none`
+  to `p=quarantine`. That tells a receiver to treat unauthenticated mail
+  claiming to be ZUNO as suspicious, which is the point of the exercise. Only
+  do it while every mail still leaves through Resend; if a GoDaddy forwarder
+  or another sender is added later, check it authenticates first.
 
 **A sender that is not noreply@.** Done; see above.
 
