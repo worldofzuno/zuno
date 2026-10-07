@@ -335,3 +335,55 @@ test('the whole cart comes back together', async () => {
   assert.equal(await left('castano-200g'), 10);
   assert.equal(await left('castano-500g'), 10);
 });
+
+/* ------------------------------------- how long an abandoned cart costs ---
+
+   A checkout holds the bags before anybody has paid, and nothing but the
+   clock gives them back if the customer wanders off. At 26 hours that was
+   a way to shut the shop: six started-and-abandoned checkouts emptied a
+   shelf of six for a day, unpaid and unseen. The Stripe session now
+   expires after 30 minutes and the hold a little after it. */
+
+test('an abandoned hold is gone within 35 minutes', async () => {
+  useMemoryStore();
+  const t0 = Date.now();
+  await st.setQty('castano-200g', 6);
+  for (let i = 0; i < 6; i++) {
+    await st.hold('castano-200g', `pre_abandoned_${i}`, 1, t0);
+  }
+  const record = await st.read('castano-200g');
+
+  assert.equal(st.availableQty(record, t0), 0, 'six abandoned carts take the shelf');
+  assert.equal(st.availableQty(record, t0 + 29 * 60 * 1000), 0,
+    'and keep it while the Stripe session is still open');
+  assert.equal(st.availableQty(record, t0 + 35 * 60 * 1000 + 1000), 6,
+    'but the shelf is full again half an hour later, not a day later');
+  assert.ok(st.HOLD_TTL_MS > 30 * 60 * 1000,
+    'the hold outlives the session, so a payment in the last minute still finds it');
+  assert.ok(st.HOLD_TTL_MS <= 40 * 60 * 1000);
+});
+
+/* A shelf nobody can read is not an unlimited shelf. The endpoint used to
+   answer `null` for every size when the store was unreachable, which is
+   the same answer as "no limit set" — so a shop whose store had fallen
+   over offered everything. */
+test('stock-levels says it does not know rather than saying no limit', async () => {
+  const { resetStore } = await import('../../netlify/functions/lib/store.mjs');
+  const levelsEndpoint = (await import('../../netlify/functions/stock-levels.mjs')).default;
+  resetStore();
+  process.env.NETLIFY = 'true';
+  const real = { log: console.log, error: console.error, warn: console.warn };
+  console.log = console.error = console.warn = () => {};
+  try {
+    const res = await levelsEndpoint(new Request('https://worldofzuno.com/.netlify/functions/stock-levels'));
+    const body = await res.json();
+    assert.notEqual(res.status, 200, 'an unknown shelf is not a successful answer');
+    assert.equal(Object.prototype.hasOwnProperty.call(body, 'castano-200g'), false,
+      'and it must not claim a limit it could not read');
+  } finally {
+    Object.assign(console, real);
+    delete process.env.NETLIFY;
+    resetStore();
+    useMemoryStore();
+  }
+});

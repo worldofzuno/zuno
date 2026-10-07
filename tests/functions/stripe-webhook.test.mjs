@@ -691,18 +691,48 @@ test('a refund puts the bags back on the shelf', async () => {
   assert.equal(stk.availableQty(await stk.read('castano-200g')), 10);
 });
 
+/* The hold reference is NOT the session id — the checkout has to reserve
+   the balance before Stripe has given it a session to name, so the ledger
+   is keyed by a reference of our own, `pre_…`. This test used to pass a
+   ref that was the session id, which is the one shape production never
+   produces, and so it passed while a real refund restored nothing. */
 test('a refund gives back the credit the customer had redeemed', async () => {
   freshStore();
   const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
-  await gcard.hold(card.code, 'cs_test_REFUND01', 1000);
-  await gcard.settle(card.code, 'cs_test_REFUND01', 0, Date.now(), 'cs_test_REFUND01');
-  assert.equal(gcard.available(await gcard.load(card.code)), 4000);
+  await gcard.hold(card.code, 'pre_mg9k2x_7f3a', 2000);
+  await gcard.settle(card.code, 'pre_mg9k2x_7f3a', 0, Date.now(), 'cs_test_REFUND01');
+  assert.equal(gcard.available(await gcard.load(card.code)), 3000);
 
-  const session = { ...SOLD, metadata: { ...SOLD.metadata, gift_code: card.code, gift_ref: 'cs_test_REFUND01' } };
+  const session = {
+    ...SOLD,
+    metadata: { ...SOLD.metadata, gift_code: card.code, gift_hold: '2000', gift_ref: 'pre_mg9k2x_7f3a' },
+  };
   await captureLog(() => mod.handleEvent(refundEvent(), refundStub(session)));
 
   assert.equal(gcard.available(await gcard.load(card.code)), 5000,
     'refunded their money and their voucher');
+});
+
+/* A reversal that does not happen must not be silent: the shop owes that
+   customer the credit and nobody would ever find out. */
+test('credit that cannot be given back raises an alarm', async () => {
+  freshStore();
+  const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  /* a refund for an order the card was never actually spent against */
+  const session = {
+    ...SOLD,
+    metadata: { ...SOLD.metadata, gift_code: card.code, gift_hold: '2000', gift_ref: 'pre_never_spent' },
+  };
+  const real = console.error;
+  const errs = [];
+  console.error = (...a) => errs.push(a.join(' '));
+  try {
+    await captureLog(() => mod.handleEvent(refundEvent(), refundStub(session)));
+  } finally {
+    console.error = real;
+  }
+  assert.ok(errs.some((l) => /alarm/i.test(l) && /gift card/i.test(l)),
+    'the shop hears about a reversal that did not happen');
 });
 
 /* Buy a card, write the code down, ask for the money back. Without this it
@@ -786,4 +816,131 @@ test('the refund mail says the amount once', async () => {
     console.error = real; global.fetch = realFetch;
     delete process.env.RESEND_API_KEY; delete process.env.MAIL_TO;
   }
+});
+
+/* --------------------------------------------- a gift card pays it all ---
+
+   The one case that was invisible: when stored value covers the whole
+   total, Stripe asks for no payment and answers "no_payment_required".
+   The webhook used to compare against "paid" alone and drop the order on
+   the floor — no debit, no stock movement, no mail, nothing in the back
+   office, and a card that could do it again tomorrow. */
+
+const ZERO = {
+  id: 'cs_test_ZEROPAY1', object: 'checkout.session', livemode: false,
+  payment_status: 'no_payment_required', status: 'complete',
+  currency: 'chf', amount_subtotal: 1100, amount_total: 0, payment_intent: null,
+  total_details: { amount_discount: 1100, amount_shipping: 0, amount_tax: 0 },
+  customer_details: { email: 'kundin@example.ch', name: 'A Kundin' },
+  collected_information: {
+    shipping_details: {
+      name: 'A Kundin',
+      address: { line1: 'Musterweg 1', postal_code: '3000', city: 'Bern', country: 'CH' },
+    },
+  },
+  line_items: {
+    data: [{
+      description: 'ZUNO Castano — 200 g', quantity: 1, amount_total: 1100,
+      price: { product: { name: 'ZUNO Castano — 200 g', metadata: { sku: 'castano-200g' } } },
+    }],
+  },
+};
+
+test('a total of nothing is still an order', async () => {
+  freshStore();
+  const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  await gcard.hold(card.code, 'pre_zero', 1100);
+  await stk.setQty('castano-200g', 10);
+  await stk.holdCart([{ sku: 'castano-200g', qty: 1 }], 'pre_zero');
+
+  const session = {
+    ...ZERO,
+    metadata: {
+      lines: '[["castano-200g",1,"Whole Beans"]]',
+      fnf_code: 'ZUNO-FAM-C4GAD',
+      gift_code: card.code, gift_hold: '1100', gift_ref: 'pre_zero',
+      stock_ref: 'pre_zero',
+    },
+  };
+
+  const [out, lines] = await captureLog(() => mod.handleEvent(
+    { type: 'checkout.session.completed', data: { object: { id: session.id } } },
+    refundStub(session)));
+
+  assert.equal(out, 'paid', 'a gift card paying in full is a paid order');
+  assert.equal(gcard.available(await gcard.load(card.code)), 3900, 'the card was debited');
+  const shelf = await stk.read('castano-200g');
+  assert.equal(shelf.qty, 9, 'the bag left the shelf');
+  assert.equal((shelf.sold || {}).pre_zero.qty, 1);
+  assert.ok(lines.some((l) => l.startsWith('[order:paid]')), 'and it reached the log');
+});
+
+test('a second delivery of a nothing-total order changes nothing', async () => {
+  freshStore();
+  const card = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  await gcard.hold(card.code, 'pre_zero2', 1100);
+  const session = {
+    ...ZERO, id: 'cs_test_ZEROPAY2',
+    metadata: { lines: '[]', gift_code: card.code, gift_hold: '1100', gift_ref: 'pre_zero2' },
+  };
+  const ev = { type: 'checkout.session.completed', data: { object: { id: session.id } } };
+  const [first] = await captureLog(() => mod.handleEvent(ev, refundStub(session)));
+  const [second] = await captureLog(() => mod.handleEvent(ev, refundStub(session)));
+  assert.equal(first, 'paid');
+  assert.equal(second, 'duplicate');
+  assert.equal(gcard.available(await gcard.load(card.code)), 3900, 'debited once');
+});
+
+/* ----------------------------------- a part refund, and then the rest ---
+
+   The refund record used to be claimed with create-once semantics before
+   anyone looked at what kind of refund it was. So the goodwill five francs
+   took the slot, and the refund that gave back the whole lot a week later
+   answered "duplicate": the bags stayed sold, the card bought in that
+   order stayed spendable and the credit redeemed against it stayed gone.
+   Buy a card, ask for five francs back, then ask for the rest. */
+
+test('a part refund does not block the refund that completes it', async () => {
+  freshStore();
+  await stk.setQty('castano-200g', 10);
+  await stk.holdCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund');
+  await stk.settleCart([{ sku: 'castano-200g', qty: 1 }], 'pre_refund', Date.now(), SOLD.id);
+
+  const spent = await gcard.issue({ amount: 5000, issuedFor: 'cs_elsewhere' });
+  await gcard.hold(spent.code, 'pre_part', 1000);
+  await gcard.settle(spent.code, 'pre_part', 0, Date.now(), SOLD.id);
+
+  const minted = await gcard.issue({ amount: 2500, issuedFor: SOLD.id });
+  const s = await theStore();
+  await s.create(`issued/${SOLD.id}`, { codes: [{ code: minted.code, amount: 2500 }], done: true });
+
+  const session = {
+    ...SOLD,
+    metadata: { ...SOLD.metadata, gift_code: spent.code, gift_hold: '1000', gift_ref: 'pre_part' },
+  };
+
+  /* five francs as a gesture */
+  const [part] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 500 }), refundStub(session)));
+  assert.equal(part, 'refunded-part');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 9, 'nothing reversed yet');
+  assert.equal(gcard.available(await gcard.load(minted.code)), 2500);
+
+  /* and the same delivery again still changes nothing */
+  const [again] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 500 }), refundStub(session)));
+  assert.equal(again, 'duplicate', 'a redelivery is still a redelivery');
+
+  /* then the rest of it */
+  const [whole] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 2190 }), refundStub(session)));
+  assert.equal(whole, 'refunded');
+  assert.equal(stk.availableQty(await stk.read('castano-200g')), 10, 'the bag came back');
+  assert.equal((await gcard.load(minted.code)).voided, true, 'the card it bought is dead');
+  assert.equal(gcard.available(await gcard.load(spent.code)), 5000, 'and the credit came back');
+
+  /* once it is whole, further deliveries are duplicates again */
+  const [after] = await captureLog(() => mod.handleEvent(
+    refundEvent({ amount_refunded: 2190 }), refundStub(session)));
+  assert.equal(after, 'duplicate');
 });

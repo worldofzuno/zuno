@@ -128,11 +128,17 @@ const WINDOW_MS = 60_000;
 const PER_WINDOW = 10;
 const MAX_KEYS = 5000;   // bounded, so a stream of addresses cannot grow it without end
 
-export function allow(key, now = Date.now()) {
+/**
+ * @param per      how many in the window; the default is the code fields'
+ * @param windowMs how long the window is. The checkout passes a longer one:
+ *                 starting a checkout is rarer than mistyping a code, and
+ *                 every attempt reserved stock and made a Stripe coupon.
+ */
+export function allow(key, now = Date.now(), per = PER_WINDOW, windowMs = WINDOW_MS) {
   const id = String(key || 'anonymous');
   if (SEEN.size > MAX_KEYS) SEEN.clear();
-  const hits = (SEEN.get(id) || []).filter((t) => now - t < WINDOW_MS);
-  if (hits.length >= PER_WINDOW) {
+  const hits = (SEEN.get(id) || []).filter((t) => now - t < windowMs);
+  if (hits.length >= per) {
     SEEN.set(id, hits);
     return false;
   }

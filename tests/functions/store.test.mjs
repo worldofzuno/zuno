@@ -11,7 +11,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { useMemoryStore, mutate } = await import('../../netlify/functions/lib/store.mjs');
+const { useMemoryStore, mutate, store, resetStore } =
+  await import('../../netlify/functions/lib/store.mjs');
 
 test('a key that was never written reads as nothing', async () => {
   const s = useMemoryStore();
@@ -125,4 +126,51 @@ test('a key under permanent contention throws rather than spinning', async () =>
     }, 3),
     /changed under us 3 times/
   );
+});
+
+/* ------------------------------------------- when the store is not there ---
+
+   Netlify Blobs is where every balance lives. If it cannot be reached, the
+   facade used to hand back a map in memory and say so in a warning nobody
+   reads — so the shop carried on serving: every gift card came back
+   "not valid", every size came back unlimited, and cards minted for
+   customers who had paid vanished with the instance. That is the one
+   failure where carrying on is worse than stopping.
+
+   Off Netlify — a test, or node on a laptop — the fallback is the whole
+   reason the tests can run at all, so it stays. */
+
+const quietly = async (fn) => {
+  const real = { log: console.log, warn: console.warn, error: console.error };
+  const lines = [];
+  console.log = console.warn = console.error = (...a) => lines.push(a.join(' '));
+  try { return [await fn().then((v) => v, (e) => e), lines]; }
+  finally { Object.assign(console, real); }
+};
+
+test('on Netlify an unreachable store is a failure, not a fallback', async () => {
+  resetStore();
+  process.env.NETLIFY = 'true';
+  try {
+    const [outcome, lines] = await quietly(() => store());
+    assert.ok(outcome instanceof Error, 'it must throw rather than improvise');
+    assert.match(outcome.message, /blobs/i);
+    assert.ok(lines.some((l) => /\[alarm/i.test(l)), 'and raise an alarm about it');
+  } finally {
+    delete process.env.NETLIFY;
+    resetStore();
+    useMemoryStore();
+  }
+});
+
+test('off Netlify the memory store still stands in', async () => {
+  resetStore();
+  delete process.env.NETLIFY;
+  try {
+    const [s] = await quietly(() => store());
+    assert.equal(s.kind, 'memory');
+  } finally {
+    resetStore();
+    useMemoryStore();
+  }
 });

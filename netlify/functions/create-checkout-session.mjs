@@ -35,7 +35,7 @@
  */
 
 import Stripe from 'stripe';
-import { codes, matchCode, exhausted, FNF_CATALOGUE, fnfConfigured } from './lib/fnf.mjs';
+import { codes, matchCode, exhausted, allow, FNF_CATALOGUE, fnfConfigured } from './lib/fnf.mjs';
 import * as gift from './lib/giftcard.mjs';
 import { sessionAccount, readCookie } from './lib/auth.mjs';
 import * as stock from './lib/stock.mjs';
@@ -80,6 +80,19 @@ const CUSTOM_GIFT = 'gift-custom';
 const GIFT_MIN = 1500;    // CHF 15.00 — below the smallest bag is a card that buys nothing
 const GIFT_MAX = 20000;   // CHF 200.00
 const GIFT_PRODUCT = () => process.env.STRIPE_PRODUCT_GIFT;
+
+/**
+ * The smallest amount Stripe will charge in CHF.
+ *
+ * It matters because a gift card is applied as a coupon for the amount it
+ * can cover, and a card a few rappen short of the cart leaves a remainder
+ * Stripe refuses: 59.80 of coffee with free postage against a 59.50 card
+ * asked for 0.30 and the customer could not pay at all, while their
+ * balance and the bags stayed reserved for the day. Either the card covers
+ * the whole total — which is fine, Stripe then asks for no payment at all
+ * — or it leaves at least this much to charge.
+ */
+const STRIPE_MIN_RAPPEN = 50;
 
 const GRINDS = ['Whole Beans', 'Pre-Ground'];
 const MAX_QTY = 20;                 // per line; a shop this size has no reason for more
@@ -209,6 +222,29 @@ export function shippingOption(subtotal, alwaysFree = false) {
   };
 }
 
+/**
+ * How much credit to reserve, so that what is left is chargeable.
+ *
+ * Returns the smaller of what the cart needs and what the card holds —
+ * except when that would leave a remainder between a rappen and 49, in
+ * which case it asks for less and leaves Stripe its minimum. It cannot ask
+ * for more: a card thirty rappen short of the cart has not got the thirty
+ * rappen, so trimming is the only direction available. The rappen it does
+ * not use stay on the card.
+ *
+ * @param payable  what the coffee on this order costs, in rappen
+ * @param balance  what the card can spend right now
+ * @param postage  what will be charged for shipping, which is part of the
+ *                 bill and so part of what keeps the total chargeable
+ */
+export function creditToAsk(payable, balance, postage, min = STRIPE_MIN_RAPPEN) {
+  const cover = Math.min(payable, Math.max(0, balance));
+  const rest = payable - cover + postage;
+  if (rest === 0 || rest >= min) return cover;
+  const trimmed = cover - (min - rest);
+  return trimmed > 0 ? trimmed : 0;
+}
+
 /** Which Price a line points at. A voucher price exists for coffee only, so a
     gift card keeps its own price whatever code is in force. */
 function priceIdFor(line, fnfCode) {
@@ -221,16 +257,25 @@ function priceIdFor(line, fnfCode) {
  * @param subtotal in rappen, at the REGULAR prices of the physical lines —
  *                 this decides shipping
  * @param origin   this site, for the return pages
- * @param opts     { fnfCode, coupon } — a validated voucher code, and the id
- *                 of a single-use coupon standing for a gift card balance
+ * @param opts     { fnfCode, coupon, now } — a validated voucher code, the id
+ *                 of a single-use coupon standing for a gift card balance,
+ *                 and the clock, so the expiry is testable
  */
 export function sessionParams(lines, subtotal, origin, opts = {}) {
-  const { fnfCode = null, coupon = null } = typeof opts === 'string' ? { fnfCode: opts } : opts;
+  const { fnfCode = null, coupon = null, now = Date.now() } =
+    typeof opts === 'string' ? { fnfCode: opts } : opts;
   const ships = hasPhysical(lines);
 
   const params = {
     mode: 'payment',
     ui_mode: 'hosted_page',
+    /* Thirty minutes, which is the least Stripe permits. Until this was
+       set a session lived for 24 hours, and so did everything it had
+       reserved: six started-and-abandoned checkouts emptied a shelf of six
+       for a day, costing nothing and showing nowhere. A customer who walks
+       away now costs the shop half an hour, and one who is still typing
+       their card number has longer than they need. */
+    expires_at: Math.floor(now / 1000) + 30 * 60,
     line_items: lines.map((l) => (l.sku === CUSTOM_GIFT
       ? {
         /* The only inline amount on this page, and the only one the customer
@@ -249,6 +294,14 @@ export function sessionParams(lines, subtotal, origin, opts = {}) {
     /* The prices carry tax_behavior "inclusive" — CHF 14.90 is what the shelf
        says, VAT and all — so Stripe must not add tax on top. */
     automatic_tax: { enabled: false },
+    /* Every amount in this shop is whole rappen of CHF: the gift card
+       ledger, the coupon standing for a balance, the figures in the mails.
+       Adaptive Pricing, which is on by default on the account, can present
+       and settle a session in the customer's own currency instead — and a
+       CHF coupon does not belong to a session in euros. Pinned here rather
+       than only switched off in the Dashboard, so a change there cannot
+       quietly bring it back. */
+    adaptive_pricing: { enabled: false },
     submit_type: 'auto',
     origin_context: 'web',
     integration_identifier: 'hosted_web_0001',
@@ -301,6 +354,21 @@ const json = (status, obj) =>
 
 export default async function handler(req) {
   if (req.method !== 'POST') return json(405, { error: 'POST only' });
+
+  /* Before anything else, because every call past this point reserves
+     stock, reads a voucher code and may create a Stripe coupon. The limit
+     next door on validate-code was worth nothing while the same codes
+     could be tried here without one. Ten in five minutes: starting a
+     checkout is a rarer thing than mistyping a code, so the window is
+     longer than the code fields' minute. Like theirs it lives in the
+     function instance and blunts one client rather than a distributed
+     attempt — the shorter reservation is what actually protects the shelf. */
+  const ip = req.headers.get('x-nf-client-connection-ip')
+    || req.headers.get('x-forwarded-for')
+    || 'anonymous';
+  if (!allow('checkout:' + ip, Date.now(), 10, 5 * 60_000)) {
+    return json(429, { error: 'Too many attempts. Please wait a moment.', reason: 'rate' });
+  }
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return json(500, { error: 'checkout is not configured' });
@@ -441,7 +509,8 @@ export async function build(stripe, body, origin, opts = {}) {
       const payable = physicalSubtotal(lines, fnfPriceById, fnfCatalogue);
       const card = await gift.load(giftCode);
       if (!card) return json(400, { error: 'That gift card is not valid.', reason: 'unknown' });
-      if (gift.available(card) <= 0) {
+      const balance = gift.available(card);
+      if (balance <= 0) {
         return json(400, { error: 'That gift card is empty.', reason: 'empty' });
       }
       if (payable <= 0) {
@@ -455,9 +524,28 @@ export async function build(stripe, body, origin, opts = {}) {
          coupon has to exist before the session can carry it. So: reserve
          against a reference of our own, then let the webhook settle it. */
       holdRef = `pre_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-      const res = await gift.hold(card.code, holdRef, payable);
+
+      /* Postage is read off the same rule that will be put on the session,
+         rather than worked out a second time here. */
+      const postage = shippingOption(shippingBasis, !!fnf)
+        .shipping_rate_data.fixed_amount.amount;
+      const res = await gift.hold(card.code, holdRef, creditToAsk(payable, balance, postage));
       if (!res.ok) return json(400, { error: 'That gift card is empty.', reason: res.reason });
       held = res.amount;
+
+      /* The balance above was read before the hold, and somebody else's
+         order may have landed in between — so the amount actually held can
+         be smaller than the one asked for, and land in the gap after all.
+         Rare, and it resolves itself on a second try. */
+      const rest = payable - held + postage;
+      if (rest > 0 && rest < STRIPE_MIN_RAPPEN) {
+        await gift.release(card.code, holdRef);
+        held = 0;
+        return json(409, {
+          error: 'That gift card was being used somewhere else just now. Please try again.',
+          reason: 'retry',
+        });
+      }
       heldCard = card.code;
 
       /* Restricted to the coffee products on this order, which is what stops
@@ -496,8 +584,8 @@ export async function build(stripe, body, origin, opts = {}) {
       stockRef = null;
       /* holdCart already gave back the lines it had taken. What it knows
          nothing about is the gift card held a few lines above, and leaving
-         that standing would freeze a customer's balance for a day over an
-         order that never happened. */
+         that standing would freeze a customer's balance for half an hour
+         over an order that never happened. */
       if (held > 0 && heldCard && holdRef) {
         try {
           await gift.release(heldCard, holdRef);
@@ -533,7 +621,7 @@ export async function build(stripe, body, origin, opts = {}) {
     return json(200, { url: session.url });
   } catch (e) {
     /* A hold taken for a session that never came into being must go back, or
-       the balance stays frozen for a day for nothing. */
+       the balance stays frozen for half an hour for nothing. */
     if (held > 0 && heldCard && holdRef) {
       try {
         await gift.release(heldCard, holdRef);

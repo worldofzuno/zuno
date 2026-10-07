@@ -23,7 +23,11 @@ import { mutate, store } from './store.mjs';
 /** Only things that go in a parcel. A gift card has no shelf. */
 export const TRACKED = ['castano-200g', 'castano-500g'];
 
-export const HOLD_TTL_MS = 26 * 60 * 60 * 1000;
+/* Five minutes past the 30 the Stripe session lives for, the same way the
+   gift card ledger does: long enough that a payment in the last minute
+   still finds its hold, short enough that abandoned carts cannot keep the
+   shelf. At a day, six of them closed the shop. */
+export const HOLD_TTL_MS = 35 * 60 * 1000;
 
 export const keyFor = (sku) => `stock/${sku}`;
 

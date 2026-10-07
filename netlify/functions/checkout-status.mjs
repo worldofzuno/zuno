@@ -20,6 +20,7 @@
  */
 
 import Stripe from 'stripe';
+import { isPaid } from './lib/session.mjs';
 
 /* Stripe's own format. Checked before spending a call on a string that
    cannot be a session id, and so a malformed one cannot reach the API. */
@@ -40,8 +41,9 @@ const json = (status, obj) =>
  */
 export function stateOf(session) {
   if (!session) return 'unknown';
-  if (session.payment_status === 'paid') return 'paid';
-  if (session.payment_status === 'no_payment_required') return 'paid';
+  /* Both "paid" and "no_payment_required", from the one definition the
+     webhook and the back office also read. See lib/session.mjs. */
+  if (isPaid(session)) return 'paid';
   if (session.status === 'expired') return 'expired';
   if (session.status === 'open') return 'open';
   return 'pending';

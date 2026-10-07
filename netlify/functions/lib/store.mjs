@@ -83,10 +83,57 @@ function blobStore(blobs) {
 
 let cached = null;
 
+/* Said once per instance, because `store()` is called on every request and
+   a shop that cannot reach its store would otherwise mail on each one. */
+let shouted = false;
+
+/**
+ * Mail, without going through the store.
+ *
+ * The usual alarm throttles itself with a conditional write, which needs
+ * the very thing that has just failed — calling it here would recurse
+ * until the stack gave out. So this one sends and does not count.
+ */
+async function shout(detail) {
+  console.error(`[alarm] the store is unreachable: ${detail}`);
+  if (shouted) return;
+  shouted = true;
+  try {
+    const { send, shopInbox } = await import('./mailer.mjs');
+    const to = shopInbox();
+    if (!to) return;
+    await send({
+      to,
+      subject: 'ZUNO: the store is unreachable',
+      text: [
+        'Netlify Blobs could not be reached, so this instance of the shop has',
+        'no gift card balances, no accounts and no stock counts.',
+        '',
+        'Nothing is being served from memory instead: the checkout answers',
+        'that it cannot start, and Stripe is asked to deliver its webhooks',
+        'again rather than being told an order was handled.',
+        '',
+        `What it said: ${detail}`,
+      ].join('\n'),
+    });
+  } catch (e) {
+    /* Nothing left to try. The log line above is the record. */
+    console.error(`[alarm:undeliverable] ${e && e.message}`);
+  }
+}
+
 /**
  * The store for this process. Netlify Blobs where it exists, memory where it
  * does not — and it says which, so a caller that must not run against memory
  * can refuse.
+ *
+ * On Netlify there is no "where it does not". Standing in a map in memory
+ * for a store that holds money looked like resilience and was the opposite:
+ * every gift card read as "not valid", every size read as unlimited, and a
+ * card minted for a customer who had paid disappeared with the instance —
+ * all of it behind a warning in a log nobody was watching. Failing is the
+ * kinder answer. The checkout then says it cannot start, and the webhook
+ * returns a 500 so Stripe delivers the order again later.
  */
 export async function store() {
   if (cached) return cached;
@@ -94,10 +141,15 @@ export async function store() {
     const { getStore } = await import('@netlify/blobs');
     cached = blobStore(getStore({ name: STORE, consistency: 'strong' }));
   } catch (e) {
+    const said = (e && e.message) || 'unknown error';
+    if (process.env.NETLIFY) {
+      await shout(said);
+      throw new Error(`store: Netlify Blobs is unreachable: ${said}`);
+    }
     /* No Blobs environment: a test, or `node` on a laptop. Not an error, but
        worth saying once, because data written here does not outlive the
        process. */
-    console.warn('store: no Netlify Blobs environment, keeping state in memory:', e && e.message);
+    console.warn('store: no Netlify Blobs environment, keeping state in memory:', said);
     cached = memoryStore();
   }
   return cached;
